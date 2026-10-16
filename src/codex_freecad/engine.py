@@ -462,7 +462,15 @@ class Engine:
     def operation(self, doc, op):
         kind = op["op"]
         details = {}
-        if kind == "create_parameters":
+        if kind in {"loft", "set_loft"}:
+            from .features import loft
+
+            obj = loft(self, doc, op)
+        elif kind in {"mirror", "set_mirror"}:
+            from .features import mirror
+
+            obj = mirror(self, doc, op)
+        elif kind == "create_parameters":
             from .parameters import create
 
             obj = create(self, doc, op)
@@ -719,6 +727,10 @@ class Engine:
                 "circular_pattern",
                 "set_linear_pattern",
                 "set_circular_pattern",
+                "loft",
+                "set_loft",
+                "mirror",
+                "set_mirror",
             }
             and obj.Shape.isNull()
         ):
@@ -727,6 +739,12 @@ class Engine:
             raise CadError(
                 "Revolution did not produce a positive-volume solid; check the closed profile and axis"
             )
+        if (
+            kind in {"loft", "set_loft"}
+            and obj.Solid
+            and (len(obj.Shape.Solids) != 1 or obj.Shape.Volume <= 0)
+        ):
+            raise CadError("Loft did not produce exactly one positive-volume solid")
         return {"name": obj.Name, "type": obj.TypeId, **details}
 
     def edge_parameters(self, shape, edges, size):
@@ -904,6 +922,10 @@ CONSTRAINT_TYPES = {
     "Angle",
 }
 OPERATION_KEYS = {
+    "loft": ({"name", "profiles"}, {"solid", "ruled", "label"}),
+    "set_loft": ({"object", "profiles"}, {"solid", "ruled"}),
+    "mirror": ({"name", "source"}, {"point", "normal", "label"}),
+    "set_mirror": ({"object"}, {"point", "normal"}),
     "create_parameters": ({"name", "parameters"}, {"label"}),
     "set_expression": ({"object", "property", "expression"}, set()),
     "clear_expression": ({"object", "property"}, set()),

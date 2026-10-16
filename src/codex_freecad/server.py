@@ -152,7 +152,11 @@ def create_server(client):
         Supports primitives, dimensions, placements, booleans, bodies, XY sketches (lines/circles/arcs/rectangles),
         sketch constraints and datums, pads, pockets, file import, closed-mesh solid conversion,
         native Part fillets/chamfers, revolutions, native link-array linear/circular patterns,
-        pattern updates, and deletion without dependents. Patterns include the original, retain
+        pattern updates, named numeric parameters, arithmetic expressions, native lofts/mirrors
+        and deletion without dependents. Expressions use same-document numeric references,
+        units, pi and arithmetic only; remove one explicitly before assigning its driven value.
+        Lofts use ordered top-level single-wire profiles; mirrors return only reflected geometry.
+        Patterns include the original, retain
         separate solids, link native source dimensions and sample its placement on creation/update.
         Pattern steps/axes/centers use document coordinates before any pattern-object Placement.
         Sketch placement is edited separately. All numeric lengths are mm and rotations degrees.

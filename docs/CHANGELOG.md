@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added native solid/surface lofts through ordered single-wire profiles, including ruled surfaces, profile replacement and closed-wire validation.
+- Added parametric native mirrors with explicit document-space planes and plane updates; the result contains reflected geometry only.
 - Added native named length, angle, number and integer parameter containers.
 - Added arithmetic expressions on numeric feature properties, placement translations and named/indexed dimensional sketch constraints, with dependency propagation and explicit expression removal.
 - Exposed expression bindings in object/document inspection and prevented direct datum/placement writes from silently overriding expression-driven values.

@@ -292,6 +292,43 @@ class ClearExpression(Operation):
     property: str = Field(description="Remove expression while retaining its last evaluated value")
 
 
+class Loft(Operation):
+    op: Literal["loft"]
+    name: str
+    profiles: list[str] = Field(
+        min_length=2,
+        max_length=50,
+        description="Distinct top-level single-wire profiles in section order",
+    )
+    solid: bool = True
+    ruled: bool = False
+    label: str | None = None
+
+
+class SetLoft(Operation):
+    op: Literal["set_loft"]
+    object: str
+    profiles: list[str] = Field(min_length=2, max_length=50)
+    solid: bool | None = None
+    ruled: bool | None = None
+
+
+class Mirror(Operation):
+    op: Literal["mirror"]
+    name: str
+    source: str = Field(description="Top-level source; mirrored geometry excludes the original")
+    point: tuple[float, float, float] = (0, 0, 0)
+    normal: tuple[float, float, float] = (1, 0, 0)
+    label: str | None = None
+
+
+class SetMirror(Operation):
+    op: Literal["set_mirror"]
+    object: str
+    point: tuple[float, float, float] = (0, 0, 0)
+    normal: tuple[float, float, float] = (1, 0, 0)
+
+
 Edit = Annotated[
     Box
     | Cylinder
@@ -317,6 +354,10 @@ Edit = Annotated[
     | SetCircularPattern
     | Parameters
     | Expression
-    | ClearExpression,
+    | ClearExpression
+    | Loft
+    | SetLoft
+    | Mirror
+    | SetMirror,
     Field(discriminator="op"),
 ]

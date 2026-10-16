@@ -185,3 +185,164 @@ def test_expression_dependencies_survive_native_save_reopen(cad, tmp_path):
         assert reopened.call("inspect_object", document=document, object_name="Block")["shape"][
             "volume_mm3"
         ] == pytest.approx(2000)
+
+
+def profiles(cad):
+    edit(
+        cad,
+        {
+            "op": "create_sketch",
+            "name": "Lower",
+            "geometry": [{"type": "circle", "center": [0, 0], "radius": 5}],
+        },
+        {"op": "add_constraint", "object": "Lower", "type": "Radius", "args": [0, 5.0]},
+        {
+            "op": "create_sketch",
+            "name": "Upper",
+            "geometry": [{"type": "circle", "center": [0, 0], "radius": 10}],
+        },
+        {"op": "set_placement", "object": "Upper", "position": [0, 0, 20]},
+        {
+            "op": "create_sketch",
+            "name": "Last",
+            "geometry": [{"type": "circle", "center": [0, 0], "radius": 8}],
+        },
+        {"op": "set_placement", "object": "Last", "position": [0, 0, 40]},
+    )
+
+
+def frustum(r1, r2, h):
+    return math.pi * h * (r1 * r1 + r1 * r2 + r2 * r2) / 3
+
+
+@pytest.mark.parametrize("ruled", [False, True])
+def test_loft_analytic_volume_native_dependencies_and_datum_update(cad, ruled):
+    profiles(cad)
+    edit(cad, {"op": "loft", "name": "Transition", "profiles": ["Lower", "Upper"], "ruled": ruled})
+    loft = inspect(cad, "Transition")
+    assert loft["type"] == "Part::Loft" and set(loft["depends_on"]) == {"Lower", "Upper"}
+    assert loft["shape"]["valid"] and loft["shape"]["solids"] == 1
+    assert loft["shape"]["volume_mm3"] == pytest.approx(frustum(5, 10, 20))
+    edit(cad, {"op": "set_datum", "object": "Lower", "constraint_index": 0, "value": "6 mm"})
+    assert inspect(cad, "Transition")["shape"]["volume_mm3"] == pytest.approx(frustum(6, 10, 20))
+
+
+def test_loft_profile_replacement_ruled_sections_surface_and_undo(cad):
+    profiles(cad)
+    edit(
+        cad,
+        {"op": "loft", "name": "Transition", "profiles": ["Lower", "Upper", "Last"], "ruled": True},
+    )
+    assert inspect(cad, "Transition")["shape"]["volume_mm3"] == pytest.approx(
+        frustum(5, 10, 20) + frustum(10, 8, 20)
+    )
+    edit(cad, {"op": "set_loft", "object": "Transition", "profiles": ["Lower", "Last"]})
+    assert inspect(cad, "Transition")["shape"]["volume_mm3"] == pytest.approx(frustum(5, 8, 40))
+    edit(
+        cad,
+        {"op": "set_loft", "object": "Transition", "profiles": ["Lower", "Last"], "solid": False},
+    )
+    surface = inspect(cad, "Transition")["shape"]
+    assert surface["valid"] and surface["solids"] == 0
+    assert surface["area_mm2"] == pytest.approx(math.pi * 13 * math.sqrt(40**2 + 3**2))
+    cad.call("undo_document", document="Model")
+    assert inspect(cad, "Transition")["shape"]["solids"] == 1
+
+
+def test_open_wire_surface_loft_and_solid_rejection(cad):
+    for name, z in [("Lower", 0), ("Upper", 20)]:
+        edit(
+            cad,
+            {
+                "op": "create_sketch",
+                "name": name,
+                "geometry": [{"type": "line", "start": [0, 0], "end": [10, 0]}],
+            },
+            {"op": "set_placement", "object": name, "position": [0, 0, z]},
+        )
+    with pytest.raises(CadError, match="closed"):
+        edit(cad, {"op": "loft", "name": "Bad", "profiles": ["Lower", "Upper"]})
+    edit(cad, {"op": "loft", "name": "Surface", "profiles": ["Lower", "Upper"], "solid": False})
+    assert inspect(cad, "Surface")["shape"]["area_mm2"] == pytest.approx(200)
+
+
+@pytest.mark.parametrize(
+    "names", [["Lower"], ["Lower", "Lower"], ["Lower", "Missing"], ["Lower", "Block"]]
+)
+def test_invalid_loft_profiles_roll_back(cad, names):
+    profiles(cad)
+    edit(cad, {"op": "create_box", "name": "Block", "length": 2, "width": 3, "height": 4})
+    before = cad.call("inspect_document", document="Model")["revision"]
+    with pytest.raises(CadError):
+        edit(cad, {"op": "loft", "name": "Bad", "profiles": names}, expected_revision=before)
+    assert cad.call("inspect_document", document="Model")["revision"] == before
+
+
+def test_loft_rejects_dependency_cycle(cad):
+    profiles(cad)
+    edit(cad, {"op": "loft", "name": "Transition", "profiles": ["Lower", "Upper"]})
+    with pytest.raises(CadError):
+        edit(cad, expression("Lower", "Placement.Base.x", "Transition.Placement.Base.x + 1 mm"))
+    with pytest.raises(CadError, match="cycle"):
+        edit(cad, {"op": "set_loft", "object": "Transition", "profiles": ["Lower", "Transition"]})
+    assert inspect(cad, "Transition")["shape"]["volume_mm3"] == pytest.approx(frustum(5, 10, 20))
+
+
+def test_mirror_rotated_source_updates_plane_and_native_undo(cad):
+    parameters(cad)
+    edit(
+        cad,
+        {
+            "op": "set_placement",
+            "object": "Block",
+            "position": [30, 20, 30],
+            "axis": [0, 0, 1],
+            "angle": 90,
+        },
+        {"op": "mirror", "name": "Reflected", "source": "Block"},
+    )
+    reflected = inspect(cad, "Reflected")
+    assert reflected["type"] == "Part::Mirroring" and reflected["depends_on"] == ["Block"]
+    assert reflected["shape"]["volume_mm3"] == pytest.approx(200)
+    assert reflected["shape"]["bounds_mm"]["min"] == pytest.approx([-30, 20, 30])
+    assert reflected["shape"]["bounds_mm"]["max"] == pytest.approx([-10, 30, 31])
+    edit(cad, {"op": "set_mirror", "object": "Reflected", "point": [5, 0, 0], "normal": [1, 0, 0]})
+    assert inspect(cad, "Reflected")["shape"]["bounds_mm"]["max"][0] == pytest.approx(0)
+    cad.call("undo_document", document="Model")
+    assert inspect(cad, "Reflected")["shape"]["bounds_mm"]["max"][0] == pytest.approx(-10)
+    edit(cad, {"op": "set_property", "object": "Block", "property": "Height", "value": 3})
+    assert inspect(cad, "Reflected")["shape"]["volume_mm3"] == pytest.approx(600)
+
+
+def test_oblique_mirror_and_zero_normal_rollback(cad):
+    parameters(cad)
+    edit(cad, {"op": "mirror", "name": "Reflected", "source": "Block", "normal": [1, 1, 0]})
+    shape = inspect(cad, "Reflected")["shape"]
+    assert shape["bounds_mm"]["min"] == pytest.approx([-20, -10, 0])
+    assert shape["bounds_mm"]["max"] == pytest.approx([0, 0, 1])
+    with pytest.raises(CadError, match="normal"):
+        edit(cad, {"op": "set_mirror", "object": "Reflected", "normal": [0, 0, 0]})
+    assert inspect(cad, "Reflected")["shape"]["volume_mm3"] == pytest.approx(200)
+
+
+def test_loft_and_mirror_dependencies_survive_native_save_reopen(cad, tmp_path):
+    profiles(cad)
+    edit(
+        cad,
+        {"op": "loft", "name": "Transition", "profiles": ["Lower", "Upper"]},
+        {"op": "mirror", "name": "Reflected", "source": "Transition", "point": [20, 0, 0]},
+    )
+    cad.call("save_document", document="Model", path="loft.FCStd")
+    with HeadlessClient(tmp_path, timeout=30) as reopened:
+        document = reopened.call("open_document", path="loft.FCStd")["name"]
+        reopened.call(
+            "apply_operations",
+            document=document,
+            operations=[
+                {"op": "set_datum", "object": "Lower", "constraint_index": 0, "value": "7 mm"},
+            ],
+        )
+        result = reopened.call("inspect_object", document=document, object_name="Reflected")
+        assert result["shape"]["valid"] and result["shape"]["volume_mm3"] == pytest.approx(
+            frustum(7, 10, 20)
+        )

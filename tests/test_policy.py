@@ -40,6 +40,13 @@ def test_operation_schema_rejects_unknown_fields_and_negative_dimensions():
         {"op": "execute_python", "code": "arbitrary code"},
         {"op": "create_sphere", "name": "Ball", "radius": -2},
         {"op": "create_body", "name": "Body", "script": "hidden field"},
+        {
+            "op": "create_parameters",
+            "name": "Design",
+            "parameters": [{"name": "Count", "type": "integer", "value": True}],
+        },
+        {"op": "loft", "name": "Bad", "profiles": ["Single"]},
+        {"op": "mirror", "name": "Bad", "source": "Base", "normal": [1, 0]},
         {"op": "fillet", "name": "Bad", "base": "Block", "edges": [], "size": 1},
         {"op": "chamfer", "name": "Bad", "base": "Block", "edges": ["Edge1"], "size": -1},
         {"op": "mesh_to_solid", "name": "Bad", "mesh": "Mesh", "tolerance": float("nan")},

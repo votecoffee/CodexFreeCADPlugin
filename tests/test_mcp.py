@@ -163,5 +163,60 @@ def test_stdio_mcp_discovery_validation_and_native_edit(tmp_path):
                 )
             )
             assert sketch["fully_constrained"] and len(sketch["constraints"]) == 12
+            await client.call_tool("new_document", {"name": "Parametric"})
+            parametric = data(
+                await client.call_tool(
+                    "apply_operations",
+                    {
+                        "document": "Parametric",
+                        "operations": [
+                            {
+                                "op": "create_parameters",
+                                "name": "Design",
+                                "parameters": [
+                                    {"name": "Height", "type": "length", "value": "20 mm"},
+                                ],
+                            },
+                            {
+                                "op": "create_sketch",
+                                "name": "Lower",
+                                "geometry": [{"type": "circle", "center": [0, 0], "radius": 5}],
+                            },
+                            {
+                                "op": "create_sketch",
+                                "name": "Upper",
+                                "geometry": [{"type": "circle", "center": [0, 0], "radius": 10}],
+                            },
+                            {
+                                "op": "set_expression",
+                                "object": "Upper",
+                                "property": "Placement.Base.z",
+                                "expression": "Design.Height",
+                            },
+                            {"op": "loft", "name": "Taper", "profiles": ["Lower", "Upper"]},
+                            {
+                                "op": "mirror",
+                                "name": "Reflected",
+                                "source": "Taper",
+                                "point": [25, 0, 0],
+                            },
+                            {
+                                "op": "set_loft",
+                                "object": "Taper",
+                                "profiles": ["Lower", "Upper"],
+                                "ruled": True,
+                            },
+                            {"op": "set_mirror", "object": "Reflected", "point": [30, 0, 0]},
+                            {
+                                "op": "clear_expression",
+                                "object": "Upper",
+                                "property": "Placement.Base.z",
+                            },
+                        ],
+                    },
+                )
+            )
+            assert parametric["document"]["objects"][-1]["shape"]["solids"] == 1
+            assert parametric["document"]["objects"][-1]["shape"]["valid"]
 
     asyncio.run(run())
