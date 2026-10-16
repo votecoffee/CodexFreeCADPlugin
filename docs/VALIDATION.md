@@ -1,0 +1,56 @@
+# Validation record — v0.3.0 — 2026-10-16
+
+The current release has **61 passing automated tests**, with no failures or skipped cases, on native FreeCAD 1.0.2, host Python 3.13 and MCP SDK 2.3.0. Earlier 35-test coverage remains; the 26 added native cases cover dimensioned/offset/construction rectangles, named datum edits, arc-based solids, sketch append/rollback, 2D validation, solid/surface and positive/negative/partial revolutions, rotated-source linear arrays, full/partial/negative circular spans, source-dimension propagation, sampled placement semantics, pattern count updates/undo, managed-field/dependency guards, native save/reopen, root-Body handling, all-instance exports and empty-geometry negative controls. Stdio MCP also exercises rectangle/revolution/pattern schemas and the new sketch inspection tool.
+
+The live workflow passes 17 recorded checks, including previous import/fillet/chamfer/view/reload checks and an arc-profile pad, constrained profile/native revolution, six-hole circular tool pattern, and three-instance row of finished flanges. It checks source-dimension and count propagation with undo, verifies a display/STL export does not invalidate revision guards, and reimports the exported STEP to verify all three solids remain present. The native PNG was visually inspected and shows the three flanges with their bores and six-hole patterns.
+
+Each flange has outer radius 30 mm, bore radius 10 mm and thickness 8 mm, with six radius-2 mm through-holes on a radius-22 mm bolt circle. Three instances are spaced 75 mm along X. Analytic volume is `3*pi*((30^2-10^2)*8 - 6*2^2*8)` = **58509.021580456305 mm³**. Native measurement is **58509.02158045633 mm³**, three valid solids, thirty faces and seventy-two edges. Native bounds are `[-30,-30,0]` through `[180,30,8]` within floating-point precision.
+
+Native link arrays have separate instances and sampled source placements, not fused material or general assembly constraints. These checks establish specific CAD behavior on FreeCAD 1.0.2, not manufacturing or physical-part acceptance. Paid OpenAI API execution, plugin-browser installation, other FreeCAD versions/platforms and broad workbench/assembly support remain unverified. Versioned XML, native reports, source/wheel packages and sample files are supplied alongside the chat handoff.
+
+The v0.3.0 wheel was installed into a fresh target and imported by an isolated host interpreter. Its packaged native worker reported 24 operations, created a fully constrained rectangle, native revolution and three-instance link array, returned detailed sketch data, and preserved all three solids through BREP export/reimport. Lint, formatting and dependency checks passed. The release packager checks the native report version and compares wheel Python files byte-for-byte with the source archive.
+
+## Historical validation — v0.2.0
+
+Validated on Windows with host Python 3.13, MCP SDK 2.3.0, and installed FreeCAD 1.0.2 (`39319`, commit `256fc7eff3379911ab5daf88e10182c509aa8052`). FreeCAD's embedded interpreter reports Python 3.11.13. No existing user model was edited.
+
+## Automated suite
+
+**35 tests pass.** The original 19 checks remain, covering dimensions, volume, undo/rollback, revision guards, booleans, sketch constraints/datums, pad/pocket recomputation, FCStd save/reopen, exports/backups, workspace/schema boundaries, stdio MCP and the local API adapter.
+
+The 16 added native checks cover topology pagination and measurements, sphere degenerate edges, circular radii, object/face/vertex distances, fillet/chamfer analytic volumes, native dependency propagation, edge-size updates and undo, invalid/duplicate/oversized edge selections with whole-batch rollback, STEP/BREP/STL source-preserving import and undo, placed STL-to-solid conversion followed by a boolean cut, open-mesh and malformed-import rejection, stale-import/path guards, and imported fillet editability after FCStd save/reopen. The stdio MCP test also exercises new import/topology/distance/fillet tools and rejects GUI-only view control in background mode.
+
+The finished sample starts as an 80 × 50 × 8 mm plate with a radius-5 mm through-hole centered at X=15, Y=15. Four outer vertical corners receive radius-3 mm fillets, and the top hole edge receives a 0.8 mm equal-distance chamfer.
+
+Expected volume in mm³: `80*50*8 - pi*5^2*8 - (4-pi)*3^2*8 - pi*(5*0.8^2 + 0.8^3/3)`.
+
+Native measured volume is **31299.2868787028 mm³**, one valid solid, twelve faces and twenty-nine edges. Bounds match `[0,0,0]` through `[80,50,8]` within native floating-point precision. The live STEP reimport retains the measured volume. That observation and a zero minimum-distance query do not establish whole-file or complete geometric identity.
+
+## Native GUI smoke test
+
+An isolated FreeCAD GUI process passed these checks:
+
+1. Bridge startup and authenticated native status.
+2. Missing/wrong tokens rejected with HTTP 401; browser Origin rejected with 403; malformed JSON rejected with 400.
+3. Model creation through the GUI thread.
+4. Generated start macro reloading code, rotating credentials and preserving the open native model.
+5. Topology-selected fillets/chamfers matching the analytic volume above.
+6. All seven standard live view orientations.
+7. Live selection query and native 1200 × 900 PNG capture.
+8. Native FCStd saving and STEP export.
+9. STEP reimport, volume comparison and minimum-distance query.
+10. STL import and placed closed-mesh conversion to a valid solid.
+11. Live stdio MCP discovery, topology/view tools and 800 × 600 image response.
+12. Clean GUI process exit and removal of the bridge credential file.
+
+The native PNG was visually inspected and shows the rounded outer corners and chamfered hole. The test process closed its own documents and exited. Raw XML test results, GUI logs and JSON results are under ignored `work`; versioned user-facing samples are provided separately in the chat outputs. The original v0.1.0 source ZIP and samples remain there.
+
+## Package checks
+
+The v0.2.0 wheel was installed into a fresh target directory and imported by an isolated host Python process. Its packaged FreeCAD worker reported version 0.2.0 and 18 operations, created a valid native fillet matching analytic volume, and returned the expected face topology. Ruff lint/format and `pip check` passed. Versioned source/wheel files are compared byte-for-byte against a manifest; bundles exclude virtual environments, credential/state files, test workspaces and machine-specific plugin configuration.
+
+## Verification boundaries
+
+Actual native geometry, editability/recomputation, local stdio MCP, the loopback GUI bridge, source preservation, undo/rollback and model save/reopen are exercised. The optional API example has local schema/result tests; no paid OpenAI API run has been performed. Plugin-browser installation, remote/cloud access, other FreeCAD versions, non-Windows platforms, general workbench compatibility and untrusted CAD-file isolation remain unverified. This work does not modify global Codex registration or attach new tools to an already-running chat.
+
+FreeCAD shape validity and measured dimensions are CAD evidence. They do not establish manufacturing tolerances, design adequacy, assembly fit or physical part correctness.

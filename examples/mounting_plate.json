@@ -1,0 +1,6 @@
+[
+  {"op": "create_box", "name": "Plate", "length": 80, "width": 50, "height": 8},
+  {"op": "create_cylinder", "name": "Drill", "radius": 5, "height": 12},
+  {"op": "set_placement", "object": "Drill", "position": [15, 15, -2]},
+  {"op": "boolean", "name": "MountingPlate", "kind": "cut", "base": "Plate", "tool": "Drill"}
+]

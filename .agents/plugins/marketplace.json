@@ -1,0 +1,12 @@
+{
+  "name": "freecad-development",
+  "interface": {"displayName": "FreeCAD Development"},
+  "plugins": [
+    {
+      "name": "freecad-modeling",
+      "source": {"source": "local", "path": "./.local/plugin"},
+      "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "category": "Productivity"
+    }
+  ]
+}
