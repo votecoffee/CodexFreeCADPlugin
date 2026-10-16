@@ -30,7 +30,7 @@ def test_stdio_mcp_discovery_validation_and_native_edit(tmp_path):
         )
         async with Client(parameters, read_timeout_seconds=45) as client:
             tools = (await client.list_tools()).tools
-            assert len(tools) == 17
+            assert len(tools) == 18
             assert next(t for t in tools if t.name == "inspect_document").annotations.read_only_hint
             assert next(
                 t for t in tools if t.name == "apply_operations"

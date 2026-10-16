@@ -235,6 +235,7 @@ class Engine:
             "open_document",
             "inspect_document",
             "inspect_object",
+            "inspect_assembly",
             "inspect_sketch",
             "inspect_topology",
             "measure_distance",
@@ -411,6 +412,13 @@ class Engine:
             document, [{"op": "import_model", "path": path, "name": name}], expected_revision
         )
 
+    def inspect_assembly(self, document, assembly):
+        from .assemblies import assembly as find_assembly
+        from .assemblies import inspect
+
+        doc = self.document(document)
+        return inspect(self, doc, find_assembly(self, doc, assembly))
+
     def apply_operations(self, document, operations, expected_revision=None):
         doc = self.document(document)
         self.check_revision(doc, expected_revision)
@@ -462,7 +470,19 @@ class Engine:
     def operation(self, doc, op):
         kind = op["op"]
         details = {}
-        if kind in {"loft", "set_loft"}:
+        if kind in {
+            "create_assembly",
+            "add_component",
+            "ground_component",
+            "create_joint",
+            "set_joint_limits",
+            "set_joint_positions",
+            "solve_assembly",
+        }:
+            from .assemblies import apply
+
+            obj = apply(self, doc, op)
+        elif kind in {"loft", "set_loft"}:
             from .features import loft
 
             obj = loft(self, doc, op)
@@ -666,6 +686,8 @@ class Engine:
         elif kind == "set_property":
             obj = self.obj(doc, op["object"])
             prop = op["property"]
+            if "CadAssemblyRole" in obj.PropertiesList and prop not in {"Label", "Visibility"}:
+                raise CadError("Use dedicated assembly operations for managed assembly properties")
             if "CadPatternKind" in obj.PropertiesList and prop not in {"Label", "Visibility"}:
                 raise CadError(
                     "Use set_linear_pattern or set_circular_pattern for managed pattern parameters"
@@ -697,6 +719,8 @@ class Engine:
             setattr(obj, prop, value)
         elif kind == "set_placement":
             obj = self.obj(doc, op["object"])
+            if "CadAssemblyRole" in obj.PropertiesList:
+                raise CadError("Use joint positions to move managed assembly components")
             if any(path.lstrip(".").startswith("Placement.") for path, _ in obj.ExpressionEngine):
                 raise CadError(
                     "Placement has an expression; edit or clear its driving expression first"
@@ -933,6 +957,16 @@ CONSTRAINT_TYPES = {
     "Angle",
 }
 OPERATION_KEYS = {
+    "create_assembly": ({"name"}, {"label"}),
+    "add_component": ({"name", "assembly", "source"}, {"label"}),
+    "ground_component": ({"name", "assembly", "component"}, {"label"}),
+    "create_joint": (
+        {"name", "assembly", "kind", "component_a", "component_b"},
+        {"frame_a", "frame_b", "label"},
+    ),
+    "set_joint_limits": ({"assembly", "joint"}, {"minimum", "maximum"}),
+    "set_joint_positions": ({"assembly", "positions"}, set()),
+    "solve_assembly": ({"assembly"}, set()),
     "create_helix": ({"name", "pitch", "height", "radius"}, {"angle", "left_handed", "label"}),
     "sweep": (
         {"name", "profiles", "path"},

@@ -379,6 +379,75 @@ class Helix(Operation):
     label: str | None = None
 
 
+class Assembly(Operation):
+    op: Literal["create_assembly"]
+    name: str
+    label: str | None = None
+
+
+class Component(Operation):
+    op: Literal["add_component"]
+    name: str
+    assembly: str
+    source: str = Field(description="Same-document top-level solid or Body; dimensions stay linked")
+    label: str | None = None
+
+
+class Ground(Operation):
+    op: Literal["ground_component"]
+    name: str
+    assembly: str
+    component: str
+    label: str | None = None
+
+
+class JointFrame(Operation):
+    position: tuple[float, float, float] = (0, 0, 0)
+    axis: tuple[float, float, float] = (0, 0, 1)
+    angle: float = 0
+
+
+class Joint(Operation):
+    op: Literal["create_joint"]
+    name: str
+    assembly: str
+    kind: Literal["fixed", "revolute", "slider"]
+    component_a: str
+    component_b: str
+    frame_a: JointFrame = Field(
+        default_factory=JointFrame,
+        description="Local connector on component A; motion about/along +Z",
+    )
+    frame_b: JointFrame = Field(default_factory=JointFrame)
+    label: str | None = None
+
+
+class JointLimits(Operation):
+    op: Literal["set_joint_limits"]
+    assembly: str
+    joint: str
+    minimum: float | None = Field(default=None, description="Degrees or mm; null removes the limit")
+    maximum: float | None = Field(default=None, description="Degrees or mm; null removes the limit")
+
+
+class JointPosition(Operation):
+    joint: str
+    position: float = Field(
+        description="Absolute local joint coordinate, revolute degrees or slider mm"
+    )
+
+
+class JointPositions(Operation):
+    op: Literal["set_joint_positions"]
+    assembly: str
+    positions: list[JointPosition] = Field(min_length=1, max_length=100)
+
+
+class SolveAssembly(Operation):
+    op: Literal["solve_assembly"]
+    assembly: str
+
+
 Edit = Annotated[
     Box
     | Cylinder
@@ -411,6 +480,13 @@ Edit = Annotated[
     | SetMirror
     | Sweep
     | SetSweep
-    | Helix,
+    | Helix
+    | Assembly
+    | Component
+    | Ground
+    | Joint
+    | JointLimits
+    | JointPositions
+    | SolveAssembly,
     Field(discriminator="op"),
 ]

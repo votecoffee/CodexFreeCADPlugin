@@ -59,6 +59,8 @@ def numeric_path(obj, path, *, target=False):
     """Resolve only supported numeric property paths, never arbitrary Python attributes."""
     if not isinstance(path, str):
         raise CadError("Expression property path must be text")
+    if "CadAssemblyRole" in obj.PropertiesList and target:
+        raise CadError("Use dedicated assembly operations for managed assembly properties")
     if "CadPatternKind" in obj.PropertiesList and target:
         raise CadError("Use the dedicated pattern operations for managed pattern parameters")
     match = re.fullmatch(r"Constraints(?:\[(\d+)\]|\.([A-Za-z][A-Za-z0-9_]*))", path)

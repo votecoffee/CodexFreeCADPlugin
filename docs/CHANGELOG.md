@@ -1,5 +1,11 @@
 # Changes
 
+## Assembly support (in progress) — 2026-10-16
+
+- Added native Assembly containers, parametric component links, grounding and fixed/revolute/slider joints with explicit local connector frames.
+- Added coordinated absolute joint positioning for directed trees, travel limits, native solver/residual checks and assembly inspection. Joint positioning is transactional and undoable; standard FreeCAD workbench proxies survive save/reopen.
+- Protected managed assembly fields from generic property, placement and expression writes. Initial native tests cover linked geometry updates, coordinated motion, limit rejection, rollback, Undo and moving a reopened assembly.
+
 ## Demo additions — 2026-10-16
 
 - Added an editable 26-solid cutaway planetary gearbox using native involute profiles and the existing structured modeling engine, with a colored STEP export and separate exploded presentation.

@@ -68,6 +68,17 @@ def create_server(client):
         return client.call("inspect_object", document=document, object_name=object_name)
 
     @server.tool(annotations=READ)
+    def inspect_assembly(document: str, assembly: str) -> dict:
+        """Read native assembly components, grounding, local joint frames, positions and limits.
+
+        Use create_assembly/add_component/ground_component/create_joint to assemble solids.
+        Revolute joints rotate about local +Z in degrees; sliders translate along +Z in mm.
+        Use set_joint_positions for one or several coordinated absolute joint coordinates.
+        Returned angles wrap to [-180, 180]. Positioning does not check interference or dynamics.
+        """
+        return client.call("inspect_assembly", document=document, assembly=assembly)
+
+    @server.tool(annotations=READ)
     def inspect_sketch(document: str, object_name: str) -> dict:
         """Read sketch-local geometry, zero-based geometry/constraint indices, datum names/values and solver state.
 
