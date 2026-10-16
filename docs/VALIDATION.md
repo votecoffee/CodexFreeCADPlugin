@@ -1,4 +1,20 @@
-# Validation record — v0.4.0 — 2026-10-16
+# Validation record — v0.5.0 — 2026-10-16
+
+**135 automated tests pass**, with zero failures, errors or skipped cases, on native FreeCAD 1.0.2, host Python 3.13 and MCP SDK 2.3.0. The integration exposes 17 MCP tools and 34 structured edit operations. The installed native engine reports revision `39319`, source commit `256fc7eff3379911ab5daf88e10182c509aa8052` and bundled Python 3.11.13.
+
+The 33 added native cases cover straight and curved sweeps, full-circle torus paths, multiple sections, open-profile surfaces, closed-section guards, profile/path replacement, Frenet and sharp-corner transition modes, invalid selections/controls, disconnected edges, dependency cycles and atomic rollback. Helix checks cover native length, both handedness directions, conical endpoint radius, invalid dimensions/taper/turn limits, helical solid volume and expression-driven save/reopen propagation. Stdio MCP dispatches all three new operations through the typed schemas. The earlier 102 checks remain passing.
+
+The isolated native GUI workflow passes **27 recorded checks**, including all earlier coverage. New checks create the hollow elbow and helical solid, update named coil height and section radius through native dependencies, undo those edits, update a topology-selected spine and framing/corner options, roll back invalid path selection after an earlier parameter edit, and preserve both solids through STEP and BREP roundtrips. The MCP path updates/undoes a native sweep. The GUI exits cleanly and removes bridge credentials. No existing user FreeCAD session/model was used.
+
+The sample elbow has 30 mm centerline radius, 6 mm outer section radius and 4 mm inner section radius over a quarter-circle path. Its analytic volume is `pi*(6^2-4^2)*30*pi/2` = **2960.8813203268073 mm³**. The coil has a 15 mm centerline radius, 10 mm pitch, 40 mm axial height and 2 mm wire radius; analytic volume is `pi*2^2*sqrt((2*pi*15*40/10)^2+40^2)` = **4764.00214598 mm³**. The combined analytic volume is **7724.883466306807 mm³**; native measurement is **7724.8849421043815 mm³**, a relative difference of approximately **1.91045e-7**, within the declared **1e-5** tolerance. Native helical curves/surfaces are approximated; exact numerical equality is not claimed.
+
+The final disconnected union contains two valid solids, seven faces and nine edges. Its bounds are approximately `[0,-17,-6]` through `[97,36,41.988836]` mm. The native screenshot was visually inspected and shows the elbow bore and four-turn coil. This is geometric validation, without spring-end finishing or engineering spring-performance calculations.
+
+The v0.5.0 wheel was installed without dependencies into a fresh target and imported with an isolated host interpreter. Its packaged worker reported 34 operations and passed native helix/sweep volume checks, BREP export/reimport and height-driven recomputation after FCStd save/reopen. Lint, formatting and dependency checks pass. Release packaging uses the clean committed source tree, records its Git commit, verifies source-archive hashes, compares wheel Python files with the archive and records native/analytic sample volumes and tolerance in the manifest.
+
+Both backends are validated on this installed native version. Paid OpenAI API execution, plugin-browser installation, other FreeCAD versions/platforms and broad assembly/workbench coverage remain unverified. No push was performed by this agent; origin pushing remains the user's step.
+
+## Historical validation — v0.4.0
 
 **102 automated tests pass**, with zero failures, errors or skipped cases, on native FreeCAD 1.0.2, host Python 3.13 and MCP SDK 2.3.0. FreeCAD reports revision `39319` and source commit `256fc7eff3379911ab5daf88e10182c509aa8052`; its embedded Python is 3.11.13. The integration exposes 17 MCP tools and 31 structured edit operations.
 
