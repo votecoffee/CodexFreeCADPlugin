@@ -62,6 +62,7 @@ def main():
         f"VALIDATION-v{version}.md": root / "docs/VALIDATION.md",
         f"CHANGES-v{version}.md": root / "docs/CHANGELOG.md",
         f"Extension-Reload-Guide-v{version}.md": root / "docs/EXTENSIONS.md",
+        f"Hole-Fastener-Guide-v{version}.md": root / "docs/HOLES_FASTENERS.md",
         f"test-results-v{version}.xml": args.tests,
         wheel.name: wheel,
         f"native-validation-v{version}.json": report_path,
@@ -131,13 +132,15 @@ This source corresponds to local Git commit `{git_commit}`. The manifest records
 
 ## Load the update
 
-Run `scripts\Setup.ps1` to regenerate local configuration. Restart the FreeCAD MCP servers in Codex, then execute `.local\StartBridge.FCMacro` through FreeCAD's Macro menu. It reloads the integration and opens the Codex CAD dock while preserving open models. The generated `OpenFreeCADPanel.FCMacro` opens local controls without connecting chat. A generated optional FreeCAD workbench folder is also available. Registration instructions are in README.md.
+For an existing v0.8-compatible backend, install the updated extension folders in the same package location, then call `reload_extensions`, click the dock's Reload extensions button, or execute `.local\ReloadExtensions.FCMacro`. The six hole/fastener capabilities load through the current MCP connection and native worker. For a development checkout installed in editable mode, the updated source folders are already in that package location. Discover current arguments after reloading. Native process package-version reporting can retain the version imported at startup; the catalog identifies active extension versions and content hashes.
 
-This initial v0.8 core migration adds permanent extension tools. After it is loaded, ordinary feature updates use `reload_extensions` in the existing chat, the dock's Reload extensions button, or `.local\ReloadExtensions.FCMacro`. Discover current capabilities with `list_capabilities` and `describe_capability`; invoke reads with `run_query`, and edits with the stable extension operation envelope. `docs/EXTENSIONS.md` in the source archive explains installation, schema guards, supported reload scope and extension authoring. This update includes native tube creation and mass properties as example capabilities.
+For a fresh installation or migration from a core older than v0.8, run `scripts\Setup.ps1` to install and regenerate configuration. Reconnect the FreeCAD MCP servers once and run `.local\StartBridge.FCMacro` through FreeCAD's Macro menu. Registration instructions are in README.md. The generated `OpenFreeCADPanel.FCMacro` opens local controls without connecting chat.
+
+Discover capabilities with `list_capabilities` and `describe_capability`; invoke reads with `run_query`, and edits with the stable extension operation envelope. `docs/EXTENSIONS.md` covers installation, schema guards and extension authoring. `Hole-Fastener-Guide-v{version}.md` covers through/blind holes, counterbores, countersinks, bolt circles, dimensioned hex/socket-cap bolts, nuts and washers. Fasteners have simplified unthreaded geometry and do not certify standard sizes, fits or loads. Through extents require refresh after base edits; entry planes/layouts remain fixed in world coordinates.
 
 Model provides protected parameter editing and a linked-source shortcut. Motion provides absolute joint positions, playback, stored ratio/offset controls and an explicit viewport drag mode. Checks separates BREP overlap, contact and insufficient clearance, and samples motion on a hidden model copy without consuming source Undo. Save/export and chat edits wait while a native edit is active.
 
-For the portable gearbox ZIP, extract everything and execute `OpenCoupledGearbox.FCMacro` to open the model and Motion tab. Enter SunJoint=90 degrees: CarrierJoint should be 22.5 and each planet joint -67.5 degrees relative to the carrier. The saved ratio metadata is applied by the Codex CAD controller and both chat backends. Native Assembly's separate dragging does not enforce these rules.
+Open the included FCStd yourself to inspect the native feature history. Individual fastener dimensions live on their `<name>Parameters` objects; the result's placement remains editable. The STEP file contains evaluated solid geometry. These new models do not require extension-owned executable proxies to reopen or recompute.
 
 Read `docs/PANEL_TESTING.md` in the source archive for the user's manual panel/drag check. From the repository, run `.venv\Scripts\python.exe scripts\smoke_panel.py --interactive` to open an isolated test window. New GUI checks are intentionally left for the user; headless controller tests do not prove Coin event delivery or physical picking.
 

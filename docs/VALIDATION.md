@@ -1,4 +1,22 @@
-# Validation record — v0.8.0 — 2026-10-16
+# Validation record — v0.9.0 — 2026-10-16
+
+**248 automated tests pass**, with zero failures, errors or skipped cases (520.66 seconds). Ruff lint/format and pip dependency checks pass. The new hardware extension suite contributes **35 passing native tests** on FreeCAD 1.0.2. It covers through/blind bores, counterbores, countersinks, circle layouts, normalized arbitrary directions, native parameter expressions, refreshing after base resizing, countersink angle edits, rollback, Undo, name conflicts, no-hit/empty results, head/socket/nut/washer dimension checks, placement and save/reopen. Lengths are mm; blind bottoms are flat and fastener geometry is unthreaded. All 24 fixed MCP tools and 44 structured operation kinds remain unchanged; six capabilities are discovered at runtime.
+
+A persistent stdio MCP connection installs the actual hardware packages under separate test IDs after connection. It loads their schemas and creates native geometry without changing the tool schemas, backend PID, existing source revision or Undo. A malformed subsequent extension update is rejected while the prior generation still creates washers. Fresh native workers reopen and edit the saved native features without those external packages configured.
+
+A separate isolated compatibility run uses the previously packaged **v0.8.0 core**, initially without hardware extensions. Installing the two new packages and calling reload adds their original capability IDs to the same native worker. Source revision and previous Undo entries survive. The old core creates a counterbored plate and socket bolt, saves them, then reopens/recomputes them in another v0.8 worker with no hardware extension installed. This directly checks the existing-core update path; the native core's cached version string remains 0.8.0.
+
+The new **HardwareDemo** has 23 selected valid solid instances: a center-bored/counterbored flange with six socket bolts, washers and nuts, plus a hole coupon with blind/countersunk/clearance bores and hex hardware. Independent formulas give **91266.21977712106 mm³**; native STEP roundtrip volume is **91266.21977712058 mm³** (1e-6 relative roundtrip tolerance). All **253** BREP part-pair checks find **zero positive-volume overlaps**, with 21 seating contacts and 232 clear pairs. This is static geometric evidence, without thread contact, fit, torque or load claims. No source CAD inputs are overwritten.
+
+The demonstration caught a small native volume/extent discrepancy when nearly coincident cutter caps crossed chained cylindrical features. Cutter end-plane padding now clears the boolean edge tolerance; a dedicated regression checks the expected analytic volume at 1e-10 relative tolerance and unchanged outer bounds at 1e-7 mm. Hex native expressions use `sqrt(3)` directly to retain their formulas across serialization.
+
+The built v0.9.0 wheel and a copied portable native runtime each pass isolated `-I -S` host checks: installed schema discovery, native counterbored circle and bolt/nut/washer construction, analytic flange volume, same-size/same-timestamp helper reload, unchanged worker/source revision, FCStd reopen without the external helper and native dimension editing. Source/wheel Python and JSON file sets and bytes are verified during packaging.
+
+Native Undo restores the reopened demonstration's dimensions and geometry. Recomputed BREP serialization can change the conservative revision token after Undo; callers should inspect the current token before a further guarded edit. No-op reloads and extension publication themselves preserve the source revision, as explicitly tested.
+
+**GUI display, real dock reload and physical dragging remain pending the user's manual checks.** All new native runs use FreeCADCmd; this agent does not launch a GUI or send desktop input. [Hole/fastener arguments and limitations](HOLES_FASTENERS.md) and [extension reload instructions](EXTENSIONS.md) describe the supported workflows.
+
+## Historical validation — v0.8.0 — 2026-10-16
 
 **213 automated tests pass**, with zero failures, errors or skipped cases, on native FreeCAD 1.0.2, host Python 3.13 and MCP SDK 2.3.0. Ruff lint/format checks and pip dependency checks pass. The interface has **24 fixed MCP tools and 44 structured operation kinds**, including the stable extension envelope. The optional Responses adapter discovers 23 text-result tools without paid API execution. Installed API v1 extensions provide the dock/controller plus tube creation and mass-property capabilities.
 

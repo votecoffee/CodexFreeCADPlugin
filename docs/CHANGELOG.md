@@ -1,5 +1,13 @@
 # Changes
 
+## 0.9.0 (GUI acceptance pending) — 2026-10-16
+
+- Added installed `holes` and `fasteners` extensions through the existing stable capability interface. Fixed MCP schemas and native modeling core remain compatible with v0.8 feature reloads.
+- Added simple through/blind holes, counterbores, countersinks, full bolt-circle layouts and through-extent refresh. Every bore/recess must remove material, and invalid/no-hit/empty-result edits roll back the complete batch. Native cylinders/cones, expressions and booleans preserve editable dimensions without saved extension proxies.
+- Added explicitly dimensioned hex and socket-cap bolts, hex nuts and plain washers with position/axis/spin controls. Geometry is simplified and unthreaded; no standard size, fit, load or automatic mating claims are made.
+- Added native geometry, parameter, transaction, reopen and persistent-MCP reload coverage, including a chained cylindrical-cut regression. Cutter end planes extend clear of the native boolean edge tolerance. Native expression functions retain exact hex dimension formulas across serialization.
+- Added a headless 23-solid hardware demo, independent analytic volume formulas, 253 BREP pair checks with zero positive-volume overlaps and FCStd/STEP persistence checks. All 248 tests, lint/format, isolated wheel/portable checks and v0.8-core compatibility checks pass. GUI interaction remains user-run.
+
 ## 0.8.0 (GUI acceptance pending) — 2026-10-16
 
 - Added a stable capability catalog, runtime schemas, read-only query dispatch, an extension edit envelope and a reload command. Existing typed operations remain compatible; future extension features do not change MCP tool schemas.

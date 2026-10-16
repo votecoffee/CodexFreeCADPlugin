@@ -41,6 +41,8 @@ Also supply `catalog_revision` from the capability description when guarding aga
 
 For a query, call `run_query` with `document`, `capability="parts.mass_properties"`, and `arguments={"object":"Sleeve","density_kg_m3":7800}`. Results include native volume/area, volume-weighted center of mass of the solid instances, and mass for the specified density. Geometry is mm/mm²/mm³ and density is kg/m³. The dispatcher rejects edit capabilities at the query entry point and vice versa. A native document transaction guard rolls back changes made to the queried document by a misbehaving query handler; native Undo support is required. This guard is not a Python or operating-system sandbox.
 
+Version 0.9 also includes the `holes` and `fasteners` packages. They add six capabilities through this same interface without altering its MCP tools. [Hole and fastener reference](HOLES_FASTENERS.md) covers the native geometry, world entry frames, through-extent refresh, explicit fastener dimensions and unthreaded scope. Installing these complete folders into an existing v0.8 package location and reloading is sufficient for their feature code; the running core's package-version string may remain cached until its next startup. The capability catalog identifies the actual loaded extension versions/content hashes.
+
 ## Add an extension
 
 Built-ins live under `src/codex_freecad/extensions` in the development checkout and inside the installed Python package in a wheel. Additional roots are explicit startup configuration, never supplied as tool arguments or automatically discovered in CAD model folders:

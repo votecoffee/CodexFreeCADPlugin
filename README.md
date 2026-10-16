@@ -2,7 +2,7 @@
 
 A working local MCP integration for editing FreeCAD models from a Codex chat, with equal modeling support for an open FreeCAD window and a background FreeCADCmd session. Project directory: `C:\~LocalWork\Repos\Programming\~Github\CodexFeeCADPlugin`.
 
-Version **0.8.0** adds a stable MCP extension interface and command-driven feature reloads. New CAD capabilities and the native dock/drag implementation can be updated without restarting the running MCP connection or FreeCAD worker. Existing modeling, assemblies, saved couplings and interference tools remain available. Native validation uses **FreeCAD 1.0.2**, host **Python 3.13** and official MCP Python SDK **2.3.0**; the native runtime has no host MCP/Pydantic dependencies. No OpenAI key is needed. Actual GUI reload/drag verification remains the user's manual step.
+Version **0.9.0** adds reloadable hole and fastener tools: through/blind holes, counterbores, countersinks, bolt circles, hex/socket-cap bolts, nuts and washers. Dimensions remain editable through persistent native features and expressions. Fasteners have simplified unthreaded geometry and explicit dimensions. New capabilities use v0.8's stable extension interface, so they can load into an existing compatible backend with `reload_extensions`. Existing modeling, assemblies, saved couplings and interference tools remain available. Native validation uses **FreeCAD 1.0.2**, host **Python 3.13** and official MCP Python SDK **2.3.0**; the native runtime has no host MCP/Pydantic dependencies. No OpenAI key is needed. Actual GUI reload/drag verification remains the user's manual step.
 
 Upgrading from v0.7 requires one initial MCP reconnection to install the fixed discovery/reload tools, and running the regenerated `.local\StartBridge.FCMacro` once in FreeCAD. After that, say **“Reload the FreeCAD extensions”**, click the dock's **Reload extensions** button, or execute `.local\ReloadExtensions.FCMacro`. Routine extension updates keep the current chat connection and native documents open. [Extension workflow and authoring](docs/EXTENSIONS.md) · [Changes](docs/CHANGELOG.md).
 
@@ -70,6 +70,14 @@ The 24 MCP tools expose 44 structured operation kinds (including the stable exte
 Sketches support lines, circles, three-point arcs and rectangles in local XY, with placement/rotation for other planes. Pads and pockets require a sketch in the specified PartDesign body. Dimensional constraints use FreeCAD's `Sketcher.Constraint` positional argument conventions. Numeric lengths are **millimeters**, placements are absolute, and rotation angles are **degrees**. Raw sketch `Angle` constraint arguments and native arc parameters use **radians**; `set_datum` accepts explicit unit strings such as `30 deg`.
 
 Use internal object names returned by inspection, which can differ from visible labels. A parameter driven by an expression cannot be overwritten directly; edit its driving parameter or explicitly clear the expression first. Deleting an object with dependents is rejected. Every batch recomputes and checks resulting feature/shape validity. A `capture_view` call returns an MCP image and saves a PNG in the workspace.
+
+### Holes and fasteners
+
+Discover `holes.drill`, `holes.bolt_circle`, `holes.refresh`, `fasteners.bolt`, `fasteners.nut` and `fasteners.washer` with the capability tools, then invoke them through the existing `extension` operation. A separate `<name>Parameters` object drives native dimensions, with no extension-owned model proxies. Through extents can be refreshed after base edits; layout/recess entry points remain fixed in world coordinates. See [arguments, examples and editing behavior](docs/HOLES_FASTENERS.md).
+
+> Reload the FreeCAD extensions. Drill six 6.5 mm through-holes on a 28 mm radius bolt circle in my flange, with 11 mm counterbores 6 mm deep. Use the inspected top surface as the entry plane. Add dimensioned socket-cap bolts, then check for overlap and save a new copy.
+
+Run `.venv\Scripts\python.exe scripts\smoke_hardware.py --workspace work\my-hardware-demo` to build and verify a 23-solid flange/fastener and hole-coupon sample headlessly in a new folder. It saves editable FCStd and STEP files. No GUI or desktop input is used by that script. Fasteners are unthreaded and do not automatically mate to holes or claim standard sizes, tolerances or load ratings.
 
 Not yet implemented: sketch splines/ellipses, closed-loop joint driving, nested assemblies, assembly contact/dynamics, sheet metal, TechDraw and arbitrary Python execution. Existing FCStd features can be inspected, and supported scalar parameters can be edited even when this version cannot create that feature type. This is a growing modeling toolset, not complete FreeCAD workbench coverage.
 
