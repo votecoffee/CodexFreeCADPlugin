@@ -1,0 +1,249 @@
+{
+  "id": "holes",
+  "version": "1.0.0",
+  "api_version": 1,
+  "description": "Native simple, counterbored and countersunk holes with explicit layouts and bolt circles",
+  "ui": false,
+  "capabilities": {
+    "drill": {
+      "kind": "edit",
+      "description": "Cut up to 64 holes into a solid using world entry points and direction into material. Lengths mm. Through extent is measured at creation/refresh. Blind bottoms are flat. Output uses native editable dimensions and booleans.",
+      "handler": "drill",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "base",
+          "diameter",
+          "positions"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,39}$"
+          },
+          "base": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "diameter": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "direction": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "default": [
+              0,
+              0,
+              -1
+            ],
+            "description": "World direction into material; normalized before use."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "through",
+              "blind"
+            ],
+            "default": "through"
+          },
+          "depth": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000,
+            "description": "Required only for blind holes; flat-bottom depth from each entry point."
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "counterbore",
+              "countersink"
+            ],
+            "default": "simple"
+          },
+          "recess_diameter": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "recess_depth": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000,
+            "description": "Required only for counterbores."
+          },
+          "countersink_angle": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 179,
+            "description": "Included angle in degrees; countersinks only, default 90."
+          },
+          "positions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "number",
+                "minimum": -1000000,
+                "maximum": 1000000
+              }
+            }
+          }
+        }
+      }
+    },
+    "bolt_circle": {
+      "kind": "edit",
+      "description": "Cut a full bolt circle of holes. Center is the entry plane; local XY is rotated from +Z onto direction. start_angle is degrees from rotated +X. Layout is sampled at creation; diameters/depths remain editable.",
+      "handler": "bolt_circle",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "base",
+          "diameter",
+          "radius",
+          "count"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,39}$"
+          },
+          "base": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "diameter": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "direction": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "default": [
+              0,
+              0,
+              -1
+            ],
+            "description": "World direction into material; normalized before use."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "through",
+              "blind"
+            ],
+            "default": "through"
+          },
+          "depth": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000,
+            "description": "Required only for blind holes; flat-bottom depth from each entry point."
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "counterbore",
+              "countersink"
+            ],
+            "default": "simple"
+          },
+          "recess_diameter": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "recess_depth": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000,
+            "description": "Required only for counterbores."
+          },
+          "countersink_angle": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 179,
+            "description": "Included angle in degrees; countersinks only, default 90."
+          },
+          "center": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "default": [
+              0,
+              0,
+              0
+            ]
+          },
+          "radius": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 64
+          },
+          "start_angle": {
+            "type": "number",
+            "minimum": -360,
+            "maximum": 360,
+            "default": 0
+          }
+        }
+      }
+    },
+    "refresh": {
+      "kind": "edit",
+      "description": "Recompute a generated hole feature, measure its through extent against the current base and validate bores/recesses. Entry positions/direction remain fixed in world coordinates.",
+      "handler": "refresh",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "object"
+        ],
+        "properties": {
+          "object": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      }
+    }
+  }
+}
