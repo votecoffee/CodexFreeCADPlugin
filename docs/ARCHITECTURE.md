@@ -1,5 +1,7 @@
 # Architecture
 
+`assemblies.py` creates native Assembly containers and single component links. Joint and grounding proxies come from the installed FreeCAD `JointObject` module. Explicit detached local connector frames avoid transient topology indices. Position commands require directed trees rooted at grounded components, seed a coordinated forward pose, temporarily close selected coordinates with native fixed joints, run the solver and verify ground/connector residuals before restoring revolute/slider types. The transaction captures the complete pose; failures roll back. Native solver success is checked against geometry rather than trusted alone. Angular readback wraps at half a turn; limit checks account for the equivalent signed boundary. Inspection traverses references itself so native connectivity helpers cannot delete malformed joints during a read. Integration markers protect joint controls from generic scalar, placement and expression writes. The planetary driver coordinates gear ratios analytically; no general gear-contact or dynamics solver is claimed.
+
 ```mermaid
 flowchart LR
     Chat[Codex chat] --> MCP[MCP stdio server]

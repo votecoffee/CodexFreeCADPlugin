@@ -4,7 +4,8 @@
 
 - Added native Assembly containers, parametric component links, grounding and fixed/revolute/slider joints with explicit local connector frames.
 - Added coordinated absolute joint positioning for directed trees, travel limits, native solver/residual checks and assembly inspection. Joint positioning is transactional and undoable; standard FreeCAD workbench proxies survive save/reopen.
-- Protected managed assembly fields from generic property, placement and expression writes. Initial native tests cover linked geometry updates, coordinated motion, limit rejection, rollback, Undo and moving a reopened assembly.
+- Protected managed assembly fields from generic property, placement and expression writes. Added 21 native assembly tests, stdio MCP dispatch, live GUI checks and signed half-turn travel-limit handling.
+- Added a linked rotary-arm/slider example and a jointed planetary demonstration with 15 components, 14 joints, an analytical 4:1 driver, 60 rendered frames and portable native Play/Pause/Reset controls. Fixed Reset callback reentrancy and checked actual model coordinates in an isolated player session.
 
 ## Demo additions — 2026-10-16
 

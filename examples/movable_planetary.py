@@ -255,7 +255,7 @@ def smoke_player(workspace):
     engine = Engine(workspace, gui=True)
     panel.slider.setValue(180)
     assert math.isclose(
-        engine.inspect_assembly(doc.Name, "GearboxAssembly")["joints"][0]["position"],
+        abs(engine.inspect_assembly(doc.Name, "GearboxAssembly")["joints"][0]["position"]),
         180,
         abs_tol=1e-6,
     )

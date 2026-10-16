@@ -94,7 +94,7 @@ def main():
 
 The project is updated in `{root}`. It now has {tool_count} MCP tools and {operation_count} edit operations.
 
-New functionality includes native solid/surface sweeps, editable profile/path/framing/corner controls, topology-selected spine edges and cylindrical/conical helices with handedness. Earlier parameter/expression, loft/mirror, sketch, revolution, pattern, import, fillet/chamfer, mesh conversion, measurement and view tools remain available.
+New functionality includes native movable assemblies: linked components, grounding, fixed/revolute/slider joints, travel limits, coordinated absolute joint positioning and assembly inspection. Explicit positioning supports directed trees rooted at grounded components. The shared engine works in the live GUI and FreeCADCmd. Earlier sweep, helix, parameter, loft, sketch, pattern, import, finishing and measurement tools remain available.
 
 **{counts["passed"]} automated tests passed**, with {counts["skipped"]} skipped. All {len(report["checks"])} native GUI checks also passed on FreeCAD 1.0.2. The included sample uses parameter-driven circular sections to sweep a hollow 90-degree pipe elbow and a four-turn helical solid. The elbow has a 30 mm bend radius, 6 mm outer radius and 4 mm inner radius. The coil has a 15 mm centerline radius, 10 mm pitch, 40 mm axial height and 2 mm wire radius. It contains two separate valid solids with native total volume {report["shape"]["volume_mm3"]} mm³, compared with analytic {report["expected_volume_mm3"]} mm³ within a 1e-5 relative tolerance. Native helical geometry is approximated; exact numeric equality is not claimed.
 
@@ -107,6 +107,10 @@ The project virtual environment and generated macros have already been updated o
 If you have not registered the servers yet, run `scripts\\Register-Codex.ps1` from the project directory and start a new chat. To rebuild on another machine or regenerate configuration, run `scripts\\Setup.ps1`.
 
 Try: “Create a hollow quarter-circle elbow with a 30 mm bend radius, 6 mm outer radius and 4 mm inner radius. Sweep the two sections along the arc, cut out the bore, verify the volume and save FCStd and STEP.”
+
+Try: “Create an assembly with a grounded base, a revolute arm and a sliding tool. Set joint limits, move the arm to 60 degrees and the tool extension to 12 mm, inspect the resulting assembly and save FCStd.”
+
+`examples/movable_arm.py` is a backend-independent joint example. The planetary demonstration adds a native jointed 4:1 gearbox and optional Play/Pause/Reset controls. The model uses standard installed FreeCAD Assembly proxies; gear ratios are coordinated by its analytical controller. See README.md for component frames, angle wrapping, limits, save/reopen and positioning scope. Native joints remain movable after positioning; no integration feature proxy is embedded in FCStd.
 
 Try: “Open the included SweptParts FCStd sample. Inspect its design parameters and expressions. Change Design.CoilHeight to 50 mm and WireRadius to 2.5 mm. Verify the coil recomputes and save a separate copy.”
 
@@ -124,7 +128,7 @@ Pattern counts include the original and range from 2 to 200. Linear steps and ci
 
 Rectangles are fully dimensioned by default and report width/height/origin constraint indices. Use `inspect_sketch` and `set_datum` to edit them. Sketch coordinates are local XY; use Placement for the profile's plane. A solid revolution needs an appropriate closed profile and axis. There are no custom Python feature proxies in these native features.
 
-The optional API adapter exposes {tool_count - 1} text-result tools and has local tests. Paid API execution and plugin-browser installation remain untested. Assemblies, splines, sheet metal, TechDraw and broad FreeCAD workbench coverage remain future work.
+The optional API adapter exposes {tool_count - 1} text-result tools and has local tests. Paid API execution and plugin-browser installation remain untested. Closed-loop joint driving, nested assemblies, collision/contact/dynamics, splines, sheet metal, TechDraw and broad FreeCAD workbench coverage remain future work.
 
 Versioned source ZIP, wheel, FCStd/STEP sample, PNG preview, changelog, test XML and validation report accompany this guide. The manifest records hashes, the source commit and the native GUI check list. Earlier versioned deliverables remain intact.
 """

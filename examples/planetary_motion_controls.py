@@ -84,7 +84,8 @@ def show_controls(folder):
                 self.readout.setText(
                     f"Input {value}°    Carrier {value / 4:g}°    Planet spin {-value / 2:g}°"
                 )
-                Gui.updateGui()
+                # Let Qt return to its event loop before repainting. Processing
+                # events here can reenter Reset while a motion callback is busy.
             except Exception as exc:
                 self.play.setChecked(False)
                 self.status.setText(str(exc))
