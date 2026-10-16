@@ -329,6 +329,43 @@ class SetMirror(Operation):
     normal: tuple[float, float, float] = (1, 0, 0)
 
 
+class Sweep(Operation):
+    op: Literal["sweep"]
+    name: str
+    profiles: list[str] = Field(
+        min_length=1,
+        max_length=50,
+        description="Ordered top-level single-wire sections; place sections relative to the path before sweeping",
+    )
+    path: str = Field(
+        description="Top-level spine object containing a single wire, or an object with selected path_edges"
+    )
+    path_edges: list[str] = Field(
+        default_factory=list,
+        max_length=500,
+        description="Optional current EdgeN selections; empty uses the entire single-wire path",
+    )
+    solid: bool = True
+    frenet: bool = False
+    transition: Literal["transformed", "right_corner", "round_corner"] = "transformed"
+    label: str | None = None
+
+
+class SetSweep(Operation):
+    op: Literal["set_sweep"]
+    object: str
+    profiles: list[str] = Field(min_length=1, max_length=50)
+    path: str
+    path_edges: list[str] = Field(
+        default_factory=list,
+        max_length=500,
+        description="Replacement selection; empty uses the entire path",
+    )
+    solid: bool | None = None
+    frenet: bool | None = None
+    transition: Literal["transformed", "right_corner", "round_corner"] | None = None
+
+
 Edit = Annotated[
     Box
     | Cylinder
@@ -358,6 +395,8 @@ Edit = Annotated[
     | Loft
     | SetLoft
     | Mirror
-    | SetMirror,
+    | SetMirror
+    | Sweep
+    | SetSweep,
     Field(discriminator="op"),
 ]

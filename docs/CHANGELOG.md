@@ -1,5 +1,10 @@
 # Changes
 
+## Unreleased
+
+- Added native Part solid/surface sweeps with ordered sections, single-wire or topology-selected edge paths, Frenet framing and three native corner transition modes.
+- Added sweep profile/path/control updates, dependency-cycle guards, native save/reopen propagation, analytic geometry checks and MCP schema dispatch coverage.
+
 ## 0.4.0 — 2026-10-16
 
 - Added native solid/surface lofts through ordered single-wire profiles, including ruled surfaces, profile replacement and closed-wire validation.

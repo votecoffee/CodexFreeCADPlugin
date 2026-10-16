@@ -1,4 +1,6 @@
-"""Parametric Part lofts and mirrors with explicit profile/plane validation."""
+"""Parametric Part lofts, mirrors and sweeps with explicit geometry validation."""
+
+import re
 
 from .engine import CadError
 
@@ -76,4 +78,79 @@ def mirror(engine, doc, op):
     obj.MirrorPlane = None
     obj.Base, obj.Normal = engine.vector(op.get("point", [0, 0, 0])), normal
     engine.hide(source)
+    return obj
+
+
+def sweep(engine, doc, op):
+    import Part
+
+    names = op["profiles"]
+    if (
+        not isinstance(names, list)
+        or not 1 <= len(names) <= 50
+        or any(not isinstance(name, str) for name in names)
+        or len(set(names)) != len(names)
+    ):
+        raise CadError("Sweep requires 1 to 50 distinct profile names in section order")
+    updating = op["op"] == "set_sweep"
+    if updating:
+        obj = engine.obj(doc, op["object"])
+        if obj.TypeId != "Part::Sweep":
+            raise CadError("Target must be a native Part sweep")
+    else:
+        obj = engine.add(doc, "Part::Sweep", op["name"])
+    solid = op.get("solid", obj.Solid if updating else True)
+    frenet = op.get("frenet", obj.Frenet if updating else False)
+    transitions = {
+        "transformed": "Transformed",
+        "right_corner": "Right corner",
+        "round_corner": "Round corner",
+    }
+    transition = op.get("transition", str(obj.Transition) if updating else "transformed")
+    if transition not in transitions and not (updating and transition == str(obj.Transition)):
+        raise CadError("Sweep transition must be transformed, right_corner or round_corner")
+    if type(solid) is not bool or type(frenet) is not bool:
+        raise CadError("Sweep solid and frenet controls must be booleans")
+    profiles = []
+    for name in names:
+        profile = top_level(engine, doc, name)
+        check_dependency(profile, obj)
+        shape = profile.Shape
+        if shape.Solids or len(shape.Wires) != 1:
+            raise CadError("Each sweep profile must contain exactly one wire and no solid")
+        if solid and not shape.Wires[0].isClosed():
+            raise CadError("Solid sweeps require closed profile wires")
+        profiles.append(profile)
+    path = top_level(engine, doc, op["path"])
+    check_dependency(path, obj)
+    if path in profiles:
+        raise CadError("Sweep path and profiles must be different objects")
+    edges = op.get("path_edges", [])
+    if (
+        not isinstance(edges, list)
+        or len(edges) > 500
+        or any(not isinstance(edge, str) for edge in edges)
+    ):
+        raise CadError("path_edges must be a list of up to 500 EdgeN names")
+    if len(edges) != len(set(edges)) or any(
+        not re.fullmatch(r"Edge[1-9][0-9]*", edge) for edge in edges
+    ):
+        raise CadError("Sweep path edge names must be distinct EdgeN names from inspection")
+    if edges:
+        wire = Part.Wire([engine.subshape(path.Shape, edge) for edge in edges])
+        # Building a wire can silently discard disconnected edges in native wrappers.
+        if len(wire.Edges) != len(edges):
+            raise CadError("Selected path edges must form one connected wire")
+    else:
+        if path.Shape.Solids or len(path.Shape.Wires) != 1:
+            raise CadError(
+                "Sweep path must contain exactly one wire, or select its path_edges explicitly"
+            )
+        wire = path.Shape.Wires[0]
+    if not wire.isValid() or wire.Length <= 0:
+        raise CadError("Sweep path must be a valid connected wire with positive length")
+    obj.Sections, obj.Spine = profiles, (path, edges)
+    obj.Solid, obj.Frenet = solid, frenet
+    obj.Transition = transitions.get(transition, transition)
+    engine.hide(*profiles, path)
     return obj

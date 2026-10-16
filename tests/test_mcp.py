@@ -218,5 +218,44 @@ def test_stdio_mcp_discovery_validation_and_native_edit(tmp_path):
             )
             assert parametric["document"]["objects"][-1]["shape"]["solids"] == 1
             assert parametric["document"]["objects"][-1]["shape"]["valid"]
+            await client.call_tool("new_document", {"name": "Swept"})
+            swept = data(
+                await client.call_tool(
+                    "apply_operations",
+                    {
+                        "document": "Swept",
+                        "operations": [
+                            {
+                                "op": "create_sketch",
+                                "name": "Profile",
+                                "geometry": [{"type": "circle", "center": [0, 0], "radius": 2}],
+                            },
+                            {
+                                "op": "create_sketch",
+                                "name": "Path",
+                                "geometry": [{"type": "line", "start": [0, 0], "end": [0, 30]}],
+                            },
+                            {
+                                "op": "set_placement",
+                                "object": "Path",
+                                "position": [0, 0, 0],
+                                "axis": [1, 0, 0],
+                                "angle": 90,
+                            },
+                            {"op": "sweep", "name": "Rod", "profiles": ["Profile"], "path": "Path"},
+                            {
+                                "op": "set_sweep",
+                                "object": "Rod",
+                                "profiles": ["Profile"],
+                                "path": "Path",
+                                "solid": False,
+                                "transition": "right_corner",
+                            },
+                        ],
+                    },
+                )
+            )
+            assert swept["document"]["objects"][-1]["shape"]["valid"]
+            assert swept["document"]["objects"][-1]["shape"]["solids"] == 0
 
     asyncio.run(run())

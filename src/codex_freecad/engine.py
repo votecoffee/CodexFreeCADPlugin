@@ -470,6 +470,10 @@ class Engine:
             from .features import mirror
 
             obj = mirror(self, doc, op)
+        elif kind in {"sweep", "set_sweep"}:
+            from .features import sweep
+
+            obj = sweep(self, doc, op)
         elif kind == "create_parameters":
             from .parameters import create
 
@@ -731,6 +735,8 @@ class Engine:
                 "set_loft",
                 "mirror",
                 "set_mirror",
+                "sweep",
+                "set_sweep",
             }
             and obj.Shape.isNull()
         ):
@@ -740,11 +746,11 @@ class Engine:
                 "Revolution did not produce a positive-volume solid; check the closed profile and axis"
             )
         if (
-            kind in {"loft", "set_loft"}
+            kind in {"loft", "set_loft", "sweep", "set_sweep"}
             and obj.Solid
             and (len(obj.Shape.Solids) != 1 or obj.Shape.Volume <= 0)
         ):
-            raise CadError("Loft did not produce exactly one positive-volume solid")
+            raise CadError("Feature did not produce exactly one positive-volume solid")
         return {"name": obj.Name, "type": obj.TypeId, **details}
 
     def edge_parameters(self, shape, edges, size):
@@ -922,6 +928,11 @@ CONSTRAINT_TYPES = {
     "Angle",
 }
 OPERATION_KEYS = {
+    "sweep": (
+        {"name", "profiles", "path"},
+        {"path_edges", "solid", "frenet", "transition", "label"},
+    ),
+    "set_sweep": ({"object", "profiles", "path"}, {"path_edges", "solid", "frenet", "transition"}),
     "loft": ({"name", "profiles"}, {"solid", "ruled", "label"}),
     "set_loft": ({"object", "profiles"}, {"solid", "ruled"}),
     "mirror": ({"name", "source"}, {"point", "normal", "label"}),
