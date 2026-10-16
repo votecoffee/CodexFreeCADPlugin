@@ -24,6 +24,8 @@ from codex_freecad.setup import generate
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples"))
 from finish_plate import finish_existing_plate  # noqa: E402
+from parametric_transition import build as build_transition  # noqa: E402
+from parametric_transition import expected_volume as transition_volume
 from turned_flange import build as build_turned_flange  # noqa: E402
 
 
@@ -66,6 +68,30 @@ async def mcp_check(workspace):
             "inspect_sketch", {"document": "TurnedDemo", "object_name": "Profile"}
         )
         assert not sketch.is_error, sketch
+        edited = await client.call_tool(
+            "apply_operations",
+            {
+                "document": "ParametricDemo",
+                "operations": [
+                    {
+                        "op": "set_property",
+                        "object": "Design",
+                        "property": "Height",
+                        "value": "46 mm",
+                    },
+                ],
+            },
+        )
+        assert not edited.is_error, edited
+        pair = await client.call_tool(
+            "inspect_object", {"document": "ParametricDemo", "object_name": "TransitionPair"}
+        )
+        assert not pair.is_error, pair
+        assert math.isclose(
+            pair.structured_content["shape"]["volume_mm3"], transition_volume(height=46)
+        )
+        undone = await client.call_tool("undo_document", {"document": "ParametricDemo"})
+        assert not undone.is_error, undone
         result = await client.call_tool(
             "capture_view", {"document": "LivePlate", "width": 800, "height": 600}
         )
@@ -74,7 +100,7 @@ async def mcp_check(workspace):
         assert base64.b64decode(image.data).startswith(b"\x89PNG")
         await client.call_tool("set_view", {"document": "LivePlate", "orientation": "isometric"})
         return {
-            "check": "live MCP discovery, sketch/topology inspection, view control and image response",
+            "check": "live MCP discovery, sketch/topology inspection, parametric editing/undo, view control and image response",
             "tool_count": len(tools),
         }
 
@@ -409,15 +435,172 @@ def main():
             checks.append(
                 "live STEP export/reimport preserves all three patterned solids and their volume"
             )
+            transition = build_transition(client)
+            assert client.call("inspect_sketch", document="ParametricDemo", object_name="Lower")[
+                "fully_constrained"
+            ]
+            assert client.call("inspect_sketch", document="ParametricDemo", object_name="Upper")[
+                "fully_constrained"
+            ]
+            checks.append(
+                "live named parameters drive fully constrained profile radii, profile elevation, loft and mirror"
+            )
+            revision = client.call("inspect_document", document="ParametricDemo")["revision"]
+            client.call(
+                "apply_operations",
+                document="ParametricDemo",
+                expected_revision=revision,
+                operations=[
+                    {
+                        "op": "set_property",
+                        "object": "Design",
+                        "property": "Height",
+                        "value": "60 mm",
+                    },
+                ],
+            )
+            updated = client.call(
+                "inspect_object", document="ParametricDemo", object_name="TransitionPair"
+            )
+            assert math.isclose(updated["shape"]["volume_mm3"], transition_volume(height=60))
+            try:
+                client.call(
+                    "apply_operations",
+                    document="ParametricDemo",
+                    expected_revision=revision,
+                    operations=[
+                        {
+                            "op": "set_property",
+                            "object": "Design",
+                            "property": "Height",
+                            "value": "70 mm",
+                        },
+                    ],
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Stale parametric revision was accepted")
+            client.call("undo_document", document="ParametricDemo")
+            checks.append("live parameter propagation, stale-revision rejection and native undo")
+            try:
+                client.call(
+                    "apply_operations",
+                    document="ParametricDemo",
+                    operations=[
+                        {
+                            "op": "set_property",
+                            "object": "Design",
+                            "property": "Height",
+                            "value": "55 mm",
+                        },
+                        {
+                            "op": "set_expression",
+                            "object": "Upper",
+                            "property": "Placement.Base.z",
+                            "expression": "Design.Height + 1 deg",
+                        },
+                    ],
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Incompatible expression units were accepted")
+            shape = client.call(
+                "inspect_object", document="ParametricDemo", object_name="TransitionPair"
+            )["shape"]
+            assert math.isclose(shape["volume_mm3"], transition["expected_volume_mm3"])
+            checks.append(
+                "live incompatible expression units roll back earlier edits in the same batch"
+            )
+            client.call(
+                "apply_operations",
+                document="ParametricDemo",
+                operations=[
+                    {"op": "clear_expression", "object": "Upper", "property": "Placement.Base.z"},
+                    {"op": "set_placement", "object": "Upper", "position": [0, 0, 50]},
+                ],
+            )
+            assert math.isclose(
+                client.call(
+                    "inspect_object", document="ParametricDemo", object_name="TransitionPair"
+                )["shape"]["volume_mm3"],
+                transition_volume(height=50),
+            )
+            client.call("undo_document", document="ParametricDemo")
+            client.call(
+                "apply_operations",
+                document="ParametricDemo",
+                operations=[
+                    {
+                        "op": "set_loft",
+                        "object": "Transition",
+                        "profiles": ["Lower", "Upper"],
+                        "ruled": False,
+                    },
+                    {"op": "set_mirror", "object": "Reflected", "point": [45, 0, 0]},
+                ],
+            )
+            assert math.isclose(
+                client.call(
+                    "inspect_object", document="ParametricDemo", object_name="TransitionPair"
+                )["shape"]["bounds_mm"]["max"][0],
+                110,
+            )
+            client.call("undo_document", document="ParametricDemo")
+            checks.append(
+                "live expression removal, direct placement, loft/mirror updates and undo restore dependencies"
+            )
+            saved = client.call(
+                "save_document", document="ParametricDemo", path="MirroredTransitions.FCStd"
+            )
+            exported = client.call(
+                "export_model",
+                document="ParametricDemo",
+                objects=["TransitionPair"],
+                path="MirroredTransitions.step",
+            )
+            client.call(
+                "import_model",
+                document="ParametricDemo",
+                path="MirroredTransitions.step",
+                name="ImportedPair",
+            )
+            copy = client.call(
+                "inspect_object", document="ParametricDemo", object_name="ImportedPair"
+            )["shape"]
+            assert copy["solids"] == 2 and math.isclose(
+                copy["volume_mm3"], transition["expected_volume_mm3"]
+            )
+            client.call(
+                "apply_operations",
+                document="ParametricDemo",
+                operations=[
+                    {
+                        "op": "set_property",
+                        "object": "ImportedPair",
+                        "property": "Visibility",
+                        "value": False,
+                    },
+                ],
+            )
+            shape = client.call(
+                "inspect_object", document="ParametricDemo", object_name="TransitionPair"
+            )["shape"]
+            checks.append(
+                "live loft/mirror STEP export preserves both solids and their analytic volume"
+            )
             mcp_result = asyncio.run(mcp_check(workspace))
             checks.append(mcp_result["check"])
-            client.call("set_view", document="TurnedDemo", orientation="isometric")
-            captured = client.call("capture_view", document="TurnedDemo", width=1200, height=900)
+            client.call("set_view", document="ParametricDemo", orientation="isometric")
+            captured = client.call(
+                "capture_view", document="ParametricDemo", width=1200, height=900
+            )
             report = {
                 "plugin_version": client.call("status")["plugin_version"],
                 "tool_count": mcp_result["tool_count"],
                 "operation_count": len(client.call("status")["operations"]),
-                "sample_name": "PatternedFlanges",
+                "sample_name": "MirroredTransitions",
                 "checks": checks,
                 "shape": shape,
                 "saved": saved,

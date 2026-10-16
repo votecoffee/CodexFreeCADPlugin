@@ -346,3 +346,71 @@ def test_loft_and_mirror_dependencies_survive_native_save_reopen(cad, tmp_path):
         assert result["shape"]["valid"] and result["shape"]["volume_mm3"] == pytest.approx(
             frustum(7, 10, 20)
         )
+
+
+def test_expression_target_and_missing_binding_guards(cad):
+    parameters(cad)
+    for prop in ("Label", "Visibility", "Shape", "Placement.Rotation.Angle"):
+        with pytest.raises(CadError):
+            edit(cad, expression(prop=prop, text="2"))
+    with pytest.raises(CadError, match="No expression"):
+        edit(cad, {"op": "clear_expression", "object": "Block", "property": "Height"})
+
+
+def test_expression_driven_placement_requires_clearing(cad):
+    parameters(cad)
+    edit(cad, expression(prop="Placement.Base.z", text="Design.Thickness"))
+    with pytest.raises(CadError, match="Placement has an expression"):
+        edit(cad, {"op": "set_placement", "object": "Block", "position": [0, 0, 10]})
+    assert inspect(cad, "Block")["shape"]["bounds_mm"]["min"][2] == pytest.approx(4)
+
+
+def test_nested_loft_profiles_and_mirror_sources_are_rejected(cad):
+    profiles(cad)
+    edit(
+        cad,
+        {"op": "create_body", "name": "Body"},
+        {
+            "op": "create_sketch",
+            "name": "Nested",
+            "body": "Body",
+            "geometry": [{"type": "circle", "center": [0, 0], "radius": 2}],
+        },
+        {"op": "pad", "name": "Pad", "body": "Body", "sketch": "Nested", "length": 4},
+    )
+    for operation in [
+        {"op": "loft", "name": "Bad", "profiles": ["Lower", "Nested"]},
+        {"op": "mirror", "name": "Bad", "source": "Pad"},
+    ]:
+        with pytest.raises(CadError, match="top-level"):
+            edit(cad, operation)
+    edit(cad, {"op": "mirror", "name": "Reflected", "source": "Body"})
+    assert inspect(cad, "Reflected")["shape"]["volume_mm3"] == pytest.approx(16 * math.pi)
+
+
+def test_multiple_wire_loft_is_rejected(cad):
+    profiles(cad)
+    edit(
+        cad,
+        {
+            "op": "add_sketch_geometry",
+            "object": "Lower",
+            "geometry": [{"type": "circle", "center": [0, 0], "radius": 2}],
+        },
+    )
+    with pytest.raises(CadError, match="exactly one wire"):
+        edit(cad, {"op": "loft", "name": "Bad", "profiles": ["Lower", "Upper"]})
+
+
+def test_mirror_native_link_array_retains_all_instances(cad):
+    parameters(cad)
+    edit(
+        cad,
+        {"op": "linear_pattern", "name": "Row", "source": "Block", "count": 3, "step": [30, 0, 0]},
+        {"op": "mirror", "name": "Reflected", "source": "Row", "point": [40, 0, 0]},
+    )
+    shape = inspect(cad, "Reflected")["shape"]
+    assert shape["valid"] and shape["solids"] == 3
+    assert shape["volume_mm3"] == pytest.approx(600)
+    edit(cad, {"op": "set_property", "object": "Block", "property": "Height", "value": 2})
+    assert inspect(cad, "Reflected")["shape"]["volume_mm3"] == pytest.approx(1200)
