@@ -1,6 +1,6 @@
 # Changes
 
-## 0.7.0 (in progress) — 2026-10-16
+## 0.7.0 (GUI acceptance pending) — 2026-10-16
 
 - Added the native Codex CAD dock with source-parameter inspection/editing, coupling controls, joint playback, viewport drag mode, overlap-pair highlighting and sampled-pose navigation. Setup generates a local panel macro and optional workbench folder.
 - Added headless native checks of drag projection, forward/inverse coupled movement, half-turn crossing, cancellation, Undo and transaction isolation. Empty transaction cleanup handles clicks without movement and failures before the first change.
@@ -8,6 +8,7 @@
 - Added stored affine joint couplings with forward/inverse positioning, offsets, unwrapped coordinates, cycle/conflict guards and native save/reopen support.
 - Added BREP overlap/contact/clearance checks and discrete motion sampling on a hidden native model copy, preserving source pose and Undo history.
 - Revisions now hash mesh-free BREP content for all shapes, avoiding false changes caused by native document-copy caches.
+- Added a portable coupled gearbox builder using FreeCADCmd only, with four saved ratios, 18 sampled gear checks, a fresh-process inverse-drive/Undo check and a local panel launcher. Versioned packaging records headless validation separately from pending GUI/mouse acceptance.
 
 ## 0.6.0 — 2026-10-16
 

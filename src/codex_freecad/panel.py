@@ -642,9 +642,10 @@ def install_command(workspace):
     if toolbar is None:
         toolbar = QtWidgets.QToolBar("Codex CAD", Gui.getMainWindow())
         toolbar.setObjectName("CodexFreeCADToolbar")
-        action = toolbar.addAction("Codex CAD")
-        action.triggered.connect(lambda: show(toolbar.property("CadWorkspace")))
         Gui.getMainWindow().addToolBar(toolbar)
+    toolbar.clear()
+    action = toolbar.addAction("Codex CAD")
+    action.triggered.connect(lambda: show(toolbar.property("CadWorkspace")))
     toolbar.setProperty("CadWorkspace", root)
     return toolbar
 
