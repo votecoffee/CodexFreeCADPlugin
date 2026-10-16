@@ -26,6 +26,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples"))
 from finish_plate import finish_existing_plate  # noqa: E402
 from parametric_transition import build as build_transition  # noqa: E402
 from parametric_transition import expected_volume as transition_volume
+from swept_parts import build as build_swept_parts  # noqa: E402
+from swept_parts import expected_volumes as swept_volumes
 from turned_flange import build as build_turned_flange  # noqa: E402
 
 
@@ -91,6 +93,33 @@ async def mcp_check(workspace):
         assert math.isclose(pair_data["shape"]["volume_mm3"], transition_volume(height=46))
         undone = await client.call_tool("undo_document", {"document": "ParametricDemo"})
         assert not undone.is_error, undone
+        sweep_edit = await client.call_tool(
+            "apply_operations",
+            {
+                "document": "SweptDemo",
+                "operations": [
+                    {
+                        "op": "set_sweep",
+                        "object": "Coil",
+                        "profiles": ["CoilProfile"],
+                        "path": "CoilPath",
+                        "frenet": True,
+                        "transition": "right_corner",
+                    },
+                ],
+            },
+        )
+        assert not sweep_edit.is_error, sweep_edit
+        swept = await client.call_tool(
+            "inspect_object", {"document": "SweptDemo", "object_name": "SweptParts"}
+        )
+        assert not swept.is_error, swept
+        swept_data = swept.structured_content or json.loads(swept.content[0].text)
+        assert math.isclose(
+            swept_data["shape"]["volume_mm3"], sum(swept_volumes().values()), rel_tol=1e-5
+        )
+        restored = await client.call_tool("undo_document", {"document": "SweptDemo"})
+        assert not restored.is_error, restored
         result = await client.call_tool(
             "capture_view", {"document": "LivePlate", "width": 800, "height": 600}
         )
@@ -99,7 +128,7 @@ async def mcp_check(workspace):
         assert base64.b64decode(image.data).startswith(b"\x89PNG")
         await client.call_tool("set_view", {"document": "LivePlate", "orientation": "isometric"})
         return {
-            "check": "live MCP discovery, sketch/topology inspection, parametric editing/undo, view control and image response",
+            "check": "live MCP discovery, sketch/topology inspection, parameter/sweep editing/undo, view control and image response",
             "tool_count": len(tools),
         }
 
@@ -589,17 +618,142 @@ def main():
             checks.append(
                 "live loft/mirror STEP export preserves both solids and their analytic volume"
             )
+            swept = build_swept_parts(client)
+            for name in ("OuterProfile", "InnerProfile", "CoilProfile"):
+                assert client.call("inspect_sketch", document="SweptDemo", object_name=name)[
+                    "fully_constrained"
+                ]
+            checks.append(
+                "live hollow swept elbow and helical solid match analytic volumes within 1e-5 relative tolerance"
+            )
+            client.call(
+                "apply_operations",
+                document="SweptDemo",
+                operations=[
+                    {
+                        "op": "set_property",
+                        "object": "Design",
+                        "property": "CoilHeight",
+                        "value": "50 mm",
+                    },
+                    {
+                        "op": "set_property",
+                        "object": "Design",
+                        "property": "WireRadius",
+                        "value": "2.5 mm",
+                    },
+                ],
+            )
+            shape = client.call("inspect_object", document="SweptDemo", object_name="SweptParts")[
+                "shape"
+            ]
+            assert math.isclose(
+                shape["volume_mm3"], sum(swept_volumes(height=50, wire=2.5).values()), rel_tol=1e-5
+            )
+            client.call("undo_document", document="SweptDemo")
+            checks.append(
+                "live helix height and section radius expressions propagate through sweep/boolean dependencies with undo"
+            )
+            client.call(
+                "apply_operations",
+                document="SweptDemo",
+                operations=[
+                    {
+                        "op": "set_sweep",
+                        "object": "OuterSweep",
+                        "profiles": ["OuterProfile"],
+                        "path": "BendPath",
+                        "path_edges": ["Edge1"],
+                        "frenet": True,
+                        "transition": "round_corner",
+                    },
+                ],
+            )
+            shape = client.call("inspect_object", document="SweptDemo", object_name="SweptParts")[
+                "shape"
+            ]
+            assert shape["valid"] and shape["solids"] == 2
+            assert math.isclose(shape["volume_mm3"], swept["expected_volume_mm3"], rel_tol=1e-5)
+            client.call("undo_document", document="SweptDemo")
+            checks.append(
+                "live topology-selected sweep path and framing/corner updates preserve valid solids"
+            )
+            try:
+                client.call(
+                    "apply_operations",
+                    document="SweptDemo",
+                    operations=[
+                        {
+                            "op": "set_property",
+                            "object": "Design",
+                            "property": "WireRadius",
+                            "value": "3 mm",
+                        },
+                        {
+                            "op": "set_sweep",
+                            "object": "Coil",
+                            "profiles": ["CoilProfile"],
+                            "path": "CoilPath",
+                            "path_edges": ["Edge999"],
+                        },
+                    ],
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Out-of-range sweep path edge was accepted")
+            shape = client.call("inspect_object", document="SweptDemo", object_name="SweptParts")[
+                "shape"
+            ]
+            assert math.isclose(shape["volume_mm3"], swept["expected_volume_mm3"], rel_tol=1e-5)
+            checks.append("live invalid sweep path selection rolls back earlier parameter edits")
+            saved = client.call("save_document", document="SweptDemo", path="SweptParts.FCStd")
+            exported = client.call(
+                "export_model", document="SweptDemo", objects=["SweptParts"], path="SweptParts.step"
+            )
+            client.call(
+                "export_model", document="SweptDemo", objects=["SweptParts"], path="SweptParts.brep"
+            )
+            for extension in ("step", "brep"):
+                name = "SweptCopy" + extension
+                client.call(
+                    "import_model", document="SweptDemo", path="SweptParts." + extension, name=name
+                )
+                copied = client.call("inspect_object", document="SweptDemo", object_name=name)[
+                    "shape"
+                ]
+                assert copied["valid"] and copied["solids"] == 2
+                assert math.isclose(
+                    copied["volume_mm3"], swept["expected_volume_mm3"], rel_tol=1e-5
+                )
+                client.call(
+                    "apply_operations",
+                    document="SweptDemo",
+                    operations=[
+                        {
+                            "op": "set_property",
+                            "object": name,
+                            "property": "Visibility",
+                            "value": False,
+                        },
+                    ],
+                )
+            checks.append("live STEP/BREP roundtrips retain both swept solids and their volumes")
+            shape = client.call("inspect_object", document="SweptDemo", object_name="SweptParts")[
+                "shape"
+            ]
             mcp_result = asyncio.run(mcp_check(workspace))
             checks.append(mcp_result["check"])
-            client.call("set_view", document="ParametricDemo", orientation="isometric")
-            captured = client.call(
-                "capture_view", document="ParametricDemo", width=1200, height=900
-            )
+            client.call("set_view", document="SweptDemo", orientation="isometric")
+            captured = client.call("capture_view", document="SweptDemo", width=1200, height=900)
             report = {
                 "plugin_version": client.call("status")["plugin_version"],
                 "tool_count": mcp_result["tool_count"],
                 "operation_count": len(client.call("status")["operations"]),
-                "sample_name": "MirroredTransitions",
+                "sample_name": "SweptParts",
+                "expected_volumes_mm3": swept["expected_volumes_mm3"],
+                "expected_volume_mm3": swept["expected_volume_mm3"],
+                "relative_volume_tolerance": 1e-5,
                 "checks": checks,
                 "shape": shape,
                 "saved": saved,

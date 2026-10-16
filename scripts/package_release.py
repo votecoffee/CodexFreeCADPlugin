@@ -94,9 +94,9 @@ def main():
 
 The project is updated in `{root}`. It now has {tool_count} MCP tools and {operation_count} edit operations.
 
-New functionality includes named design parameters, native arithmetic expressions, solid/surface lofts, parametric mirrors and feature updates. Earlier sketch, revolution, pattern, import, fillet/chamfer, mesh conversion, measurement and view tools remain available.
+New functionality includes native solid/surface sweeps, editable profile/path/framing/corner controls, topology-selected spine edges and cylindrical/conical helices with handedness. Earlier parameter/expression, loft/mirror, sketch, revolution, pattern, import, fillet/chamfer, mesh conversion, measurement and view tools remain available.
 
-**{counts["passed"]} automated tests passed**, with {counts["skipped"]} skipped. All {len(report["checks"])} native GUI checks also passed on FreeCAD 1.0.2. The included sample uses named BaseRadius=20 mm, TopRadius=10 mm and Height=45 mm parameters to drive fully constrained circular profiles, lofts between them and mirrors the result across X=40 mm. It contains two separate solids with native measured total volume {report["shape"]["volume_mm3"]} mm³, matching the analytic calculation.
+**{counts["passed"]} automated tests passed**, with {counts["skipped"]} skipped. All {len(report["checks"])} native GUI checks also passed on FreeCAD 1.0.2. The included sample uses parameter-driven circular sections to sweep a hollow 90-degree pipe elbow and a four-turn helical solid. The elbow has a 30 mm bend radius, 6 mm outer radius and 4 mm inner radius. The coil has a 15 mm centerline radius, 10 mm pitch, 40 mm axial height and 2 mm wire radius. It contains two separate valid solids with native total volume {report["shape"]["volume_mm3"]} mm³, compared with analytic {report["expected_volume_mm3"]} mm³ within a 1e-5 relative tolerance. Native helical geometry is approximated; exact numeric equality is not claimed.
 
 The source corresponds to local Git commit `{git_commit}`. Origin points to the user's GitHub repository; no push was performed. Release packaging requires a clean working tree and records this commit in the artifact manifest.
 
@@ -106,13 +106,17 @@ The project virtual environment and generated macros have already been updated o
 
 If you have not registered the servers yet, run `scripts\\Register-Codex.ps1` from the project directory and start a new chat. To rebuild on another machine or regenerate configuration, run `scripts\\Setup.ps1`.
 
-Try: “Create a design parameter object with BaseRadius=20 mm, TopRadius=10 mm and Height=45 mm. Drive two circular profiles from those radii, loft between Z=0 and Height, mirror across X=40 mm, and save both solids in FCStd and STEP.”
+Try: “Create a hollow quarter-circle elbow with a 30 mm bend radius, 6 mm outer radius and 4 mm inner radius. Sweep the two sections along the arc, cut out the bore, verify the volume and save FCStd and STEP.”
 
-Try: “Open the included MirroredTransitions FCStd sample. Inspect its design parameters and expressions. Change Design.Height to 60 mm, verify both lofted solids update and save a separate copy.”
+Try: “Open the included SweptParts FCStd sample. Inspect its design parameters and expressions. Change Design.CoilHeight to 50 mm and WireRadius to 2.5 mm. Verify the coil recomputes and save a separate copy.”
+
+`sweep` takes 1–50 distinct top-level single-wire `profiles` and a top-level `path`. Position and rotate the sections before sweeping; the tool does not automatically choose their planes. An empty `path_edges` uses the entire single-wire path; a nonempty list selects current EdgeN names and must form one connected wire. Reinspect topology and use revision guards after upstream edits. Solid mode requires closed sections and one valid positive-volume result; surface mode accepts open sections. Frenet framing defaults to false. Transition choices are transformed, right_corner and round_corner. `set_sweep` replaces sections, path and edge selection while preserving omitted framing/solid/transition controls.
+
+`create_helix` creates a native Part::Helix along local +Z with positive pitch, height and starting radius, optional taper angle strictly between -90 and 90 degrees and optional left_handed=true. Conical top radius must stay positive, and native creation is limited to 10,000 turns. Its pitch/height/radius/angle are native dimensional properties, editable through `set_property` or expressions. The example positions the coil section perpendicular to the initial helix tangent and uses Frenet framing. A wire sweep does not model spring end finishing or engineering spring performance.
 
 Named parameter types are length, angle, number and integer. Use `set_property` to edit their values and `set_expression` to drive numeric properties, placement translations or driving dimensional constraints. Formulas support arithmetic, parentheses, fixed length/angle units, pi and numeric references inside the same document. Functions, external documents, strings and Python execution are excluded. `clear_expression` keeps the last evaluated value; clear a binding before direct datum/placement assignment.
 
-Lofts use 2–50 distinct top-level single-wire profiles in section order. Solid mode requires closed wires and exactly one resulting positive-volume solid; surface and ruled modes are also supported. Use `set_loft` for profiles/options. Mirrors use a top-level source and document-space plane point/normal; the result contains only the reflected geometry. Use `set_mirror` for the plane. The example uses a disconnected native boolean union to retain both solids in one final feature without joining material across the gap.
+Lofts use 2–50 distinct top-level single-wire profiles in section order. Solid mode requires closed wires and exactly one resulting positive-volume solid; surface and ruled modes are also supported. Use `set_loft` for profiles/options. Mirrors use a top-level source and document-space plane point/normal; the result contains only the reflected geometry. Use `set_mirror` for the plane. The included sweep example uses a disconnected native boolean union to retain both solids in one final feature without joining material across the gap.
 
 The default CAD workspace is the project's `models` folder. Source inputs remain unchanged; imports return source hashes. The import operation can also be included in an atomic edit batch. Use internal object names and inspect topology again after changes; EdgeN/FaceN labels are specific to the inspected shape.
 
@@ -133,6 +137,12 @@ Versioned source ZIP, wheel, FCStd/STEP sample, PNG preview, changelog, test XML
         "tests": counts,
         "tool_count": tool_count,
         "operation_count": operation_count,
+        "sample": {
+            "name": sample_name,
+            "shape": report["shape"],
+            "expected_volume_mm3": report["expected_volume_mm3"],
+            "relative_volume_tolerance": report["relative_volume_tolerance"],
+        },
         "source_files": len(entries),
         "native_gui_checks": report["checks"],
         "freecad_version": report["freecad_version"],

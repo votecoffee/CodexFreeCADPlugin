@@ -454,3 +454,39 @@ def test_helix_expression_and_sweep_persist_after_native_reopen(cad, tmp_path):
         assert shape["volume_mm3"] == pytest.approx(
             4 * math.pi * math.hypot(2 * math.pi * radius * 6, 60), rel=1e-5
         )
+
+
+@pytest.mark.parametrize("transition", ["right_corner", "round_corner"])
+def test_sharp_corner_transition_modes_produce_valid_solids(cad, transition):
+    edit(
+        cad,
+        {
+            "op": "create_sketch",
+            "name": "Profile",
+            "geometry": [{"type": "circle", "center": [0, 0], "radius": 2}],
+        },
+        {
+            "op": "set_placement",
+            "object": "Profile",
+            "position": [0, 0, 0],
+            "axis": [1, 0, 0],
+            "angle": 90,
+        },
+        {
+            "op": "create_sketch",
+            "name": "Path",
+            "geometry": [
+                {"type": "line", "start": [0, 0], "end": [0, 20]},
+                {"type": "line", "start": [0, 20], "end": [20, 20]},
+            ],
+        },
+        {
+            "op": "sweep",
+            "name": "BentRod",
+            "profiles": ["Profile"],
+            "path": "Path",
+            "transition": transition,
+        },
+    )
+    shape = inspect(cad, "BentRod")["shape"]
+    assert shape["valid"] and shape["solids"] == 1 and shape["volume_mm3"] > 0
