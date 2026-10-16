@@ -172,3 +172,141 @@ def test_name_collision_and_empty_result_preserve_existing_geometry(cad):
         assert cad.call("inspect_document", document="Hardware")["revision"] == before
     cad.call("undo_document", document="Hardware")
     assert cad.call("inspect_document", document="Hardware")["objects"] == []
+
+
+FASTENERS = [
+    (
+        "bolt",
+        {"diameter": 6, "length": 20, "head_height": 4, "across_flats": 10},
+        math.pi * 9 * 20 + math.sqrt(3) / 2 * 100 * 4,
+        "Length",
+        25,
+        math.pi * 9 * 5,
+    ),
+    (
+        "bolt",
+        {
+            "head_style": "socket_cap",
+            "diameter": 6,
+            "length": 20,
+            "head_height": 6,
+            "head_diameter": 10,
+            "socket_across_flats": 5,
+            "socket_depth": 3,
+        },
+        math.pi * (9 * 20 + 25 * 6) - math.sqrt(3) / 2 * 25 * 3,
+        "SocketDepth",
+        4,
+        -math.sqrt(3) / 2 * 25,
+    ),
+    (
+        "nut",
+        {"across_flats": 10, "bore_diameter": 6, "thickness": 5},
+        (math.sqrt(3) / 2 * 100 - math.pi * 9) * 5,
+        "Thickness",
+        6,
+        math.sqrt(3) / 2 * 100 - math.pi * 9,
+    ),
+    (
+        "washer",
+        {"outer_diameter": 12, "bore_diameter": 6.5, "thickness": 1.5},
+        math.pi * (36 - 3.25**2) * 1.5,
+        "Thickness",
+        2.5,
+        math.pi * (36 - 3.25**2),
+    ),
+]
+
+
+@pytest.mark.parametrize("capability,arguments,expected,prop,value,delta", FASTENERS)
+def test_fasteners_volume_placement_parameters_save_reopen_and_undo(
+    cad, tmp_path, capability, arguments, expected, prop, value, delta
+):
+    result = edit(
+        cad,
+        extension(
+            "fasteners." + capability,
+            name="Fastener",
+            position=[50, 20, 30],
+            axis=[1, 0, 0],
+            rotation=30,
+            **arguments,
+        ),
+    )
+    assert not result["results"][0]["result"]["threaded"]
+    original = shape(cad, "Fastener")
+    assert original["valid"] and original["solids"] == 1
+    assert original["volume_mm3"] == pytest.approx(expected, rel=1e-9)
+    bounds = original["bounds_mm"]
+    assert bounds["min"][0] == pytest.approx(50 - arguments.get("length", 0), abs=1e-6)
+    assert bounds["max"][0] == pytest.approx(
+        50 + arguments.get("head_height", arguments.get("thickness")), abs=1e-6
+    )
+    cad.call("save_document", document="Hardware", path="Hardware.FCStd")
+    with HeadlessClient(tmp_path, find_freecad_cmd()) as other:
+        other.call("open_document", path="Hardware.FCStd")
+        assert shape(other, "Fastener")["volume_mm3"] == pytest.approx(expected)
+        edit(
+            other,
+            {
+                "op": "set_property",
+                "object": "FastenerParameters",
+                "property": prop,
+                "value": value,
+            },
+        )
+        assert shape(other, "Fastener")["volume_mm3"] == pytest.approx(expected + delta, rel=1e-9)
+        other.call("undo_document", document="Hardware")
+        assert shape(other, "Fastener")["volume_mm3"] == pytest.approx(expected)
+    cad.call("undo_document", document="Hardware")
+    assert cad.call("inspect_document", document="Hardware")["objects"] == []
+
+
+@pytest.mark.parametrize(
+    "capability,arguments",
+    [
+        ("bolt", {"diameter": 6, "length": 20, "head_height": 4, "across_flats": 5}),
+        ("bolt", {"diameter": 6, "length": 20, "head_height": 4}),
+        (
+            "bolt",
+            {
+                "head_style": "socket_cap",
+                "diameter": 6,
+                "length": 20,
+                "head_height": 4,
+                "head_diameter": 10,
+            },
+        ),
+        (
+            "bolt",
+            {
+                "head_style": "socket_cap",
+                "diameter": 6,
+                "length": 20,
+                "head_height": 4,
+                "head_diameter": 10,
+                "socket_across_flats": 9,
+                "socket_depth": 2,
+            },
+        ),
+        (
+            "bolt",
+            {
+                "head_style": "socket_cap",
+                "diameter": 6,
+                "length": 20,
+                "head_height": 4,
+                "head_diameter": 10,
+                "socket_across_flats": 5,
+                "socket_depth": 4,
+            },
+        ),
+        ("nut", {"across_flats": 6, "bore_diameter": 7, "thickness": 5}),
+        ("washer", {"outer_diameter": 6, "bore_diameter": 7, "thickness": 1}),
+        ("washer", {"outer_diameter": 12, "bore_diameter": 6, "thickness": 1, "axis": [0, 0, 0]}),
+    ],
+)
+def test_invalid_fastener_relationships_roll_back_mixed_batch(cad, capability, arguments):
+    with pytest.raises(CadError):
+        edit(cad, plate(), extension("fasteners." + capability, name="Fastener", **arguments))
+    assert cad.call("inspect_document", document="Hardware")["objects"] == []

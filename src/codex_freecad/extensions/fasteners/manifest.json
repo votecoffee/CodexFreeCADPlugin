@@ -1,0 +1,259 @@
+{
+  "id": "fasteners",
+  "version": "1.0.0",
+  "api_version": 1,
+  "description": "Explicitly dimensioned unthreaded bolts, hex nuts and plain washers",
+  "ui": false,
+  "capabilities": {
+    "bolt": {
+      "kind": "edit",
+      "handler": "bolt",
+      "description": "Create one simplified unthreaded hex or socket cap bolt. Length is under-head shaft length; position is the head seating plane. Hex: across_flats required. Socket cap: head_diameter, socket_across_flats and socket_depth required. Lengths mm. Explicit dimensions, no standard/fit certification. Native primitives and expressions remain editable without this extension.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "diameter",
+          "length",
+          "head_height"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,39}$"
+          },
+          "position": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "default": [
+              0,
+              0,
+              0
+            ]
+          },
+          "axis": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "default": [
+              0,
+              0,
+              1
+            ],
+            "description": "Local +Z direction. Bolts have the head above the seating plane and shaft along local -Z; nuts/washers extend along +Z."
+          },
+          "rotation": {
+            "type": "number",
+            "minimum": -360,
+            "maximum": 360,
+            "default": 0,
+            "description": "Spin about local +Z, degrees."
+          },
+          "diameter": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "length": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "head_height": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "across_flats": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "head_diameter": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "socket_across_flats": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "socket_depth": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "head_style": {
+            "type": "string",
+            "enum": [
+              "hex",
+              "socket_cap"
+            ],
+            "default": "hex"
+          }
+        }
+      }
+    },
+    "nut": {
+      "kind": "edit",
+      "handler": "nut",
+      "description": "Create one simplified hex nut with a cylindrical unthreaded bore. Position is its bottom plane. Lengths mm. Explicit dimensions, no standard/fit certification. Native primitives and expressions remain editable without this extension.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "across_flats",
+          "bore_diameter",
+          "thickness"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,39}$"
+          },
+          "position": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "default": [
+              0,
+              0,
+              0
+            ]
+          },
+          "axis": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "default": [
+              0,
+              0,
+              1
+            ],
+            "description": "Local +Z direction. Bolts have the head above the seating plane and shaft along local -Z; nuts/washers extend along +Z."
+          },
+          "rotation": {
+            "type": "number",
+            "minimum": -360,
+            "maximum": 360,
+            "default": 0,
+            "description": "Spin about local +Z, degrees."
+          },
+          "across_flats": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "bore_diameter": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "thickness": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          }
+        }
+      }
+    },
+    "washer": {
+      "kind": "edit",
+      "handler": "washer",
+      "description": "Create one plain annular washer. Position is its bottom plane. Lengths mm. Explicit dimensions, no standard/fit certification. Native primitives and expressions remain editable without this extension.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "outer_diameter",
+          "bore_diameter",
+          "thickness"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,39}$"
+          },
+          "position": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "default": [
+              0,
+              0,
+              0
+            ]
+          },
+          "axis": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "minimum": -1000000,
+              "maximum": 1000000
+            },
+            "default": [
+              0,
+              0,
+              1
+            ],
+            "description": "Local +Z direction. Bolts have the head above the seating plane and shaft along local -Z; nuts/washers extend along +Z."
+          },
+          "rotation": {
+            "type": "number",
+            "minimum": -360,
+            "maximum": 360,
+            "default": 0,
+            "description": "Spin about local +Z, degrees."
+          },
+          "outer_diameter": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "bore_diameter": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "thickness": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          }
+        }
+      }
+    }
+  }
+}
