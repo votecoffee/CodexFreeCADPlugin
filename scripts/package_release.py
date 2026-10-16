@@ -24,6 +24,10 @@ def main():
     parser.add_argument("--tests", type=Path, required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
+    git_state = subprocess.check_output(["git", "status", "--porcelain"], cwd=root).decode().strip()
+    if git_state:
+        raise RuntimeError("Commit the current source before packaging a release")
+    git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root).decode().strip()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     report = json.loads(args.live_report.read_text(encoding="utf-8"))
@@ -90,9 +94,11 @@ def main():
 
 The project is updated in `{root}`. It now has {tool_count} MCP tools and {operation_count} edit operations.
 
-New functionality includes three-point sketch arcs, dimensioned rectangles, adding geometry to existing sketches, detailed sketch inspection, native revolutions, and editable linear/circular patterns backed by native link arrays. Earlier imports, fillets/chamfers, mesh conversion, measurement and view tools remain available.
+New functionality includes named design parameters, native arithmetic expressions, solid/surface lofts, parametric mirrors and feature updates. Earlier sketch, revolution, pattern, import, fillet/chamfer, mesh conversion, measurement and view tools remain available.
 
-**{counts["passed"]} automated tests passed**, with {counts["skipped"]} skipped. Native GUI checks also passed on FreeCAD 1.0.2. The included example revolves a constrained rectangle into a flange, cuts six circular-pattern holes, and repeats the finished part in a three-instance row. Native measured volume is {report["shape"]["volume_mm3"]} mm³.
+**{counts["passed"]} automated tests passed**, with {counts["skipped"]} skipped. All {len(report["checks"])} native GUI checks also passed on FreeCAD 1.0.2. The included sample uses named BaseRadius=20 mm, TopRadius=10 mm and Height=45 mm parameters to drive fully constrained circular profiles, lofts between them and mirrors the result across X=40 mm. It contains two separate solids with native measured total volume {report["shape"]["volume_mm3"]} mm³, matching the analytic calculation.
+
+The source corresponds to local Git commit `{git_commit}`. Origin points to the user's GitHub repository; no push was performed. Release packaging requires a clean working tree and records this commit in the artifact manifest.
 
 ## Load the update
 
@@ -100,9 +106,13 @@ The project virtual environment and generated macros have already been updated o
 
 If you have not registered the servers yet, run `scripts\\Register-Codex.ps1` from the project directory and start a new chat. To rebuild on another machine or regenerate configuration, run `scripts\\Setup.ps1`.
 
-Try: “Create a revolved flange with a 60 mm outer diameter, 20 mm bore and 8 mm thickness. Add six 4 mm holes on a 44 mm bolt circle, repeat the finished flange three times at a 75 mm X step, and save FCStd and STEP.”
+Try: “Create a design parameter object with BaseRadius=20 mm, TopRadius=10 mm and Height=45 mm. Drive two circular profiles from those radii, loft between Z=0 and Height, mirror across X=40 mm, and save both solids in FCStd and STEP.”
 
-Try: “Inspect my sketch's named rectangle dimensions, change its width to 21 mm, and verify the downstream revolution and pattern volumes.”
+Try: “Open the included MirroredTransitions FCStd sample. Inspect its design parameters and expressions. Change Design.Height to 60 mm, verify both lofted solids update and save a separate copy.”
+
+Named parameter types are length, angle, number and integer. Use `set_property` to edit their values and `set_expression` to drive numeric properties, placement translations or driving dimensional constraints. Formulas support arithmetic, parentheses, fixed length/angle units, pi and numeric references inside the same document. Functions, external documents, strings and Python execution are excluded. `clear_expression` keeps the last evaluated value; clear a binding before direct datum/placement assignment.
+
+Lofts use 2–50 distinct top-level single-wire profiles in section order. Solid mode requires closed wires and exactly one resulting positive-volume solid; surface and ruled modes are also supported. Use `set_loft` for profiles/options. Mirrors use a top-level source and document-space plane point/normal; the result contains only the reflected geometry. Use `set_mirror` for the plane. The example uses a disconnected native boolean union to retain both solids in one final feature without joining material across the gap.
 
 The default CAD workspace is the project's `models` folder. Source inputs remain unchanged; imports return source hashes. The import operation can also be included in an atomic edit batch. Use internal object names and inspect topology again after changes; EdgeN/FaceN labels are specific to the inspected shape.
 
@@ -110,15 +120,16 @@ Pattern counts include the original and range from 2 to 200. Linear steps and ci
 
 Rectangles are fully dimensioned by default and report width/height/origin constraint indices. Use `inspect_sketch` and `set_datum` to edit them. Sketch coordinates are local XY; use Placement for the profile's plane. A solid revolution needs an appropriate closed profile and axis. There are no custom Python feature proxies in these native features.
 
-The optional API adapter exposes {tool_count - 1} text-result tools and has local tests. Paid API execution and plugin-browser installation remain untested. Assemblies, splines, expression editing and broad FreeCAD workbench coverage remain future work.
+The optional API adapter exposes {tool_count - 1} text-result tools and has local tests. Paid API execution and plugin-browser installation remain untested. Assemblies, splines, sheet metal, TechDraw and broad FreeCAD workbench coverage remain future work.
 
-Versioned source ZIP, wheel, FCStd/STEP sample, PNG preview, changelog, test XML and validation report accompany this guide. The manifest records hashes and the native GUI check list. Earlier v0.1/v0.2 deliverables remain intact.
+Versioned source ZIP, wheel, FCStd/STEP sample, PNG preview, changelog, test XML and validation report accompany this guide. The manifest records hashes, the source commit and the native GUI check list. Earlier versioned deliverables remain intact.
 """
     guide_path = output / f"Start-Here-v{version}.md"
     guide_path.write_text(guide, encoding="utf-8")
     artifact_names = [*copies, source_zip.name, guide_path.name]
     manifest = {
         "version": version,
+        "git_commit": git_commit,
         "tests": counts,
         "tool_count": tool_count,
         "operation_count": operation_count,

@@ -87,9 +87,8 @@ async def mcp_check(workspace):
             "inspect_object", {"document": "ParametricDemo", "object_name": "TransitionPair"}
         )
         assert not pair.is_error, pair
-        assert math.isclose(
-            pair.structured_content["shape"]["volume_mm3"], transition_volume(height=46)
-        )
+        pair_data = pair.structured_content or json.loads(pair.content[0].text)
+        assert math.isclose(pair_data["shape"]["volume_mm3"], transition_volume(height=46))
         undone = await client.call_tool("undo_document", {"document": "ParametricDemo"})
         assert not undone.is_error, undone
         result = await client.call_tool(
