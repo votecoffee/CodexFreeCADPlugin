@@ -86,14 +86,14 @@ def main():
     source_zip = output / f"CodexFreeCADPlugin-v{version}-source.zip"
     with zipfile.ZipFile(source_zip, "w", zipfile.ZIP_DEFLATED) as bundle:
         for item in entries:
-            bundle.write(root / item["path"], "CodexFeeCADPlugin/" + item["path"])
+            bundle.write(root / item["path"], "CodexFreeCADPlugin/" + item["path"])
         bundle.writestr(
-            "CodexFeeCADPlugin/SOURCE_MANIFEST.json", json.dumps({"files": entries}, indent=2)
+            "CodexFreeCADPlugin/SOURCE_MANIFEST.json", json.dumps({"files": entries}, indent=2)
         )
     with zipfile.ZipFile(source_zip) as source, zipfile.ZipFile(wheel) as installed:
         for item in entries:
             if (
-                hashlib.sha256(source.read("CodexFeeCADPlugin/" + item["path"])).hexdigest()
+                hashlib.sha256(source.read("CodexFreeCADPlugin/" + item["path"])).hexdigest()
                 != item["sha256"]
             ):
                 raise RuntimeError("Source archive verification failed")
@@ -112,7 +112,7 @@ def main():
             raise RuntimeError("Wheel is missing or has unexpected package modules/manifests")
         for name in actual_package:
             if name.startswith("codex_freecad/"):
-                if installed.read(name) != source.read("CodexFeeCADPlugin/src/" + name):
+                if installed.read(name) != source.read("CodexFreeCADPlugin/src/" + name):
                     raise RuntimeError("Wheel/source mismatch: " + name)
 
     validation_scope = (

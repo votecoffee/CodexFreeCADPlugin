@@ -1,6 +1,6 @@
 # FreeCAD Modeling for Codex
 
-A working local MCP integration for editing FreeCAD models from a Codex chat, with equal modeling support for an open FreeCAD window and a background FreeCADCmd session. Project directory: `C:\~LocalWork\Repos\Programming\~Github\CodexFeeCADPlugin`.
+A working local MCP integration for editing FreeCAD models from a Codex chat, with equal modeling support for an open FreeCAD window and a background FreeCADCmd session. Project directory: `C:\~LocalWork\Repos\Programming\~Github\CodexFreeCADPlugin`.
 
 Version **0.9.0** adds reloadable hole and fastener tools: through/blind holes, counterbores, countersinks, bolt circles, hex/socket-cap bolts, nuts and washers. Dimensions remain editable through persistent native features and expressions. Fasteners have simplified unthreaded geometry and explicit dimensions. New capabilities use v0.8's stable extension interface, so they can load into an existing compatible backend with `reload_extensions`. Existing modeling, assemblies, saved couplings and interference tools remain available. Native validation uses **FreeCAD 1.0.2**, host **Python 3.13** and official MCP Python SDK **2.3.0**; the native runtime has no host MCP/Pydantic dependencies. No OpenAI key is needed. Actual GUI reload/drag verification remains the user's manual step.
 
@@ -34,7 +34,7 @@ Try these prompts:
 Setup also generates `.local\plugin\.codex-plugin\plugin.json` and `.local\plugin\.mcp.json`. The repository marketplace at `.agents\plugins\marketplace.json` points at this generated package. The supported compatibility manifest bundles both MCP servers. To register the marketplace explicitly and install the package:
 
 ```powershell
-codex plugin marketplace add 'C:\~LocalWork\Repos\Programming\~Github\CodexFeeCADPlugin'
+codex plugin marketplace add 'C:\~LocalWork\Repos\Programming\~Github\CodexFreeCADPlugin'
 codex plugin add freecad-modeling@freecad-development
 ```
 

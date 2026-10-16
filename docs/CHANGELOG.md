@@ -1,5 +1,9 @@
 # Changes
 
+## Repository rename — 2026-10-16
+
+- Corrected the local repository and source-archive directory name to `CodexFreeCADPlugin`, updated setup/test instructions, and changed local origin to the renamed GitHub URL. Regenerated local configuration and rebuilt environment launchers at the new path with all 37 dependency versions preserved. The 33 configuration/registry tests and fresh headless hardware demo checks pass. Remote access verification returned HTTP 404 with the available credentials; no push was performed.
+
 ## 0.9.0 (GUI acceptance pending) — 2026-10-16
 
 - Added installed `holes` and `fasteners` extensions through the existing stable capability interface. Fixed MCP schemas and native modeling core remain compatible with v0.8 feature reloads.
