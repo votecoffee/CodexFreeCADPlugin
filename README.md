@@ -2,9 +2,9 @@
 
 A working local MCP integration for editing FreeCAD models from a Codex chat, with equal modeling support for an open FreeCAD window and a background FreeCADCmd session. Project directory: `C:\~LocalWork\Repos\Programming\~Github\CodexFeeCADPlugin`.
 
-Version **0.4.0** adds named design parameters, native arithmetic expressions, solid/surface lofts and parametric mirrors. Earlier sketch, revolution, pattern, import and finishing tools remain available. Native validation used **FreeCAD 1.0.2** and host **Python 3.13** on Windows. The project uses the official MCP Python SDK **2.3.0**, independently of FreeCAD's bundled Python 3.11. No OpenAI key is needed for the Codex MCP integration.
+Version **0.5.0** adds native solid/surface sweeps, editable sweep controls and cylindrical/conical helices. Earlier parameter/expression, loft/mirror, sketch, revolution, pattern, import and finishing tools remain available. Native validation used **FreeCAD 1.0.2** and host **Python 3.13** on Windows. The project uses the official MCP Python SDK **2.3.0**, independently of FreeCAD's bundled Python 3.11. No OpenAI key is needed for the Codex MCP integration.
 
-Already using an earlier version? Restart the FreeCAD MCP servers in Codex (or restart Codex), then rerun the regenerated `.local\StartBridge.FCMacro` in FreeCAD. The macro stops the old bridge, reloads the integration modules and reconnects while preserving open native documents. The project environment and generated macros have already been updated on this computer. [Changes in 0.4.0](docs/CHANGELOG.md).
+Already using an earlier version? Restart the FreeCAD MCP servers in Codex (or restart Codex), then rerun the regenerated `.local\StartBridge.FCMacro` in FreeCAD. The macro stops the old bridge, reloads the integration modules and reconnects while preserving open native documents. The project environment and generated macros have already been updated on this computer. [Changes in 0.5.0](docs/CHANGELOG.md).
 
 ## Start using it
 
@@ -60,13 +60,27 @@ This is a machine-local development package. Its commands point to this project'
 | `get_selection`, `capture_view` | Live selected objects/faces/edges and native viewport PNGs |
 | `set_view` | Seven standard live viewport orientations and optional fit-to-view |
 
-The 17 MCP tools expose 31 edit operations: `create_box`, `create_cylinder`, `create_sphere`, `create_body`, `create_sketch`, `add_sketch_geometry`, `add_constraint`, `set_datum`, `pad`, `pocket`, `revolve`, `linear_pattern`, `circular_pattern`, `set_linear_pattern`, `set_circular_pattern`, `boolean`, `set_property`, `set_placement`, `delete_object`, `import_model`, `mesh_to_solid`, `fillet`, `chamfer`, `set_edge_treatment`, `create_parameters`, `set_expression`, `clear_expression`, `loft`, `set_loft`, `mirror` and `set_mirror`.
+The 17 MCP tools expose 34 edit operations: `create_box`, `create_cylinder`, `create_sphere`, `create_body`, `create_sketch`, `add_sketch_geometry`, `add_constraint`, `set_datum`, `pad`, `pocket`, `revolve`, `linear_pattern`, `circular_pattern`, `set_linear_pattern`, `set_circular_pattern`, `boolean`, `set_property`, `set_placement`, `delete_object`, `import_model`, `mesh_to_solid`, `fillet`, `chamfer`, `set_edge_treatment`, `create_parameters`, `set_expression`, `clear_expression`, `loft`, `set_loft`, `mirror`, `set_mirror`, `sweep`, `set_sweep` and `create_helix`.
 
 Sketches support lines, circles, three-point arcs and rectangles in local XY, with placement/rotation for other planes. Pads and pockets require a sketch in the specified PartDesign body. Dimensional constraints use FreeCAD's `Sketcher.Constraint` positional argument conventions. Numeric lengths are **millimeters**, placements are absolute, and rotation angles are **degrees**. Raw sketch `Angle` constraint arguments and native arc parameters use **radians**; `set_datum` accepts explicit unit strings such as `30 deg`.
 
 Use internal object names returned by inspection, which can differ from visible labels. A parameter driven by an expression cannot be overwritten directly; edit its driving parameter or explicitly clear the expression first. Deleting an object with dependents is rejected. Every batch recomputes and checks resulting feature/shape validity. A `capture_view` call returns an MCP image and saves a PNG in the workspace.
 
 Not yet implemented: sketch splines/ellipses, assemblies, sheet metal, TechDraw and arbitrary Python execution. Existing FCStd features can be inspected, and supported scalar parameters can be edited even when this version cannot create that feature type. This is a growing modeling toolset, not complete FreeCAD workbench coverage.
+
+### Sweeps, pipe paths and helices
+
+`sweep` creates a native `Part::Sweep` from 1–50 distinct `profiles` in section order and a `path`. Profiles must be top-level objects containing exactly one wire and no solid. Position/rotate them relative to the path first; the operation does not choose or align their planes. `solid=true` (default) requires closed profiles and exactly one positive-volume resulting solid; `solid=false` supports surfaces from open or closed sections.
+
+The top-level path must contain exactly one wire, or supply `path_edges` with up to 500 distinct current EdgeN names. Selected edges must form one connected valid wire; explicit selection also permits a path from a top-level solid's edges. Empty `path_edges` uses the complete single-wire path. Native profile/path links remain parametric. Reinspect topology after upstream edits and pass `expected_revision` to guard selections.
+
+`frenet=false` is the default framing; `frenet=true` uses the native Frenet option, useful for helices. `transition` is `transformed` (default), `right_corner` or `round_corner`. Native kernel failures and invalid results roll back the entire batch. `set_sweep` requires the replacement `profiles` and `path`, replaces `path_edges` (default empty), and preserves omitted solid/framing/transition controls. This supports profile/path replacement as well as option changes. Multi-wire sections and nested body/part inputs are outside the supported sweep scope.
+
+`create_helix` creates a native `Part::Helix` along local +Z with positive `pitch`, axial `height` and starting `radius` in mm. `angle=0` is cylindrical; nonzero angles strictly between -90 and 90 degrees taper the radius. Creation rejects nonpositive conical top radii and more than the native limit of 10,000 turns. Right-handed is default; use `left_handed=true` to reverse it. Native `Pitch`, `Height`, `Radius` and `Angle` can subsequently be edited or driven by expressions. Placement positions the entire path. The native computed `Length` is available in property inspection.
+
+For a cylindrical helix beginning at `(R,0,0)`, a circular section centered there can be made normal to its initial tangent by rotating its XY sketch about X by `-atan2(2*pi*R,pitch)` for a right-handed helix, or the positive angle for a left-handed helix. Convert that rotation to degrees for `set_placement`. The example demonstrates this and a hollow elbow made by subtracting two swept solids. Native helical curves/surfaces are approximated; the example checks analytic wire volume within 1e-5 relative tolerance. The generated coil is geometric, without spring-end finishing or spring-performance calculations.
+
+> Create a hollow quarter-circle elbow with a 30 mm centerline bend radius, 6 mm outer radius and 4 mm inner radius. Sweep both circular sections along the path, subtract the bore, verify the analytic volume and save FCStd and STEP.
 
 ### Parameters, expressions, lofts and mirrors
 
@@ -137,6 +151,8 @@ This creates `models\PlateDemo.FCStd` and `models\PlateDemo.step`. It refuses to
 `python examples\turned_flange.py --workspace models --name TurnedDemo` creates a constrained profile, revolved flange, six patterned bolt holes and a three-instance row, with native volume checks and FCStd/STEP output. It also supports `--mode live`.
 
 `python examples\parametric_transition.py --workspace models --name ParametricDemo` creates two fully constrained circular profiles driven by named parameters, a native loft and its mirror. It verifies the two-solid analytic volume, saves FCStd/STEP and supports `--mode live`. Its disconnected boolean union keeps both solids in one final feature without joining material across the gap.
+
+`python examples\swept_parts.py --workspace models --name SweptDemo` creates a hollow pipe elbow and a four-turn helical solid, driven by named section radii and coil height. It checks the two-solid analytic volume within 1e-5 relative tolerance and saves FCStd/STEP. Add `--mode live` for the open FreeCAD backend.
 
 `codex_freecad.client.HeadlessClient` and `LiveClient` are also application APIs for your own code. See `examples\direct_client.py` and `examples\mounting_plate.json`.
 

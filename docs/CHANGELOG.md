@@ -1,10 +1,11 @@
 # Changes
 
-## Unreleased
+## 0.5.0 — 2026-10-16
 
 - Added native cylindrical/conical helices with handedness, taper validation and editable/expression-driven pitch, height and radius. Helical solid sweeps are checked against analytic wire volume and native save/reopen behavior.
 - Added native Part solid/surface sweeps with ordered sections, single-wire or topology-selected edge paths, Frenet framing and three native corner transition modes.
 - Added sweep profile/path/control updates, dependency-cycle guards, native save/reopen propagation, analytic geometry checks and MCP schema dispatch coverage.
+- Added an example combining an expression-driven hollow elbow and helical solid, with FCStd/STEP output from either backend and an explicit 1e-5 relative volume tolerance.
 
 ## 0.4.0 — 2026-10-16
 
