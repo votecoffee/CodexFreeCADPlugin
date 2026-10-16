@@ -52,6 +52,9 @@ def frame(engine, data):
     data = {} if data is None else data
     if not isinstance(data, dict) or set(data) - {"position", "axis", "angle"}:
         raise CadError("Joint frames accept position, axis and angle only")
+    for key in ("position", "axis"):
+        if key in data and (not isinstance(data[key], (list, tuple)) or len(data[key]) != 3):
+            raise CadError("Joint frame position and axis require three coordinates")
     position = engine.vector(data.get("position", [0, 0, 0]))
     axis = engine.vector(data.get("axis", [0, 0, 1]))
     if axis.Length == 0:
@@ -120,12 +123,17 @@ def limits(joint):
     }
 
 
-def check_limit(joint, value):
+def check_limit(joint, value, *, wrapped=False):
     bounds = limits(joint)
-    if (bounds["minimum"] is not None and value < bounds["minimum"] - TOLERANCE) or (
-        bounds["maximum"] is not None and value > bounds["maximum"] + TOLERANCE
-    ):
-        raise CadError("Joint position is outside its travel limits: " + joint.Name)
+    candidates = [value]
+    if wrapped and joint.JointType == "Revolute":
+        candidates += [value - 360, value + 360]
+    for candidate in candidates:
+        if (bounds["minimum"] is None or candidate >= bounds["minimum"] - TOLERANCE) and (
+            bounds["maximum"] is None or candidate <= bounds["maximum"] + TOLERANCE
+        ):
+            return
+    raise CadError("Joint position is outside its travel limits: " + joint.Name)
 
 
 def validate(engine, doc, asm, connected=True):
@@ -173,7 +181,7 @@ def check_residuals(engine, doc, asm):
                 + f" (position error {position_error:g} mm, rotation error {rotation_error:g})"
             )
         if joint.JointType != "Fixed":
-            check_limit(joint, value)
+            check_limit(joint, value, wrapped=True)
 
 
 def solve(engine, doc, asm):

@@ -24,11 +24,33 @@ from codex_freecad.setup import generate
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples"))
 from finish_plate import finish_existing_plate  # noqa: E402
+from movable_arm import build as build_movable_arm  # noqa: E402
+from movable_arm import positions as arm_positions
 from parametric_transition import build as build_transition  # noqa: E402
 from parametric_transition import expected_volume as transition_volume
 from swept_parts import build as build_swept_parts  # noqa: E402
 from swept_parts import expected_volumes as swept_volumes
 from turned_flange import build as build_turned_flange  # noqa: E402
+
+
+def assert_same_assembly_pose(actual, expected):
+    for first, second in zip(actual["components"], expected["components"], strict=True):
+        assert {k: v for k, v in first.items() if k != "placement"} == {
+            k: v for k, v in second.items() if k != "placement"
+        }
+        a, b = first["placement"], second["placement"]
+        assert all(
+            math.isclose(x, y, abs_tol=1e-8)
+            for x, y in zip(a["position_mm"], b["position_mm"], strict=True)
+        )
+        qa, qb = a["quaternion"], b["quaternion"]
+        assert (
+            min(
+                sum((x - y) ** 2 for x, y in zip(qa, qb, strict=True)),
+                sum((x + y) ** 2 for x, y in zip(qa, qb, strict=True)),
+            )
+            < 1e-16
+        )
 
 
 def check_http(state, *, token=None, origin=None, body=None, expected=401):
@@ -120,6 +142,23 @@ async def mcp_check(workspace):
         )
         restored = await client.call_tool("undo_document", {"document": "SweptDemo"})
         assert not restored.is_error, restored
+        joint_edit = await client.call_tool(
+            "apply_operations",
+            {
+                "document": "MovableArm",
+                "operations": [arm_positions(60, 12)],
+            },
+        )
+        assert not joint_edit.is_error, joint_edit
+        assembly = await client.call_tool(
+            "inspect_assembly", {"document": "MovableArm", "assembly": "ArmAssembly"}
+        )
+        assert not assembly.is_error, assembly
+        joint_data = assembly.structured_content or json.loads(assembly.content[0].text)
+        assert all(x["connected_to_ground"] for x in joint_data["components"])
+        assert math.isclose(joint_data["joints"][0]["position"], 60)
+        assert math.isclose(joint_data["joints"][1]["position"], 12)
+        assert not (await client.call_tool("undo_document", {"document": "MovableArm"})).is_error
         result = await client.call_tool(
             "capture_view", {"document": "LivePlate", "width": 800, "height": 600}
         )
@@ -128,7 +167,7 @@ async def mcp_check(workspace):
         assert base64.b64decode(image.data).startswith(b"\x89PNG")
         await client.call_tool("set_view", {"document": "LivePlate", "orientation": "isometric"})
         return {
-            "check": "live MCP discovery, sketch/topology inspection, parameter/sweep editing/undo, view control and image response",
+            "check": "live MCP discovery, sketch/topology/assembly inspection, parameter/sweep/joint editing and undo, view control and image response",
             "tool_count": len(tools),
         }
 
@@ -742,6 +781,77 @@ def main():
             shape = client.call("inspect_object", document="SweptDemo", object_name="SweptParts")[
                 "shape"
             ]
+            arm = build_movable_arm(client)
+            original_arm = client.call(
+                "inspect_assembly", document="MovableArm", assembly="ArmAssembly"
+            )
+            client.call(
+                "apply_operations", document="MovableArm", operations=[arm_positions(60, 12)]
+            )
+            moved_arm = client.call(
+                "inspect_assembly", document="MovableArm", assembly="ArmAssembly"
+            )
+            assert math.isclose(moved_arm["joints"][0]["position"], 60)
+            assert math.isclose(moved_arm["joints"][1]["position"], 12)
+            point = moved_arm["components"][2]["placement"]["position_mm"]
+            assert all(
+                math.isclose(a, b, abs_tol=1e-6)
+                for a, b in zip(point, [38, 10 + 23 * math.sqrt(3), 10], strict=True)
+            )
+            checks.append(
+                "live native assembly links, grounding, oblique slider and coordinated revolute motion"
+            )
+            client.call("undo_document", document="MovableArm")
+            assert_same_assembly_pose(
+                client.call("inspect_assembly", document="MovableArm", assembly="ArmAssembly"),
+                original_arm,
+            )
+            try:
+                client.call(
+                    "apply_operations", document="MovableArm", operations=[arm_positions(150, 12)]
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Joint travel limit was ignored")
+            assert_same_assembly_pose(
+                client.call("inspect_assembly", document="MovableArm", assembly="ArmAssembly"),
+                original_arm,
+            )
+            checks.append(
+                "live joint limits reject unreachable poses and Undo restores the full assembly"
+            )
+            client.call("save_document", document="MovableArm", path="MovableArm.FCStd")
+            client.call(
+                "export_model",
+                document="MovableArm",
+                objects=arm["objects"],
+                path="MovableArm.step",
+            )
+            client.call(
+                "import_model",
+                document="MovableArm",
+                path="MovableArm.step",
+                name="AssemblySnapshot",
+            )
+            arm_copy = client.call(
+                "inspect_object", document="MovableArm", object_name="AssemblySnapshot"
+            )["shape"]
+            assert arm_copy["valid"] and arm_copy["solids"] == 3
+            assert math.isclose(arm_copy["volume_mm3"], arm["expected_volume_mm3"])
+            client.call(
+                "apply_operations",
+                document="MovableArm",
+                operations=[
+                    {
+                        "op": "set_property",
+                        "object": "AssemblySnapshot",
+                        "property": "Visibility",
+                        "value": False,
+                    }
+                ],
+            )
+            checks.append("live assembly FCStd save and three-solid STEP roundtrip")
             mcp_result = asyncio.run(mcp_check(workspace))
             checks.append(mcp_result["check"])
             client.call("set_view", document="SweptDemo", orientation="isometric")

@@ -265,5 +265,78 @@ def test_stdio_mcp_discovery_validation_and_native_edit(tmp_path):
             assert swept["document"]["objects"][-1]["shape"]["valid"]
             assert swept["document"]["objects"][-1]["shape"]["solids"] == 0
             assert swept["document"]["objects"][-1]["type"] == "Part::Helix"
+            await client.call_tool("new_document", {"name": "Jointed"})
+            data(
+                await client.call_tool(
+                    "apply_operations",
+                    {
+                        "document": "Jointed",
+                        "operations": [
+                            {
+                                "op": "create_box",
+                                "name": "Base",
+                                "length": 20,
+                                "width": 10,
+                                "height": 3,
+                            },
+                            {
+                                "op": "create_box",
+                                "name": "Arm",
+                                "length": 30,
+                                "width": 4,
+                                "height": 3,
+                            },
+                            {"op": "create_assembly", "name": "Assembly"},
+                            {
+                                "op": "add_component",
+                                "assembly": "Assembly",
+                                "name": "BaseLink",
+                                "source": "Base",
+                            },
+                            {
+                                "op": "add_component",
+                                "assembly": "Assembly",
+                                "name": "ArmLink",
+                                "source": "Arm",
+                            },
+                            {
+                                "op": "ground_component",
+                                "assembly": "Assembly",
+                                "name": "Ground",
+                                "component": "BaseLink",
+                            },
+                            {
+                                "op": "create_joint",
+                                "assembly": "Assembly",
+                                "name": "Hinge",
+                                "kind": "revolute",
+                                "component_a": "BaseLink",
+                                "component_b": "ArmLink",
+                                "frame_a": {"position": [10, 0, 3]},
+                            },
+                            {"op": "solve_assembly", "assembly": "Assembly"},
+                            {
+                                "op": "set_joint_limits",
+                                "assembly": "Assembly",
+                                "joint": "Hinge",
+                                "minimum": -120,
+                                "maximum": 120,
+                            },
+                            {
+                                "op": "set_joint_positions",
+                                "assembly": "Assembly",
+                                "positions": [{"joint": "Hinge", "position": 90}],
+                            },
+                        ],
+                    },
+                )
+            )
+            jointed = data(
+                await client.call_tool(
+                    "inspect_assembly", {"document": "Jointed", "assembly": "Assembly"}
+                )
+            )
+            assert jointed["joints"][0]["position"] == pytest.approx(90)
+            assert all(x["connected_to_ground"] for x in jointed["components"])
 
     asyncio.run(run())

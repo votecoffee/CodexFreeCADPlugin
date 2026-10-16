@@ -1,6 +1,6 @@
 # Changes
 
-## Assembly support (in progress) — 2026-10-16
+## 0.6.0 — 2026-10-16
 
 - Added native Assembly containers, parametric component links, grounding and fixed/revolute/slider joints with explicit local connector frames.
 - Added coordinated absolute joint positioning for directed trees, travel limits, native solver/residual checks and assembly inspection. Joint positioning is transactional and undoable; standard FreeCAD workbench proxies survive save/reopen.

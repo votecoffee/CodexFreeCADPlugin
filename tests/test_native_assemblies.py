@@ -137,6 +137,34 @@ def test_joint_limit_rejection_and_batch_rollback(cad):
     assert inspect(cad)["components"] == before["components"]
 
 
+def test_half_turn_limit_boundary_has_equivalent_signed_angles(cad):
+    linkage(cad)
+    edit(
+        cad,
+        {
+            "op": "set_joint_limits",
+            "assembly": "Assembly",
+            "joint": "Hinge",
+            "minimum": 0,
+            "maximum": 180,
+        },
+    )
+    pose(cad, 180, 0)
+    assert abs(inspect(cad)["joints"][0]["position"]) == pytest.approx(180)
+    edit(
+        cad,
+        {
+            "op": "set_joint_limits",
+            "assembly": "Assembly",
+            "joint": "Hinge",
+            "minimum": -180,
+            "maximum": 0,
+        },
+    )
+    pose(cad, -180, 0)
+    assert abs(inspect(cad)["joints"][0]["position"]) == pytest.approx(180)
+
+
 def test_assembly_save_reopen_and_move_without_host_proxies(cad, tmp_path):
     linkage(cad)
     pose(cad, -30, -8)
@@ -160,3 +188,154 @@ def test_assembly_save_reopen_and_move_without_host_proxies(cad, tmp_path):
         assert actual["joints"][0]["position"] == pytest.approx(60)
         point = actual["components"][2]["placement"]["position_mm"]
         assert point == pytest.approx([25, 15 * math.sqrt(3), -5])
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        {"op": "set_placement", "object": "ArmLink", "position": [1, 2, 3]},
+        {"op": "set_property", "object": "Hinge", "property": "Detach1", "value": False},
+        {"op": "set_property", "object": "ArmLink", "property": "LinkTransform", "value": True},
+        {
+            "op": "set_expression",
+            "object": "ArmLink",
+            "property": "Placement.Base.x",
+            "expression": "2 mm",
+        },
+        {"op": "create_assembly", "name": "SecondAssembly"},
+        {
+            "op": "ground_component",
+            "assembly": "Assembly",
+            "name": "DuplicateGround",
+            "component": "BaseLink",
+        },
+        {
+            "op": "create_joint",
+            "assembly": "Assembly",
+            "name": "BadJoint",
+            "kind": "revolute",
+            "component_a": "ArmLink",
+            "component_b": "ArmLink",
+        },
+        {
+            "op": "create_joint",
+            "assembly": "Assembly",
+            "name": "BadJoint",
+            "kind": "revolute",
+            "component_a": "Arm",
+            "component_b": "TipLink",
+        },
+        {
+            "op": "create_joint",
+            "assembly": "Assembly",
+            "name": "BadJoint",
+            "kind": "slider",
+            "component_a": "ArmLink",
+            "component_b": "TipLink",
+            "frame_a": {"axis": [0, 0, 0]},
+        },
+        {
+            "op": "set_joint_limits",
+            "assembly": "Assembly",
+            "joint": "Hinge",
+            "minimum": 40,
+            "maximum": 10,
+        },
+        {"op": "set_joint_limits", "assembly": "Assembly", "joint": "Hinge", "minimum": -360},
+        {
+            "op": "set_joint_positions",
+            "assembly": "Assembly",
+            "positions": [{"joint": "Hinge", "position": 20}, {"joint": "Hinge", "position": 30}],
+        },
+        {
+            "op": "set_joint_positions",
+            "assembly": "Assembly",
+            "positions": [{"joint": "Ground", "position": 20}],
+        },
+        {
+            "op": "set_joint_positions",
+            "assembly": "Assembly",
+            "positions": [{"joint": "Hinge", "position": float("inf")}],
+        },
+    ],
+)
+def test_invalid_assembly_edit_preserves_pose_and_objects(cad, operation):
+    linkage(cad)
+    pose(cad, 35, 7)
+    before = inspect(cad)
+    names = [x["name"] for x in cad.call("inspect_document", document="Model")["objects"]]
+    with pytest.raises(CadError):
+        edit(cad, operation)
+    after = inspect(cad)
+    assert after["components"] == before["components"]
+    assert after["joints"] == before["joints"]
+    assert [x["name"] for x in cad.call("inspect_document", document="Model")["objects"]] == names
+
+
+def test_fixed_child_oblique_axis_reversed_drives_and_turn_wrapping(cad):
+    linkage(cad)
+    edit(
+        cad,
+        {"op": "create_cylinder", "name": "Tool", "radius": 2, "height": 8},
+        {"op": "add_component", "assembly": "Assembly", "name": "ToolLink", "source": "Tool"},
+        {
+            "op": "create_joint",
+            "assembly": "Assembly",
+            "name": "ToolMount",
+            "kind": "fixed",
+            "component_a": "TipLink",
+            "component_b": "ToolLink",
+            "frame_a": {"position": [2, 3, 4], "axis": [0, 1, 0], "angle": 90},
+            "frame_b": {"position": [0, 0, 2]},
+        },
+        {"op": "solve_assembly", "assembly": "Assembly"},
+    )
+    edit(
+        cad,
+        {
+            "op": "set_joint_positions",
+            "assembly": "Assembly",
+            "positions": [{"joint": "Slide", "position": 9}, {"joint": "Hinge", "position": 810}],
+        },
+    )
+    result = inspect(cad)
+    assert [j["position"] for j in result["joints"][:2]] == pytest.approx([90, 9])
+    tool = result["components"][-1]["placement"]
+    assert tool["position_mm"] == pytest.approx([7, 30, 16])
+    shape = cad.call("inspect_object", document="Model", object_name="ToolLink")["shape"]
+    assert shape["valid"] and shape["volume_mm3"] == pytest.approx(32 * math.pi)
+
+
+def test_limits_can_be_cleared_and_revision_guard_rejects_stale_pose(cad):
+    linkage(cad)
+    edit(
+        cad,
+        {
+            "op": "set_joint_limits",
+            "assembly": "Assembly",
+            "joint": "Hinge",
+            "minimum": -10,
+            "maximum": 10,
+        },
+    )
+    old = inspect(cad)["revision"]
+    edit(cad, {"op": "set_joint_limits", "assembly": "Assembly", "joint": "Hinge"})
+    assert inspect(cad)["joints"][0]["limits"] == {"minimum": None, "maximum": None}
+    with pytest.raises(CadError, match="changed since inspection"):
+        edit(
+            cad,
+            {
+                "op": "set_joint_positions",
+                "assembly": "Assembly",
+                "positions": [{"joint": "Hinge", "position": 20}],
+            },
+            expected_revision=old,
+        )
+    pose(cad, 150, 10)
+
+
+def test_disconnected_assembly_cannot_be_solved(cad):
+    linkage(cad)
+    edit(cad, {"op": "add_component", "assembly": "Assembly", "name": "LooseLink", "source": "Arm"})
+    with pytest.raises(CadError, match="not connected to ground"):
+        edit(cad, {"op": "solve_assembly", "assembly": "Assembly"})

@@ -2,9 +2,9 @@
 
 A working local MCP integration for editing FreeCAD models from a Codex chat, with equal modeling support for an open FreeCAD window and a background FreeCADCmd session. Project directory: `C:\~LocalWork\Repos\Programming\~Github\CodexFeeCADPlugin`.
 
-Version **0.5.0** adds native solid/surface sweeps, editable sweep controls and cylindrical/conical helices. Earlier parameter/expression, loft/mirror, sketch, revolution, pattern, import and finishing tools remain available. Native validation used **FreeCAD 1.0.2** and host **Python 3.13** on Windows. The project uses the official MCP Python SDK **2.3.0**, independently of FreeCAD's bundled Python 3.11. No OpenAI key is needed for the Codex MCP integration.
+Version **0.6.0** adds movable native assemblies: linked components, grounding, fixed/revolute/slider joints, travel limits and coordinated joint positioning. Live and headless backends use the same native engine. Earlier sweeps, helices, parameters, lofts, sketches, patterns, import and finishing tools remain available. Native validation uses **FreeCAD 1.0.2** and host **Python 3.13** on Windows. The project uses the official MCP Python SDK **2.3.0**, independently of FreeCAD's bundled Python 3.11. No OpenAI key is needed for the Codex MCP integration.
 
-Already using an earlier version? Restart the FreeCAD MCP servers in Codex (or restart Codex), then rerun the regenerated `.local\StartBridge.FCMacro` in FreeCAD. The macro stops the old bridge, reloads the integration modules and reconnects while preserving open native documents. The project environment and generated macros have already been updated on this computer. [Changes in 0.5.0](docs/CHANGELOG.md).
+Already using an earlier version? Restart the FreeCAD MCP servers in Codex (or restart Codex), then rerun the regenerated `.local\StartBridge.FCMacro` in FreeCAD. The macro stops the old bridge, reloads the integration modules and reconnects while preserving open native documents. The project environment and generated macros have already been updated on this computer. [Changes in 0.6.0](docs/CHANGELOG.md).
 
 ## Start using it
 
@@ -50,6 +50,7 @@ This is a machine-local development package. Its commands point to this project'
 | `new_document`, `open_document` | Unsaved new models or existing trusted FCStd files |
 | `inspect_document`, `inspect_object` | Feature tree, parameters, dependencies, revision, bounds, area and volume |
 | `inspect_sketch` | Local geometry, named dimensions, zero-based indices, datum units and constraint state |
+| `inspect_assembly` | Linked components, grounding, connector frames, joint positions and travel limits |
 | `inspect_topology` | Paginated EdgeN/FaceN/VertexN measurements, positions, curve/surface types and radii |
 | `measure_distance` | Minimum distance between objects or selected subelements, with nearest points |
 | `import_model` | Source-preserving STEP/STP, BREP and STL import into an existing document |
@@ -60,13 +61,37 @@ This is a machine-local development package. Its commands point to this project'
 | `get_selection`, `capture_view` | Live selected objects/faces/edges and native viewport PNGs |
 | `set_view` | Seven standard live viewport orientations and optional fit-to-view |
 
-The 17 MCP tools expose 34 edit operations: `create_box`, `create_cylinder`, `create_sphere`, `create_body`, `create_sketch`, `add_sketch_geometry`, `add_constraint`, `set_datum`, `pad`, `pocket`, `revolve`, `linear_pattern`, `circular_pattern`, `set_linear_pattern`, `set_circular_pattern`, `boolean`, `set_property`, `set_placement`, `delete_object`, `import_model`, `mesh_to_solid`, `fillet`, `chamfer`, `set_edge_treatment`, `create_parameters`, `set_expression`, `clear_expression`, `loft`, `set_loft`, `mirror`, `set_mirror`, `sweep`, `set_sweep` and `create_helix`.
+The 18 MCP tools expose 41 edit operations: `create_box`, `create_cylinder`, `create_sphere`, `create_body`, `create_sketch`, `add_sketch_geometry`, `add_constraint`, `set_datum`, `pad`, `pocket`, `revolve`, `linear_pattern`, `circular_pattern`, `set_linear_pattern`, `set_circular_pattern`, `boolean`, `set_property`, `set_placement`, `delete_object`, `import_model`, `mesh_to_solid`, `fillet`, `chamfer`, `set_edge_treatment`, `create_parameters`, `set_expression`, `clear_expression`, `loft`, `set_loft`, `mirror`, `set_mirror`, `sweep`, `set_sweep`, `create_helix`, `create_assembly`, `add_component`, `ground_component`, `create_joint`, `set_joint_limits`, `set_joint_positions` and `solve_assembly`.
 
 Sketches support lines, circles, three-point arcs and rectangles in local XY, with placement/rotation for other planes. Pads and pockets require a sketch in the specified PartDesign body. Dimensional constraints use FreeCAD's `Sketcher.Constraint` positional argument conventions. Numeric lengths are **millimeters**, placements are absolute, and rotation angles are **degrees**. Raw sketch `Angle` constraint arguments and native arc parameters use **radians**; `set_datum` accepts explicit unit strings such as `30 deg`.
 
 Use internal object names returned by inspection, which can differ from visible labels. A parameter driven by an expression cannot be overwritten directly; edit its driving parameter or explicitly clear the expression first. Deleting an object with dependents is rejected. Every batch recomputes and checks resulting feature/shape validity. A `capture_view` call returns an MCP image and saves a PNG in the workspace.
 
-Not yet implemented: sketch splines/ellipses, assemblies, sheet metal, TechDraw and arbitrary Python execution. Existing FCStd features can be inspected, and supported scalar parameters can be edited even when this version cannot create that feature type. This is a growing modeling toolset, not complete FreeCAD workbench coverage.
+Not yet implemented: sketch splines/ellipses, closed-loop joint driving, nested assemblies, assembly contact/dynamics, sheet metal, TechDraw and arbitrary Python execution. Existing FCStd features can be inspected, and supported scalar parameters can be edited even when this version cannot create that feature type. This is a growing modeling toolset, not complete FreeCAD workbench coverage.
+
+### Movable assemblies
+
+`create_assembly` creates one native `Assembly::AssemblyObject` and its joint group. `add_component` creates a same-document `App::Link` to a top-level solid/Body, samples its initial placement and hides the source. Native source dimension edits propagate to every linked instance. `ground_component` fixes a component at its current placement. The first version supports one root assembly with identity placement, up to 200 components and 400 joints.
+
+`create_joint` accepts `fixed`, `revolute` or `slider`, two component names and optional `frame_a` / `frame_b`. Each frame has a local `position` (three mm coordinates), rotation `axis` and `angle` (degrees). Frames default to the component origin. Revolute motion rotates about frame +Z; slider motion translates along frame +Z. Joint zero aligns the two frames. Explicit local connectors remain meaningful when face numbering changes, but their positions do not automatically follow a changed hole or feature dimension.
+
+`set_joint_positions` accepts up to 100 distinct `{joint, position}` entries and solves a coordinated absolute pose. Revolute positions are degrees, sliders are mm. Positioning requires directed joint trees: component A is the parent, component B the child, and every tree starts at a grounded component. Unspecified coordinates retain their current values; fixed children follow their parent. The engine seeds the pose, temporarily closes driven DOFs using native fixed joints, runs the native solver and checks connector/ground residuals before restoring the movable joint types. It rejects closed loops and multiple incoming joints when positioning. No extra drive constraints or integration Python proxies remain in the saved model.
+
+`set_joint_limits` replaces both limits for a revolute/slider joint; omitted or null bounds clear that side. Revolute limits lie within -180 to 180 degrees; slider limits are mm. `inspect_assembly` returns actual connector coordinates, grounding, connectivity and limits. Returned rotation angles wrap to -180..180; a 450-degree command has the same geometric pose as 90 degrees. Geometry, joint type restoration, revision guards, rollback, Undo and save/reopen are checked. Pose solving does not test interference, contact, loads or dynamics.
+
+Example pose operation:
+
+```json
+{"op":"set_joint_positions","assembly":"ArmAssembly","positions":[{"joint":"Shoulder","position":60},{"joint":"Extension","position":12}]}
+```
+
+`examples/movable_arm.py` builds a rotary arm and an oblique sliding tool using either backend. To build the jointed gearbox from the earlier corrected static showcase:
+
+```powershell
+.venv\Scripts\python.exe scripts\build_movable_demo.py --source models\Demos\PlanetaryGearbox.FCStd --workspace models\MovablePlanetary
+```
+
+The builder creates `PlanetaryGearbox-Movable.FCStd`, 60 native animation frames, a STEP pose snapshot, verification reports and `PlayPlanetary.FCMacro`. The macro and adjacent `native` folder provide Play/Pause, Reset and an input-angle slider without host MCP dependencies. Keep them beside the model and execute the macro in FreeCAD. The gearbox has 15 linked components, 14 native joints and 26 solid instances. Its analytical driver uses a fixed ring, carrier speed = sun/4 and absolute planet spin = -sun/2. Gear ratios are coordinated by the demo controller; the file does not contain native gear-ratio constraints. Native joint motion remains editable from either chat backend.
 
 ### Sweeps, pipe paths and helices
 

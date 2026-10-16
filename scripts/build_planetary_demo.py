@@ -10,17 +10,17 @@ from pathlib import Path
 from codex_freecad.client import find_freecad_cmd
 
 
-def run_native(executable, workspace, *, gui):
+def run_native(executable, workspace, *, gui, module="planetary_gearbox", function=None):
     root = Path(__file__).resolve().parents[1]
     runtime = workspace / ".runtime" / uuid.uuid4().hex
     runtime.mkdir(parents=True)
-    function = "present" if gui else "build"
+    function = function or ("present" if gui else "build")
     code = (
         "import sys, json, traceback\nfrom pathlib import Path\n"
         f"sys.path.insert(0, {str(root / 'src')!r})\n"
         f"sys.path.insert(0, {str(root / 'examples')!r})\n"
         "import FreeCAD as App\n"
-        f"from planetary_gearbox import {function}\n"
+        f"from {module} import {function}\n"
         "def run_demo():\n"
         "    try:\n"
         f"        {function}({str(workspace)!r})\n"
