@@ -149,7 +149,7 @@ def create_server(client):
     ) -> dict:
         """Apply one undoable transaction; rollback the whole batch on errors or invalid geometry.
 
-        Supports primitives, dimensions, placements, booleans, bodies, XY sketches (lines/circles/arcs/rectangles),
+        Supports primitives/helices, dimensions, placements, booleans, bodies, XY sketches (lines/circles/arcs/rectangles),
         sketch constraints and datums, pads, pockets, file import, closed-mesh solid conversion,
         native Part fillets/chamfers, revolutions, native link-array linear/circular patterns,
         pattern updates, named numeric parameters, arithmetic expressions, native lofts/mirrors/sweeps

@@ -251,11 +251,19 @@ def test_stdio_mcp_discovery_validation_and_native_edit(tmp_path):
                                 "solid": False,
                                 "transition": "right_corner",
                             },
+                            {
+                                "op": "create_helix",
+                                "name": "CoilPath",
+                                "pitch": 10,
+                                "height": 40,
+                                "radius": 15,
+                            },
                         ],
                     },
                 )
             )
             assert swept["document"]["objects"][-1]["shape"]["valid"]
             assert swept["document"]["objects"][-1]["shape"]["solids"] == 0
+            assert swept["document"]["objects"][-1]["type"] == "Part::Helix"
 
     asyncio.run(run())

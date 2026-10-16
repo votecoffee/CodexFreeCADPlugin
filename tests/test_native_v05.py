@@ -297,3 +297,160 @@ def test_sweep_profile_path_replacement_and_cycle_guard(cad):
     rod = inspect(cad, "Rod")
     assert set(rod["depends_on"]) == {"Profile2", "Path2"}
     assert rod["shape"]["volume_mm3"] == pytest.approx(360 * math.pi)
+
+
+@pytest.mark.parametrize("left_handed", [False, True])
+def test_cylindrical_helix_length_handedness_and_parameter_update(cad, left_handed):
+    edit(
+        cad,
+        {
+            "op": "create_helix",
+            "name": "Path",
+            "pitch": 8,
+            "height": 2,
+            "radius": 10,
+            "left_handed": left_handed,
+        },
+    )
+    path = inspect(cad, "Path")
+    assert path["type"] == "Part::Helix" and path["shape"]["valid"]
+    assert path["shape"]["solids"] == 0
+    assert path["properties"]["Length"]["value"]["value"] == pytest.approx(
+        math.hypot(5 * math.pi, 2), rel=1e-5
+    )
+    vertices = cad.call("inspect_topology", document="Model", object_name="Path", kind="vertices")[
+        "items"
+    ]
+    endpoint = max(vertices, key=lambda v: v["position_mm"][2])["position_mm"]
+    assert endpoint == pytest.approx([0, -10 if left_handed else 10, 2], abs=1e-5)
+    edit(cad, {"op": "set_property", "object": "Path", "property": "Height", "value": 4})
+    length = inspect(cad, "Path")["properties"]["Length"]["value"]["value"]
+    assert length == pytest.approx(math.hypot(10 * math.pi, 4), rel=1e-5)
+
+
+def test_conical_helix_end_radius(cad):
+    edit(
+        cad,
+        {"op": "create_helix", "name": "Path", "pitch": 8, "height": 2, "radius": 10, "angle": 20},
+    )
+    vertices = cad.call("inspect_topology", document="Model", object_name="Path", kind="vertices")[
+        "items"
+    ]
+    x, y, z = max(vertices, key=lambda v: v["position_mm"][2])["position_mm"]
+    assert z == pytest.approx(2)
+    assert math.hypot(x, y) == pytest.approx(10 + 2 * math.tan(math.radians(20)), rel=1e-6)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"pitch": 0},
+        {"height": -1},
+        {"radius": True},
+        {"angle": 90},
+        {"left_handed": 1},
+        {"height": 10001, "pitch": 1},
+        {"angle": -80},
+    ],
+)
+def test_invalid_helices_leave_no_feature(cad, options):
+    with pytest.raises(CadError):
+        edit(
+            cad,
+            {
+                "op": "create_helix",
+                "name": "Bad",
+                "pitch": 10,
+                "height": 40,
+                "radius": 15,
+                **options,
+            },
+        )
+    assert cad.call("inspect_document", document="Model")["objects"] == []
+
+
+@pytest.mark.parametrize("left_handed", [False, True])
+def test_helix_sweep_matches_analytic_wire_volume(cad, left_handed):
+    pitch, height, radius, wire_radius = 10, 40, 15, 2
+    angle = math.degrees(math.atan2((-1 if not left_handed else 1) * 2 * math.pi * radius, pitch))
+    edit(
+        cad,
+        {
+            "op": "create_helix",
+            "name": "Path",
+            "pitch": pitch,
+            "height": height,
+            "radius": radius,
+            "left_handed": left_handed,
+        },
+        {
+            "op": "create_sketch",
+            "name": "Profile",
+            "geometry": [{"type": "circle", "center": [0, 0], "radius": wire_radius}],
+        },
+        {
+            "op": "add_constraint",
+            "object": "Profile",
+            "type": "Radius",
+            "args": [0, float(wire_radius)],
+        },
+        {
+            "op": "set_placement",
+            "object": "Profile",
+            "position": [radius, 0, 0],
+            "axis": [1, 0, 0],
+            "angle": angle,
+        },
+        {"op": "sweep", "name": "Coil", "profiles": ["Profile"], "path": "Path", "frenet": True},
+    )
+    shape = inspect(cad, "Coil")["shape"]
+    expected = math.pi * wire_radius**2 * math.hypot(2 * math.pi * radius * height / pitch, height)
+    assert shape["valid"] and shape["volume_mm3"] == pytest.approx(expected, rel=1e-5)
+
+
+def test_helix_expression_and_sweep_persist_after_native_reopen(cad, tmp_path):
+    pitch, radius = 10, 15
+    angle = -math.degrees(math.atan2(2 * math.pi * radius, pitch))
+    edit(
+        cad,
+        {
+            "op": "create_parameters",
+            "name": "Design",
+            "parameters": [{"name": "Rise", "type": "length", "value": "40 mm"}],
+        },
+        {"op": "create_helix", "name": "Path", "pitch": pitch, "height": 40, "radius": radius},
+        {
+            "op": "set_expression",
+            "object": "Path",
+            "property": "Height",
+            "expression": "Design.Rise",
+        },
+        {
+            "op": "create_sketch",
+            "name": "Profile",
+            "geometry": [{"type": "circle", "center": [0, 0], "radius": 2}],
+        },
+        {
+            "op": "set_placement",
+            "object": "Profile",
+            "position": [radius, 0, 0],
+            "axis": [1, 0, 0],
+            "angle": angle,
+        },
+        {"op": "sweep", "name": "Coil", "profiles": ["Profile"], "path": "Path", "frenet": True},
+    )
+    cad.call("save_document", document="Model", path="coil.FCStd")
+    with HeadlessClient(tmp_path, timeout=35) as reopened:
+        document = reopened.call("open_document", path="coil.FCStd")["name"]
+        reopened.call(
+            "apply_operations",
+            document=document,
+            operations=[
+                {"op": "set_property", "object": "Design", "property": "Rise", "value": "60 mm"}
+            ],
+        )
+        shape = reopened.call("inspect_object", document=document, object_name="Coil")["shape"]
+        assert shape["valid"] and shape["solids"] == 1
+        assert shape["volume_mm3"] == pytest.approx(
+            4 * math.pi * math.hypot(2 * math.pi * radius * 6, 60), rel=1e-5
+        )

@@ -1,8 +1,9 @@
 """Parametric Part lofts, mirrors and sweeps with explicit geometry validation."""
 
+import math
 import re
 
-from .engine import CadError
+from .engine import CadError, number, positive
 
 
 def top_level(engine, doc, name):
@@ -106,9 +107,12 @@ def sweep(engine, doc, op):
         "right_corner": "Right corner",
         "round_corner": "Round corner",
     }
-    transition = op.get("transition", str(obj.Transition) if updating else "transformed")
-    if transition not in transitions and not (updating and transition == str(obj.Transition)):
-        raise CadError("Sweep transition must be transformed, right_corner or round_corner")
+    if "transition" in op:
+        if op["transition"] not in transitions:
+            raise CadError("Sweep transition must be transformed, right_corner or round_corner")
+        transition = transitions[op["transition"]]
+    else:
+        transition = str(obj.Transition) if updating else "Transformed"
     if type(solid) is not bool or type(frenet) is not bool:
         raise CadError("Sweep solid and frenet controls must be booleans")
     profiles = []
@@ -151,6 +155,22 @@ def sweep(engine, doc, op):
         raise CadError("Sweep path must be a valid connected wire with positive length")
     obj.Sections, obj.Spine = profiles, (path, edges)
     obj.Solid, obj.Frenet = solid, frenet
-    obj.Transition = transitions.get(transition, transition)
+    obj.Transition = transition
     engine.hide(*profiles, path)
+    return obj
+
+
+def helix(engine, doc, op):
+    pitch, height, radius = [positive(op[key]) for key in ("pitch", "height", "radius")]
+    angle = number(op.get("angle", 0))
+    left_handed = op.get("left_handed", False)
+    if not -90 < angle < 90 or type(left_handed) is not bool:
+        raise CadError("Helix angle must be between -90 and 90 degrees and left_handed boolean")
+    if height / pitch > 10000:
+        raise CadError("Helix exceeds the native limit of 10,000 turns")
+    if radius + height * math.tan(math.radians(angle)) <= 0:
+        raise CadError("Conical helix must retain a positive top radius")
+    obj = engine.add(doc, "Part::Helix", op["name"])
+    obj.Pitch, obj.Height, obj.Radius, obj.Angle = pitch, height, radius, angle
+    obj.LocalCoord = "Left-handed" if left_handed else "Right-handed"
     return obj

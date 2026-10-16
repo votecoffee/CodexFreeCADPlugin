@@ -474,6 +474,10 @@ class Engine:
             from .features import sweep
 
             obj = sweep(self, doc, op)
+        elif kind == "create_helix":
+            from .features import helix
+
+            obj = helix(self, doc, op)
         elif kind == "create_parameters":
             from .parameters import create
 
@@ -737,6 +741,7 @@ class Engine:
                 "set_mirror",
                 "sweep",
                 "set_sweep",
+                "create_helix",
             }
             and obj.Shape.isNull()
         ):
@@ -928,6 +933,7 @@ CONSTRAINT_TYPES = {
     "Angle",
 }
 OPERATION_KEYS = {
+    "create_helix": ({"name", "pitch", "height", "radius"}, {"angle", "left_handed", "label"}),
     "sweep": (
         {"name", "profiles", "path"},
         {"path_edges", "solid", "frenet", "transition", "label"},

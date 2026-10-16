@@ -366,6 +366,19 @@ class SetSweep(Operation):
     transition: Literal["transformed", "right_corner", "round_corner"] | None = None
 
 
+class Helix(Operation):
+    op: Literal["create_helix"]
+    name: str
+    pitch: float = Field(gt=0, description="Axial pitch per revolution in mm")
+    height: float = Field(gt=0, description="Axial height in mm, at most 10,000 turns")
+    radius: float = Field(gt=0, description="Starting helix radius in mm")
+    angle: float = Field(
+        default=0, gt=-90, lt=90, description="Conical taper angle in degrees; zero is cylindrical"
+    )
+    left_handed: bool = False
+    label: str | None = None
+
+
 Edit = Annotated[
     Box
     | Cylinder
@@ -397,6 +410,7 @@ Edit = Annotated[
     | Mirror
     | SetMirror
     | Sweep
-    | SetSweep,
+    | SetSweep
+    | Helix,
     Field(discriminator="op"),
 ]
