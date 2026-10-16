@@ -1,5 +1,11 @@
 # Changes
 
+## 0.7.0 (in progress) — 2026-10-16
+
+- Added stored affine joint couplings with forward/inverse positioning, offsets, unwrapped coordinates, cycle/conflict guards and native save/reopen support.
+- Added BREP overlap/contact/clearance checks and discrete motion sampling on a hidden native model copy, preserving source pose and Undo history.
+- Revisions now hash mesh-free BREP content for all shapes, avoiding false changes caused by native document-copy caches.
+
 ## 0.6.0 — 2026-10-16
 
 - Added native Assembly containers, parametric component links, grounding and fixed/revolute/slider joints with explicit local connector frames.

@@ -79,6 +79,56 @@ def create_server(client):
         return client.call("inspect_assembly", document=document, assembly=assembly)
 
     @server.tool(annotations=READ)
+    def check_interference(
+        document: str,
+        objects: Annotated[list[str], Field(min_length=2, max_length=50)],
+        clearance: Annotated[float, Field(ge=0)] = 0,
+        volume_tolerance: Annotated[float, Field(ge=0)] = 1e-6,
+    ) -> dict:
+        """Check selected BREP solids for overlap, contact and insufficient clearance in mm.
+
+        Returns flagged pairs, overlap volumes and category counts. Contact does not imply
+        positive-volume interference. Clear pairs can be rejected using bounding-box distance.
+        """
+        return client.call(
+            "check_interference",
+            document=document,
+            objects=objects,
+            clearance=clearance,
+            volume_tolerance=volume_tolerance,
+        )
+
+    @server.tool(annotations=READ)
+    def sample_motion(
+        document: str,
+        assembly: str,
+        joint: str,
+        start: float,
+        end: float,
+        steps: Annotated[int, Field(ge=2, le=101)],
+        objects: Annotated[list[str], Field(min_length=2, max_length=50)],
+        clearance: Annotated[float, Field(ge=0)] = 0,
+        volume_tolerance: Annotated[float, Field(ge=0)] = 1e-6,
+    ) -> dict:
+        """Sample a driven joint range and check interference/clearance on a hidden model copy.
+
+        Persisted affine joint couplings are honored. Source pose and undo history are preserved.
+        Limited to 5,000 pair-pose checks. Discrete samples do not prove continuous collision-free travel.
+        """
+        return client.call(
+            "sample_motion",
+            document=document,
+            assembly=assembly,
+            joint=joint,
+            start=start,
+            end=end,
+            steps=steps,
+            objects=objects,
+            clearance=clearance,
+            volume_tolerance=volume_tolerance,
+        )
+
+    @server.tool(annotations=READ)
     def inspect_sketch(document: str, object_name: str) -> dict:
         """Read sketch-local geometry, zero-based geometry/constraint indices, datum names/values and solver state.
 

@@ -448,6 +448,21 @@ class SolveAssembly(Operation):
     assembly: str
 
 
+class JointCoupling(Operation):
+    op: Literal["set_joint_coupling"]
+    assembly: str
+    joint: str
+    driver: str
+    ratio: float = Field(description="Follower units per driver unit; nonzero, signed")
+    offset: float = Field(default=0, description="Follower coordinate = ratio * driver + offset")
+
+
+class ClearJointCoupling(Operation):
+    op: Literal["clear_joint_coupling"]
+    assembly: str
+    joint: str
+
+
 Edit = Annotated[
     Box
     | Cylinder
@@ -487,6 +502,8 @@ Edit = Annotated[
     | Joint
     | JointLimits
     | JointPositions
-    | SolveAssembly,
+    | SolveAssembly
+    | JointCoupling
+    | ClearJointCoupling,
     Field(discriminator="op"),
 ]

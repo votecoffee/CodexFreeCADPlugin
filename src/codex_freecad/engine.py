@@ -143,13 +143,11 @@ class Engine:
         for obj in doc.Objects:
             item = [obj.Name, obj.TypeId, self.properties(obj)]
             if hasattr(obj, "Shape") and not obj.Shape.isNull():
-                if obj.TypeId == "App::Link":
-                    # Link-array Shape getters can allocate a fresh compound per access.
-                    # Its native identity hash is therefore not a model-change signal.
-                    brep = obj.Shape.copy(False, False).exportBrepToString().encode("utf-8")
-                    item.append(hashlib.sha256(brep).hexdigest())
-                else:
-                    item.append(obj.Shape.hashCode())
+                # Native identity hashes can change when FreeCAD copies a document,
+                # even if the source geometry is untouched. Use mesh-free BREP content
+                # for every shape so read-only sampling does not invalidate revisions.
+                brep = obj.Shape.copy(False, False).exportBrepToString().encode("utf-8")
+                item.append(hashlib.sha256(brep).hexdigest())
             if hasattr(obj, "Mesh"):
                 # Wrapper addresses/counts alone do not detect mesh vertex movement.
                 mesh_hash = hashlib.sha256()
@@ -239,6 +237,8 @@ class Engine:
             "inspect_sketch",
             "inspect_topology",
             "measure_distance",
+            "check_interference",
+            "sample_motion",
             "import_model",
             "set_view",
             "apply_operations",
@@ -412,6 +412,35 @@ class Engine:
             document, [{"op": "import_model", "path": path, "name": name}], expected_revision
         )
 
+    def check_interference(self, document, objects, clearance=0, volume_tolerance=1e-6):
+        from .interference import check
+
+        doc = self.document(document)
+        return {
+            **check(self, doc, objects, clearance, volume_tolerance),
+            "revision": self.revision(doc),
+        }
+
+    def sample_motion(
+        self,
+        document,
+        assembly,
+        joint,
+        start,
+        end,
+        steps,
+        objects,
+        clearance=0,
+        volume_tolerance=1e-6,
+    ):
+        from .interference import sample
+
+        doc = self.document(document)
+        result = sample(
+            self, doc, assembly, joint, start, end, steps, objects, clearance, volume_tolerance
+        )
+        return {**result, "revision": self.revision(doc)}
+
     def inspect_assembly(self, document, assembly):
         from .assemblies import assembly as find_assembly
         from .assemblies import inspect
@@ -470,7 +499,11 @@ class Engine:
     def operation(self, doc, op):
         kind = op["op"]
         details = {}
-        if kind in {
+        if kind in {"set_joint_coupling", "clear_joint_coupling"}:
+            from .motion import apply
+
+            obj = apply(self, doc, op)
+        elif kind in {
             "create_assembly",
             "add_component",
             "ground_component",
@@ -957,6 +990,8 @@ CONSTRAINT_TYPES = {
     "Angle",
 }
 OPERATION_KEYS = {
+    "set_joint_coupling": ({"assembly", "joint", "driver", "ratio"}, {"offset"}),
+    "clear_joint_coupling": ({"assembly", "joint"}, set()),
     "create_assembly": ({"name"}, {"label"}),
     "add_component": ({"name", "assembly", "source"}, {"label"}),
     "ground_component": ({"name", "assembly", "component"}, {"label"}),

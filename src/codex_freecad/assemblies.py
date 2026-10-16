@@ -235,6 +235,9 @@ def position(engine, doc, asm, items):
     if not isinstance(items, list) or not 1 <= len(items) <= 100:
         raise CadError("Provide between 1 and 100 joint positions")
     validate(engine, doc, asm)
+    from .motion import resolve
+
+    items = resolve(engine, doc, asm, items)
     prepared = []
     seen = set()
     for item in items:
@@ -276,6 +279,9 @@ def position(engine, doc, asm, items):
         error = (actual - value + 180) % 360 - 180 if kind == "Revolute" else actual - value
         if abs(error) > TOLERANCE:
             raise CadError("Solver could not reach requested joint position: " + joint.Name)
+        from .motion import remember
+
+        remember(joint, value)
 
 
 def apply(engine, doc, op):
@@ -370,6 +376,9 @@ def apply(engine, doc, op):
 
 
 def inspect(engine, doc, asm):
+    from .motion import coordinate
+    from .motion import validate as motion_rules
+
     connected = connected_names(engine, doc, asm)
     items = []
     for joint in joints(asm):
@@ -385,6 +394,9 @@ def inspect(engine, doc, asm):
                 "frame_a": encode(joint.Placement1),
                 "frame_b": encode(joint.Placement2),
                 "position": value if joint.JointType != "Fixed" else None,
+                "coordinate": coordinate(engine, doc, asm, joint)
+                if joint.JointType != "Fixed"
+                else None,
                 "units": "degrees" if joint.JointType == "Revolute" else "mm",
                 "limits": limits(joint) if joint.JointType != "Fixed" else None,
             }
@@ -404,6 +416,7 @@ def inspect(engine, doc, asm):
             for x in components(asm)
         ],
         "joints": items,
+        "couplings": motion_rules(asm),
         "angle_convention": "Relative frame rotation about local +Z, wrapped to [-180, 180] degrees",
         "scope": "Position commands support directed joint trees rooted at grounded components; no closed-loop motion, collision detection or dynamics",
     }
