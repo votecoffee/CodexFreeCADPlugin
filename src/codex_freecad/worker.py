@@ -17,7 +17,11 @@ def emit(value):
 
 
 def main():
-    engine = Engine(os.environ["CODEX_FREECAD_WORKSPACE"])
+    try:
+        engine = Engine(os.environ["CODEX_FREECAD_WORKSPACE"])
+    except Exception as exc:
+        emit({"error": {"type": type(exc).__name__, "message": str(exc)}})
+        return
     emit({"ready": True, "status": engine.status()})
     for line in sys.stdin:
         request = None

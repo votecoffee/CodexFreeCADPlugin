@@ -217,6 +217,13 @@ class Registry:
                     }
                     if len(candidate.capabilities) > 256:
                         raise CadError("At most 256 installed capabilities are supported")
+            latest = self.scan()
+            if {k: v["sha256"] for k, v in latest.items()} != {
+                k: v["sha256"] for k, v in extensions.items()
+            }:
+                raise CadError(
+                    "Extension files changed while loading; finish installing before reloading"
+                )
             return candidate
         except Exception as exc:
             candidate.close()

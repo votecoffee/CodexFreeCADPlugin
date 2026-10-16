@@ -635,6 +635,8 @@ def shutdown():
 
 
 def capture_state():
+    import FreeCADGui as Gui
+
     if _panel is None:
         return None
     panel = _panel
@@ -642,9 +644,13 @@ def capture_state():
         "version": 1,
         "workspace": str(panel.engine.workspace.root),
         "geometry": panel.saveGeometry(),
+        "dock_area": Gui.getMainWindow().dockWidgetArea(panel),
+        "floating": panel.isFloating(),
+        "visible": panel.isVisible(),
         "document": panel.document.currentData(),
         "assembly": panel.assembly.currentData(),
         "joint": panel.joint.currentData(),
+        "follower": panel.follower.currentData(),
         "tab": panel.tabs.currentIndex(),
         "drag_enabled": panel.drag_button.isChecked(),
         "values": {
@@ -664,10 +670,12 @@ def capture_state():
 
 
 def restore_state(state):
+    import FreeCADGui as Gui
+
     if state.get("version") != 1:
         raise CadError("Unsupported saved panel state version")
     panel = show(state["workspace"])
-    for key in ("document", "assembly", "joint"):
+    for key in ("document", "assembly", "joint", "follower"):
         combo = getattr(panel, key)
         index = combo.findData(state.get(key))
         if index >= 0:
@@ -675,7 +683,10 @@ def restore_state(state):
     panel.tabs.setCurrentIndex(state.get("tab", 0))
     for key, value in state.get("values", {}).items():
         getattr(panel, key).setValue(value)
+    Gui.getMainWindow().addDockWidget(state["dock_area"], panel)
+    panel.setFloating(state.get("floating", False))
     panel.restoreGeometry(state["geometry"])
     panel.drag_button.setChecked(state.get("drag_enabled", False))
     panel.status.setText("Extensions reloaded · playback paused")
+    panel.setVisible(state.get("visible", True))
     return panel

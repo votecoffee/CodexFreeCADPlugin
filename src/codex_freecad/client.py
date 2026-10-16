@@ -52,18 +52,18 @@ class HeadlessClient:
         self.failed = False
         atexit.register(self.close)
 
-    def _read(self, stream, replies):
+    def _read(self, stream, replies, response_queue):
         for line in iter(stream.readline, ""):
             if replies and PREFIX in line:
                 try:
-                    self.responses.put(json.loads(line.split(PREFIX, 1)[1]))
+                    response_queue.put(json.loads(line.split(PREFIX, 1)[1]))
                     continue
                 except ValueError:
                     pass
             self.diagnostics.append(line.rstrip()[-1000:])
             self.diagnostics[:] = self.diagnostics[-30:]
         if replies:
-            self.responses.put({"error": {"message": "FreeCAD worker exited"}})
+            response_queue.put({"error": {"message": "FreeCAD worker exited"}})
 
     def _receive(self):
         try:
@@ -86,6 +86,9 @@ class HeadlessClient:
                 raise CadError("FreeCAD worker exited; restart the MCP server")
             return
         executable = find_freecad_cmd(self.freecad_cmd)
+        # A failed initial startup may be retried after its extension is repaired.
+        # Retired reader threads must never publish their EOF into the new worker's queue.
+        self.responses = queue.Queue()
         runtime = self.workspace / ".runtime" / uuid.uuid4().hex
         runtime.mkdir(parents=True)
         env = dict(
@@ -116,7 +119,9 @@ class HeadlessClient:
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
         for stream, replies in ((self.process.stdout, True), (self.process.stderr, False)):
-            threading.Thread(target=self._read, args=(stream, replies), daemon=True).start()
+            threading.Thread(
+                target=self._read, args=(stream, replies, self.responses), daemon=True
+            ).start()
         try:
             if not self._receive().get("ready"):
                 raise CadError("Unexpected FreeCAD startup response")

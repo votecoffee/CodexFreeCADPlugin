@@ -278,3 +278,13 @@ def test_generation_owned_python_proxies_cannot_leak_into_saved_features(tmp_pat
                 operations=[{"op": "extension", "capability": "demo.answer", "arguments": {}}],
             )
         assert cad.call("inspect_document", document="Model")["objects"] == []
+
+
+def test_startup_failure_reports_extension_error_and_recovers_after_repair(tmp_path):
+    root = tmp_path / "installed"
+    with HeadlessClient(tmp_path / "models", find_freecad_cmd(), extension_dirs=[root]) as cad:
+        with pytest.raises(CadError, match="Extension directory does not exist"):
+            cad.call("status")
+        assert cad.process is None
+        write_extension(root)
+        assert cad.call("status")["extensions"]["capabilities"]

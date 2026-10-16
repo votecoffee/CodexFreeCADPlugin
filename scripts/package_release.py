@@ -61,6 +61,7 @@ def main():
         prefix + ".step": Path(report["exported"]["path"]),
         f"VALIDATION-v{version}.md": root / "docs/VALIDATION.md",
         f"CHANGES-v{version}.md": root / "docs/CHANGELOG.md",
+        f"Extension-Reload-Guide-v{version}.md": root / "docs/EXTENSIONS.md",
         f"test-results-v{version}.xml": args.tests,
         wheel.name: wheel,
         f"native-validation-v{version}.json": report_path,
@@ -95,8 +96,21 @@ def main():
                 != item["sha256"]
             ):
                 raise RuntimeError("Source archive verification failed")
-        for name in installed.namelist():
-            if name.startswith("codex_freecad/") and name.endswith(".py"):
+        expected_package = {
+            item["path"][4:]
+            for item in entries
+            if item["path"].startswith("src/codex_freecad/")
+            and Path(item["path"]).suffix in {".py", ".json"}
+        }
+        actual_package = {
+            name
+            for name in installed.namelist()
+            if name.startswith("codex_freecad/") and Path(name).suffix in {".py", ".json"}
+        }
+        if expected_package != actual_package:
+            raise RuntimeError("Wheel is missing or has unexpected package modules/manifests")
+        for name in actual_package:
+            if name.startswith("codex_freecad/"):
                 if installed.read(name) != source.read("CodexFeeCADPlugin/src/" + name):
                     raise RuntimeError("Wheel/source mismatch: " + name)
 
@@ -119,6 +133,8 @@ This source corresponds to local Git commit `{git_commit}`. The manifest records
 
 Run `scripts\Setup.ps1` to regenerate local configuration. Restart the FreeCAD MCP servers in Codex, then execute `.local\StartBridge.FCMacro` through FreeCAD's Macro menu. It reloads the integration and opens the Codex CAD dock while preserving open models. The generated `OpenFreeCADPanel.FCMacro` opens local controls without connecting chat. A generated optional FreeCAD workbench folder is also available. Registration instructions are in README.md.
 
+This initial v0.8 core migration adds permanent extension tools. After it is loaded, ordinary feature updates use `reload_extensions` in the existing chat, the dock's Reload extensions button, or `.local\ReloadExtensions.FCMacro`. Discover current capabilities with `list_capabilities` and `describe_capability`; invoke reads with `run_query`, and edits with the stable extension operation envelope. `docs/EXTENSIONS.md` in the source archive explains installation, schema guards, supported reload scope and extension authoring. This update includes native tube creation and mass properties as example capabilities.
+
 Model provides protected parameter editing and a linked-source shortcut. Motion provides absolute joint positions, playback, stored ratio/offset controls and an explicit viewport drag mode. Checks separates BREP overlap, contact and insufficient clearance, and samples motion on a hidden model copy without consuming source Undo. Save/export and chat edits wait while a native edit is active.
 
 For the portable gearbox ZIP, extract everything and execute `OpenCoupledGearbox.FCMacro` to open the model and Motion tab. Enter SunJoint=90 degrees: CarrierJoint should be 22.5 and each planet joint -67.5 degrees relative to the carrier. The saved ratio metadata is applied by the Codex CAD controller and both chat backends. Native Assembly's separate dragging does not enforce these rules.
@@ -136,6 +152,7 @@ The optional Responses adapter exposes {tool_count - 1} text-result tools. Paid 
         "tests": counts,
         "tool_count": tool_count,
         "operation_count": operation_count,
+        "extension_catalog": report.get("extensions"),
         "sample": {
             "name": sample_name,
             "shape": report["shape"],

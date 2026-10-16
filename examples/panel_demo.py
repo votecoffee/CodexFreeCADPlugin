@@ -75,7 +75,25 @@ def verify_panel(dock, engine, doc):
     dock.drag_button.setChecked(False)
     assert dock.drag is None
     checks.append("Coin drag callback registration and cleanup; physical drag pending")
-    return checks
+    from codex_freecad import bridge, panel
+
+    credentials = bridge._bridge.state_file.read_bytes()
+    old_bridge = bridge._bridge
+    old_revision = engine.revision(doc)
+    source = Path(engine.registry.directories[0]) / "smoke" / "__init__.py"
+    source.write_text("def ping(engine, doc, args):\n    return {'version': 2}\n", encoding="utf-8")
+    result = engine.reload_extensions()
+    assert result["reloaded"] and result["panel_rebuilt"]
+    dock = panel.show(engine.workspace.root)
+    assert not dock.play.isChecked() and not dock.timer.isActive()
+    assert dock.document.currentData() == doc.Name and dock.joint.currentData() == "Shoulder"
+    assert bridge._bridge is old_bridge and bridge._bridge.state_file.read_bytes() == credentials
+    assert engine.revision(doc) == old_revision
+    assert engine.run_query(doc.Name, "smoke.ping", {})["result"]["version"] == 2
+    checks.append(
+        "native dock rebuilt after extension update; bridge/token, document, pose and selectors preserved"
+    )
+    return dock, checks
 
 
 def boot(workspace, run):
@@ -89,7 +107,6 @@ def boot(workspace, run):
 
     global dock, engine, timer
     run = Path(run)
-    engine = Engine(workspace, gui=True)
 
     class Client:
         def call(self, method, **params):
@@ -103,6 +120,36 @@ def boot(workspace, run):
         Gui.getMainWindow().close()
 
     try:
+        extension = run / "extensions/smoke"
+        extension.mkdir(parents=True)
+        (extension / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "id": "smoke",
+                    "version": "1.0.0",
+                    "api_version": 1,
+                    "description": "Isolated panel reload check",
+                    "ui": False,
+                    "capabilities": {
+                        "ping": {
+                            "kind": "query",
+                            "description": "Native test version",
+                            "handler": "ping",
+                            "parameters": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {},
+                            },
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        (extension / "__init__.py").write_text(
+            "def ping(engine, doc, args):\n    return {'version': 1}\n", encoding="utf-8"
+        )
+        engine = Engine(workspace, gui=True, extension_dirs=[run / "extensions"])
         build(Client())
         engine.apply_operations(
             "MovableArm",
@@ -130,7 +177,7 @@ def boot(workspace, run):
         panel.install_command(workspace)
         dock = panel.show(workspace)
         dock.tabs.setCurrentIndex(1)
-        checks = verify_panel(dock, engine, doc)
+        dock, checks = verify_panel(dock, engine, doc)
         dock.drag_button.setChecked(True)
         assert dock.drag is not None
         dock.position.setValue(60)

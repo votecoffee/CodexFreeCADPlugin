@@ -180,6 +180,13 @@ def test_runtime_schema_defaults_nested_arrays_and_strict_fields():
     assert "enabled" not in arguments
 
 
+def test_invalid_schema_types_and_excessive_integer_are_rejected_cleanly():
+    with pytest.raises(CadError):
+        check_schema({"type": ["number", "null"]})
+    with pytest.raises(CadError, match="finite"):
+        validate({"type": "number"}, 10**1000)
+
+
 def test_rejected_update_does_not_change_late_relative_imports(installed):
     registry, folder = installed
     (folder / "__init__.py").write_text(

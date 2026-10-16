@@ -30,6 +30,13 @@ KEYS = {
 }
 
 
+def finite(value):
+    try:
+        return type(value) in {int, float} and math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 def check_schema(schema, depth=0):
     if (
         depth > 12
@@ -43,6 +50,8 @@ def check_schema(schema, depth=0):
             "Unsupported extension schema keywords: " + str(sorted(schema.keys() - KEYS))
         )
     kind = schema["type"]
+    if any(key in schema and not isinstance(schema[key], str) for key in ("description", "title")):
+        raise CadError("Extension schema titles and descriptions must be strings")
     common = {"type", "description", "title", "default", "enum"}
     allowed = {
         "object": {"properties", "required", "additionalProperties"},
@@ -78,9 +87,7 @@ def check_schema(schema, depth=0):
         if key in schema and (type(schema[key]) is not int or not 0 <= schema[key] <= 65536):
             raise CadError("Invalid extension schema length bound")
     for key in ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"):
-        if key in schema and (
-            type(schema[key]) not in {int, float} or not math.isfinite(schema[key])
-        ):
+        if key in schema and not finite(schema[key]):
             raise CadError("Invalid extension schema numeric bound")
     for low, high in (("minItems", "maxItems"), ("minLength", "maxLength"), ("minimum", "maximum")):
         if low in schema and high in schema and schema[low] > schema[high]:
@@ -114,7 +121,7 @@ def validate(schema, value, path="arguments", depth=0):
     if not valid:
         raise CadError(path + " must be " + kind)
     if kind in {"number", "integer"}:
-        if not math.isfinite(value):
+        if not finite(value):
             raise CadError(path + " must be finite")
         for key, invalid in (
             ("minimum", lambda x: value < x),

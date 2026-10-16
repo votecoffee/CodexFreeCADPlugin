@@ -2,9 +2,9 @@
 
 A working local MCP integration for editing FreeCAD models from a Codex chat, with equal modeling support for an open FreeCAD window and a background FreeCADCmd session. Project directory: `C:\~LocalWork\Repos\Programming\~Github\CodexFeeCADPlugin`.
 
-Version **0.7.0** adds a native CAD dock, saved joint ratios/offsets, a coupled viewport drag controller, and BREP interference/clearance checks across sampled motion. Live and headless backends use the same native engine. Earlier assemblies, sweeps, helices, parameters, lofts, sketches, patterns, import and finishing tools remain available. Native validation uses **FreeCAD 1.0.2** and host **Python 3.13** on Windows. The project uses the official MCP Python SDK **2.3.0**, independently of FreeCAD's bundled Python 3.11. No OpenAI key is needed for the Codex MCP integration. New panel UI and physical mouse dragging await the user's manual check; headless controller checks do not establish viewport event delivery.
+Version **0.8.0** adds a stable MCP extension interface and command-driven feature reloads. New CAD capabilities and the native dock/drag implementation can be updated without restarting the running MCP connection or FreeCAD worker. Existing modeling, assemblies, saved couplings and interference tools remain available. Native validation uses **FreeCAD 1.0.2**, host **Python 3.13** and official MCP Python SDK **2.3.0**; the native runtime has no host MCP/Pydantic dependencies. No OpenAI key is needed. Actual GUI reload/drag verification remains the user's manual step.
 
-Already using an earlier version? Regenerate setup, restart the FreeCAD MCP servers in Codex (or restart Codex), then rerun `.local\StartBridge.FCMacro` in FreeCAD. The macro closes old controls, stops the old bridge, reloads the integration modules, and opens the new dock while preserving open native documents. [Changes in 0.7.0](docs/CHANGELOG.md).
+Upgrading from v0.7 requires one initial MCP reconnection to install the fixed discovery/reload tools, and running the regenerated `.local\StartBridge.FCMacro` once in FreeCAD. After that, say **“Reload the FreeCAD extensions”**, click the dock's **Reload extensions** button, or execute `.local\ReloadExtensions.FCMacro`. Routine extension updates keep the current chat connection and native documents open. [Extension workflow and authoring](docs/EXTENSIONS.md) · [Changes](docs/CHANGELOG.md).
 
 ## Start using it
 
@@ -46,6 +46,8 @@ This is a machine-local development package. Its commands point to this project'
 
 | Tools | Behavior |
 |---|---|
+| `list_capabilities`, `describe_capability` | Installed feature catalog, versions and current argument schemas |
+| `run_query`, `reload_extensions` | Guarded extension reads and reloads within the existing connection |
 | `freecad_status`, `list_documents` | Backend, workspace, version and session discovery |
 | `new_document`, `open_document` | Unsaved new models or existing trusted FCStd files |
 | `inspect_document`, `inspect_object` | Feature tree, parameters, dependencies, revision, bounds, area and volume |
@@ -63,7 +65,7 @@ This is a machine-local development package. Its commands point to this project'
 | `get_selection`, `capture_view` | Live selected objects/faces/edges and native viewport PNGs |
 | `set_view` | Seven standard live viewport orientations and optional fit-to-view |
 
-The 20 MCP tools expose 43 edit operations: `create_box`, `create_cylinder`, `create_sphere`, `create_body`, `create_sketch`, `add_sketch_geometry`, `add_constraint`, `set_datum`, `pad`, `pocket`, `revolve`, `linear_pattern`, `circular_pattern`, `set_linear_pattern`, `set_circular_pattern`, `boolean`, `set_property`, `set_placement`, `delete_object`, `import_model`, `mesh_to_solid`, `fillet`, `chamfer`, `set_edge_treatment`, `create_parameters`, `set_expression`, `clear_expression`, `loft`, `set_loft`, `mirror`, `set_mirror`, `sweep`, `set_sweep`, `create_helix`, `create_assembly`, `add_component`, `ground_component`, `create_joint`, `set_joint_limits`, `set_joint_positions`, `solve_assembly`, `set_joint_coupling` and `clear_joint_coupling`.
+The 24 MCP tools expose 44 structured operation kinds (including the stable extension envelope): `create_box`, `create_cylinder`, `create_sphere`, `create_body`, `create_sketch`, `add_sketch_geometry`, `add_constraint`, `set_datum`, `pad`, `pocket`, `revolve`, `linear_pattern`, `circular_pattern`, `set_linear_pattern`, `set_circular_pattern`, `boolean`, `set_property`, `set_placement`, `delete_object`, `import_model`, `mesh_to_solid`, `fillet`, `chamfer`, `set_edge_treatment`, `create_parameters`, `set_expression`, `clear_expression`, `loft`, `set_loft`, `mirror`, `set_mirror`, `sweep`, `set_sweep`, `create_helix`, `create_assembly`, `add_component`, `ground_component`, `create_joint`, `set_joint_limits`, `set_joint_positions`, `solve_assembly`, `set_joint_coupling`, `clear_joint_coupling` and `extension`.
 
 Sketches support lines, circles, three-point arcs and rectangles in local XY, with placement/rotation for other planes. Pads and pockets require a sketch in the specified PartDesign body. Dimensional constraints use FreeCAD's `Sketcher.Constraint` positional argument conventions. Numeric lengths are **millimeters**, placements are absolute, and rotation angles are **degrees**. Raw sketch `Angle` constraint arguments and native arc parameters use **radians**; `set_datum` accepts explicit unit strings such as `30 deg`.
 
