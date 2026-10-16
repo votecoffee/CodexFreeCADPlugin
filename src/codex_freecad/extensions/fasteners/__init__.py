@@ -4,7 +4,7 @@ import math
 
 from codex_freecad.engine import CadError
 
-EPSILON = 0.0001
+EPSILON = 0.1  # mm, keep cutter caps clear of the native boolean edge tolerance.
 
 
 def parameters(engine, doc, name, dimensions):
@@ -112,7 +112,7 @@ def bolt(engine, doc, arguments):
         name + "Head",
         {
             "Circumradius" if style == "hex" else "Radius": ref
-            + (f"AcrossFlats / {math.sqrt(3)}" if style == "hex" else "HeadDiameter / 2"),
+            + ("AcrossFlats / sqrt(3)" if style == "hex" else "HeadDiameter / 2"),
             "Height": ref + "HeadHeight",
         },
         hexagon=style == "hex",
@@ -126,7 +126,7 @@ def bolt(engine, doc, arguments):
             "Part::Prism",
             name + "Socket",
             {
-                "Circumradius": ref + f"SocketAcrossFlats / {math.sqrt(3)}",
+                "Circumradius": ref + "SocketAcrossFlats / sqrt(3)",
                 "Height": ref + f"SocketDepth + {EPSILON} mm",
                 "Placement.Base.z": ref + "HeadHeight - " + ref + "SocketDepth",
             },
@@ -159,7 +159,7 @@ def nut(engine, doc, arguments):
         doc,
         "Part::Prism",
         name + "Outer",
-        {"Circumradius": ref + f"AcrossFlats / {math.sqrt(3)}", "Height": ref + "Thickness"},
+        {"Circumradius": ref + "AcrossFlats / sqrt(3)", "Height": ref + "Thickness"},
         hexagon=True,
     )
     return ring(engine, doc, arguments, params, outer, "hex_nut")

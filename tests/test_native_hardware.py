@@ -1,9 +1,18 @@
 """Native geometry/transaction/persistence checks for the reloadable hole and fastener tools."""
 
+import asyncio
+import json
 import math
+import shutil
+import sys
+from pathlib import Path
 
 import pytest
+from mcp import Client
+from mcp.client.stdio import StdioServerParameters
+from test_mcp import data
 
+import codex_freecad
 from codex_freecad.client import HeadlessClient, find_freecad_cmd
 from codex_freecad.engine import CadError
 
@@ -90,6 +99,60 @@ def test_arbitrary_direction_through_hole_and_refresh_after_base_resize(cad):
     assert shape(cad, "Drilled")["volume_mm3"] == pytest.approx(18000 - math.pi * 4 * 60)
     cad.call("undo_document", document="Hardware")
     assert shape(cad, "Drilled")["volume_mm3"] == pytest.approx(12000 - math.pi * 4 * 40)
+
+
+def test_chained_cylindrical_cuts_keep_source_extents_and_exact_recess_volumes(cad):
+    edit(
+        cad,
+        {"op": "create_cylinder", "name": "Blank", "radius": 42, "height": 12},
+        extension("holes.drill", name="Center", base="Blank", diameter=16, positions=[[0, 0, 12]]),
+        extension(
+            "holes.bolt_circle",
+            name="Flange",
+            base="Center",
+            diameter=6.5,
+            radius=28,
+            count=6,
+            center=[0, 0, 12],
+            style="counterbore",
+            recess_diameter=11,
+            recess_depth=6,
+        ),
+    )
+    expected = math.pi * ((42**2 - 8**2) * 12 - 6 * (3.25**2 * 12 + (5.5**2 - 3.25**2) * 6))
+    result = shape(cad, "Flange")
+    assert result["volume_mm3"] == pytest.approx(expected, rel=1e-10)
+    assert result["bounds_mm"]["min"] == pytest.approx([-42, -42, 0], abs=1e-7)
+    assert result["bounds_mm"]["max"] == pytest.approx([42, 42, 12], abs=1e-7)
+
+
+def test_countersink_angle_drives_native_depth_and_failed_refresh_restores_dimensions(cad):
+    edit(cad, plate(), drill(style="countersink", recess_diameter=10))
+    edit(
+        cad,
+        {
+            "op": "set_property",
+            "object": "DrilledParameters",
+            "property": "CountersinkAngle",
+            "value": 60,
+        },
+    )
+    depth = 2 / math.tan(math.radians(30))
+    removed = math.pi * 9 * 10 + math.pi * depth * ((25 + 15 + 9) / 3 - 9)
+    assert shape(cad, "Drilled")["volume_mm3"] == pytest.approx(12000 - removed, rel=1e-9)
+    before = cad.call("inspect_document", document="Hardware")["revision"]
+    with pytest.raises(CadError):
+        edit(
+            cad,
+            {
+                "op": "set_property",
+                "object": "DrilledParameters",
+                "property": "RecessDiameter",
+                "value": 4,
+            },
+            extension("holes.refresh", object="Drilled"),
+        )
+    assert cad.call("inspect_document", document="Hardware")["revision"] == before
 
 
 def test_bolt_circle_save_reopen_recompute_and_undo(cad, tmp_path):
@@ -310,3 +373,112 @@ def test_invalid_fastener_relationships_roll_back_mixed_batch(cad, capability, a
     with pytest.raises(CadError):
         edit(cad, plate(), extension("fasteners." + capability, name="Fastener", **arguments))
     assert cad.call("inspect_document", document="Hardware")["objects"] == []
+
+
+def test_hardware_packages_load_in_existing_mcp_session_and_retain_models_after_bad_update(
+    tmp_path,
+):
+    root = tmp_path / "extensions"
+    root.mkdir()
+
+    async def run():
+        parameters = StdioServerParameters(
+            command=sys.executable,
+            args=[
+                "-m",
+                "codex_freecad.server",
+                "--mode",
+                "headless",
+                "--workspace",
+                str(tmp_path / "models"),
+                "--extensions",
+                str(root),
+            ],
+        )
+        async with Client(parameters, read_timeout_seconds=60) as client:
+
+            async def call(tool, **arguments):
+                return data(await client.call_tool(tool, arguments))
+
+            tools = (await client.list_tools()).model_dump(mode="json")
+            pid = (await call("freecad_status"))["backend_pid"]
+            await call("new_document", name="Hardware")
+            await call("apply_operations", document="Hardware", operations=[plate()])
+            before = (await call("inspect_document", document="Hardware"))["revision"]
+            source = Path(codex_freecad.__file__).parent / "extensions"
+            for name in ("holes", "fasteners"):
+                target = root / ("installed_" + name)
+                shutil.copytree(source / name, target, ignore=shutil.ignore_patterns("__pycache__"))
+                manifest_path = target / "manifest.json"
+                manifest = json.loads(manifest_path.read_text())
+                manifest["id"] = "installed_" + name
+                manifest_path.write_text(json.dumps(manifest))
+            loaded = await call("reload_extensions")
+            assert loaded["changed_extensions"] == ["installed_fasteners", "installed_holes"]
+            assert (await client.list_tools()).model_dump(mode="json") == tools
+            assert (await call("freecad_status"))["backend_pid"] == pid
+            assert (await call("inspect_document", document="Hardware"))["revision"] == before
+            described = await call("describe_capability", capability="installed_holes.drill")
+            operation = {
+                **drill(),
+                "capability": "installed_holes.drill",
+                "catalog_revision": described["catalog_revision"],
+            }
+            await call(
+                "apply_operations",
+                document="Hardware",
+                operations=[
+                    operation,
+                    extension(
+                        "installed_fasteners.bolt",
+                        name="Bolt",
+                        diameter=5,
+                        length=16,
+                        head_height=3,
+                        across_flats=8,
+                        position=[10, 15, 10],
+                    ),
+                ],
+            )
+            await call("save_document", document="Hardware", path="Hardware.FCStd")
+            # No external package is configured in this new native process.
+            with HeadlessClient(tmp_path / "models", find_freecad_cmd()) as reopened:
+                reopened.call("open_document", path="Hardware.FCStd")
+                assert shape(reopened, "Drilled")["valid"] and shape(reopened, "Bolt")["valid"]
+                edit(
+                    reopened,
+                    {
+                        "op": "set_property",
+                        "object": "BoltParameters",
+                        "property": "Length",
+                        "value": 20,
+                    },
+                )
+                assert shape(reopened, "Bolt")["valid"]
+            await call("undo_document", document="Hardware")
+            assert (await call("inspect_document", document="Hardware"))["revision"] == before
+            (root / "installed_fasteners/__init__.py").write_text("def broken(:\n")
+            assert (await client.call_tool("reload_extensions", {})).is_error
+            assert (await call("list_capabilities"))["catalog_revision"] == loaded[
+                "catalog_revision"
+            ]
+            await call(
+                "apply_operations",
+                document="Hardware",
+                operations=[
+                    extension(
+                        "installed_fasteners.washer",
+                        name="StillWorks",
+                        outer_diameter=12,
+                        bore_diameter=6,
+                        thickness=1,
+                    )
+                ],
+            )
+            await call("undo_document", document="Hardware")
+            assert (await call("inspect_document", document="Hardware"))["revision"] == before
+            await call("undo_document", document="Hardware")
+            assert (await call("inspect_document", document="Hardware"))["objects"] == []
+            assert (await call("freecad_status"))["backend_pid"] == pid
+
+    asyncio.run(run())

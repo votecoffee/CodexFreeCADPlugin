@@ -4,7 +4,7 @@ import math
 
 from codex_freecad.engine import CadError, encode
 
-EPSILON = 0.0001  # mm, extends through tools past the selected entry/end planes.
+EPSILON = 0.1  # mm, extends tools beyond end planes, clear of native boolean edge tolerances.
 
 
 def direction(engine, arguments):
@@ -103,7 +103,7 @@ def build(engine, doc, arguments, positions):
     axis = direction(engine, arguments)
     positions = [engine.vector(position) for position in positions]
     for index, position in enumerate(positions):
-        if any((position - earlier).Length < EPSILON for earlier in positions[:index]):
+        if any((position - earlier).Length < 1e-7 for earlier in positions[:index]):
             raise CadError("Hole positions must be distinct")
     base = engine.obj(doc, arguments["base"])
     shape = engine.shape(doc, base.Name)
