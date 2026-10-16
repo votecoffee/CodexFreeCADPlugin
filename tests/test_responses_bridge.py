@@ -19,8 +19,9 @@ def test_responses_adapter_preserves_schemas_and_tool_results_without_paid_api_c
     async def run():
         async with Client(create_server(FixtureBackend())) as cad:
             tools = function_tools((await cad.list_tools()).tools)
-            assert len(tools) == 17
+            assert len(tools) == 19
             assert any(t["name"] == "inspect_assembly" for t in tools)
+            assert {"sample_motion", "check_interference"} <= {t["name"] for t in tools}
             edit = next(t for t in tools if t["name"] == "apply_operations")
             assert edit["parameters"]["properties"]["operations"]["type"] == "array"
             result = await cad.call_tool("inspect_document", {"document": "Plate"})

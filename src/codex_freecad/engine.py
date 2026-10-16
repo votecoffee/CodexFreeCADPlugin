@@ -117,6 +117,22 @@ class Engine:
             raise CadError("Unknown document: " + str(name))
         return doc
 
+    def require_idle(self, doc, action):
+        # HasPendingTransaction stays false until the first property change.
+        # The application transaction also detects a drag before it has moved.
+        if doc.HasPendingTransaction or self.app.getActiveTransaction() is not None:
+            raise CadError("Finish the current document edit before " + action)
+
+    def finish_transaction(self, doc, cancel=False):
+        if cancel:
+            doc.abortTransaction()
+        else:
+            doc.commitTransaction()
+        # FreeCAD 1.0 retains the application transaction after closing an
+        # empty document transaction (click without moving, or early failure).
+        if self.app.getActiveTransaction() is not None:
+            self.app.closeActiveTransaction(cancel)
+
     def obj(self, doc, name):
         obj = doc.getObject(name)
         if obj is None:
@@ -450,6 +466,7 @@ class Engine:
 
     def apply_operations(self, document, operations, expected_revision=None):
         doc = self.document(document)
+        self.require_idle(doc, "applying operations")
         self.check_revision(doc, expected_revision)
         if not isinstance(operations, list) or not 1 <= len(operations) <= 100:
             raise CadError("Provide between 1 and 100 operations")
@@ -468,13 +485,23 @@ class Engine:
                     raise CadError("Recompute failed for " + obj.Name + ": " + str(obj.State))
                 if hasattr(obj, "Shape") and not obj.Shape.isNull() and not obj.Shape.isValid():
                     raise CadError("Invalid shape: " + obj.Name)
-            doc.commitTransaction()
+            self.finish_transaction(doc)
         except Exception:
-            doc.abortTransaction()
+            self.finish_transaction(doc, cancel=True)
             doc.recompute()
             raise
         warnings = []
-        if self.gui:
+        if self.gui and not all(
+            op["op"]
+            in {
+                "set_joint_positions",
+                "set_joint_coupling",
+                "clear_joint_coupling",
+                "set_joint_limits",
+                "solve_assembly",
+            }
+            for op in operations
+        ):
             import FreeCADGui
 
             try:
@@ -842,6 +869,7 @@ class Engine:
 
     def undo_document(self, document, expected_revision=None):
         doc = self.document(document)
+        self.require_idle(doc, "undoing")
         self.check_revision(doc, expected_revision)
         if not doc.UndoCount:
             raise CadError("No transaction available to undo")
@@ -851,6 +879,7 @@ class Engine:
 
     def save_document(self, document, path, overwrite=False):
         doc = self.document(document)
+        self.require_idle(doc, "saving")
         target, backup = self.workspace.prepare_write(path, {".fcstd"}, overwrite)
         doc.recompute()
         doc.saveAs(str(target))
@@ -858,6 +887,7 @@ class Engine:
 
     def export_model(self, document, objects, path, overwrite=False):
         doc = self.document(document)
+        self.require_idle(doc, "exporting")
         if not objects:
             raise CadError("Select at least one object to export")
         selected = [self.obj(doc, name) for name in objects]

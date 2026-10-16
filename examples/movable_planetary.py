@@ -140,7 +140,7 @@ def build_and_render(workspace):
     native = workspace / "native"
     package = native / "codex_freecad"
     package.mkdir(parents=True, exist_ok=True)
-    for name in ("__init__.py", "engine.py", "assemblies.py"):
+    for name in ("__init__.py", "engine.py", "assemblies.py", "motion.py"):
         shutil.copy2(root / "src" / "codex_freecad" / name, package / name)
     shutil.copy2(
         root / "examples" / "planetary_motion_controls.py", native / "planetary_motion_controls.py"

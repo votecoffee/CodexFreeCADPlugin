@@ -15,12 +15,13 @@ def joint_positions(input_degrees):
 def set_angle(engine, doc, angle):
     from codex_freecad.assemblies import position
 
+    engine.require_idle(doc, "changing the gearbox pose")
     doc.openTransaction("Planetary gearbox motion")
     try:
         position(engine, doc, doc.getObject("GearboxAssembly"), joint_positions(angle))
-        doc.commitTransaction()
+        engine.finish_transaction(doc)
     except Exception:
-        doc.abortTransaction()
+        engine.finish_transaction(doc, cancel=True)
         doc.recompute()
         raise
 

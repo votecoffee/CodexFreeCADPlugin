@@ -22,14 +22,46 @@ def generate(workspace, output, freecad_cmd=None):
         f"sys.path.insert(0, {str(source)!r})\n"
         "from codex_freecad import bridge\n"
         "bridge.stop()\n"
+        "from codex_freecad import panel\n"
+        "panel.shutdown()\n"
         "import importlib\n"
         "importlib.invalidate_caches()\n"
-        "for _module_name in ('codex_freecad', 'codex_freecad.engine', 'codex_freecad.sketches', 'codex_freecad.patterns', 'codex_freecad.parameters', 'codex_freecad.features', 'codex_freecad.assemblies', 'codex_freecad.client', 'codex_freecad.bridge'):\n"
+        "for _module_name in ('codex_freecad', 'codex_freecad.engine', 'codex_freecad.sketches', 'codex_freecad.patterns', 'codex_freecad.parameters', 'codex_freecad.features', 'codex_freecad.assemblies', 'codex_freecad.motion', 'codex_freecad.interference', 'codex_freecad.viewport', 'codex_freecad.client', 'codex_freecad.bridge', 'codex_freecad.panel'):\n"
         "    importlib.reload(importlib.import_module(_module_name))\n"
         "from codex_freecad import bridge\n"
         f"bridge.start({str(workspace)!r}, {str(state_file)!r})\n"
+        "from codex_freecad import panel\n"
+        f"panel.install_command({str(workspace)!r})\n"
+        f"panel.show({str(workspace)!r})\n"
     )
     (output / "StartBridge.FCMacro").write_text(macro, encoding="utf-8")
+    (output / "OpenFreeCADPanel.FCMacro").write_text(
+        "import sys\n" + f"sys.path.insert(0, {str(source)!r})\n"
+        "from codex_freecad import panel\n"
+        f"panel.install_command({str(workspace)!r})\n"
+        f"panel.show({str(workspace)!r})\n",
+        encoding="utf-8",
+    )
+    workbench = output / "FreeCADMod" / "CodexFreeCAD"
+    workbench.mkdir(parents=True, exist_ok=True)
+    (workbench / "InitGui.py").write_text(
+        "import sys\nimport FreeCADGui as Gui\n" + f"sys.path.insert(0, {str(source)!r})\n"
+        "class CodexCADWorkbench(Gui.Workbench):\n"
+        "    MenuText = 'Codex CAD'\n"
+        "    ToolTip = 'Codex CAD modeling and assembly tools'\n"
+        "    def Initialize(self):\n"
+        "        from codex_freecad import panel\n"
+        f"        panel.install_command({str(workspace)!r})\n"
+        "        self.appendToolbar('Codex CAD', ['CodexFreeCAD_OpenPanel'])\n"
+        "        self.appendMenu('Codex CAD', ['CodexFreeCAD_OpenPanel'])\n"
+        "    def Activated(self):\n"
+        "        from codex_freecad import panel\n"
+        f"        panel.show({str(workspace)!r})\n"
+        "    def GetClassName(self):\n"
+        "        return 'Gui::PythonWorkbench'\n"
+        "Gui.addWorkbench(CodexCADWorkbench())\n",
+        encoding="utf-8",
+    )
     (output / "StopBridge.FCMacro").write_text(
         "import sys\n" + f"sys.path.insert(0, {str(source)!r})\n"
         "from codex_freecad import bridge\nbridge.stop()\n",
@@ -73,6 +105,8 @@ def generate(workspace, output, freecad_cmd=None):
     return {
         "workspace": str(workspace),
         "start_macro": str(output / "StartBridge.FCMacro"),
+        "panel_macro": str(output / "OpenFreeCADPanel.FCMacro"),
+        "freecad_workbench": str(workbench),
         "plugin": str(plugin),
         "codex_config": str(output / "codex-mcp.toml"),
     }

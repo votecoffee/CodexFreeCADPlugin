@@ -30,7 +30,7 @@ def test_stdio_mcp_discovery_validation_and_native_edit(tmp_path):
         )
         async with Client(parameters, read_timeout_seconds=45) as client:
             tools = (await client.list_tools()).tools
-            assert len(tools) == 18
+            assert len(tools) == 20
             assert next(t for t in tools if t.name == "inspect_document").annotations.read_only_hint
             assert next(
                 t for t in tools if t.name == "apply_operations"
@@ -338,5 +338,90 @@ def test_stdio_mcp_discovery_validation_and_native_edit(tmp_path):
             )
             assert jointed["joints"][0]["position"] == pytest.approx(90)
             assert all(x["connected_to_ground"] for x in jointed["components"])
+            overlap = data(
+                await client.call_tool(
+                    "check_interference",
+                    {"document": "Jointed", "objects": ["BaseLink", "ArmLink"], "clearance": 0.1},
+                )
+            )
+            assert overlap["pair_count"] == 1
+            sampled = data(
+                await client.call_tool(
+                    "sample_motion",
+                    {
+                        "document": "Jointed",
+                        "assembly": "Assembly",
+                        "joint": "Hinge",
+                        "start": -30,
+                        "end": 30,
+                        "steps": 3,
+                        "objects": ["BaseLink", "ArmLink"],
+                    },
+                )
+            )
+            assert len(sampled["frames"]) == 3
+            assert sampled["frames"][0]["coordinates"]["Hinge"] == pytest.approx(-30)
+            # Exercise both coupling schema branches through the typed MCP boundary.
+            data(
+                await client.call_tool(
+                    "apply_operations",
+                    {
+                        "document": "Jointed",
+                        "operations": [
+                            {
+                                "op": "create_box",
+                                "name": "Tip",
+                                "length": 2,
+                                "width": 2,
+                                "height": 2,
+                            },
+                            {
+                                "op": "add_component",
+                                "assembly": "Assembly",
+                                "name": "TipLink",
+                                "source": "Tip",
+                            },
+                            {
+                                "op": "create_joint",
+                                "assembly": "Assembly",
+                                "name": "Spare",
+                                "kind": "slider",
+                                "component_a": "ArmLink",
+                                "component_b": "TipLink",
+                            },
+                            {
+                                "op": "set_joint_coupling",
+                                "assembly": "Assembly",
+                                "joint": "Spare",
+                                "driver": "Hinge",
+                                "ratio": 0.1,
+                            },
+                        ],
+                    },
+                )
+            )
+            coupled = data(
+                await client.call_tool(
+                    "inspect_assembly", {"document": "Jointed", "assembly": "Assembly"}
+                )
+            )
+            assert len(coupled["couplings"]) == 1
+            assert coupled["joints"][-1]["coordinate"] == pytest.approx(9)
+            data(
+                await client.call_tool(
+                    "apply_operations",
+                    {
+                        "document": "Jointed",
+                        "operations": [
+                            {"op": "clear_joint_coupling", "assembly": "Assembly", "joint": "Spare"}
+                        ],
+                    },
+                )
+            )
+            assert not data(
+                await client.call_tool(
+                    "inspect_assembly", {"document": "Jointed", "assembly": "Assembly"}
+                )
+            )["couplings"]
 
     asyncio.run(run())

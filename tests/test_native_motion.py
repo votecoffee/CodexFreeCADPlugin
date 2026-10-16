@@ -155,3 +155,57 @@ def test_coupling_restore_clear_and_reopened_worker(cad, tmp_path):
     )
     assert inspect(cad)["couplings"] == []
     assert inspect(cad)["joints"][1]["coordinate"] == pytest.approx(-177)
+
+
+def test_coupling_chain_inverse_sampling_coordinates_and_cycle_rollback(cad):
+    linkage(cad)
+    edit(
+        cad,
+        {"op": "create_box", "name": "Extra", "length": 2, "width": 2, "height": 2},
+        {"op": "add_component", "assembly": "Assembly", "name": "ExtraLink", "source": "Extra"},
+        {
+            "op": "create_joint",
+            "assembly": "Assembly",
+            "name": "ExtraSlide",
+            "kind": "slider",
+            "component_a": "TipLink",
+            "component_b": "ExtraLink",
+        },
+    )
+    couple(cad, joint="ExtraSlide", driver="Slide", ratio=2, offset=1)
+    couple(cad)
+    edit(
+        cad,
+        {
+            "op": "set_joint_positions",
+            "assembly": "Assembly",
+            "positions": [{"joint": "Hinge", "position": 110}],
+        },
+    )
+    assert [x["coordinate"] for x in inspect(cad)["joints"]] == pytest.approx([110, 13, 27])
+    edit(
+        cad,
+        {
+            "op": "set_joint_positions",
+            "assembly": "Assembly",
+            "positions": [{"joint": "ExtraSlide", "position": 7}],
+        },
+    )
+    assert [x["coordinate"] for x in inspect(cad)["joints"]] == pytest.approx([10, 3, 7])
+    before = cad.call("inspect_document", document="Model")["revision"]
+    sampled = cad.call(
+        "sample_motion",
+        document="Model",
+        assembly="Assembly",
+        joint="ExtraSlide",
+        start=7,
+        end=11,
+        steps=3,
+        objects=["ArmLink", "ExtraLink"],
+    )
+    assert [x["coordinates"]["Hinge"] for x in sampled["frames"]] == pytest.approx([10, 20, 30])
+    assert [x["coordinates"]["Slide"] for x in sampled["frames"]] == pytest.approx([3, 4, 5])
+    assert cad.call("inspect_document", document="Model")["revision"] == before
+    with pytest.raises(CadError, match="cycle"):
+        couple(cad, joint="Hinge", driver="ExtraSlide", ratio=1, offset=0)
+    assert cad.call("inspect_document", document="Model")["revision"] == before

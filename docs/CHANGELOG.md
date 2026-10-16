@@ -2,6 +2,9 @@
 
 ## 0.7.0 (in progress) — 2026-10-16
 
+- Added the native Codex CAD dock with source-parameter inspection/editing, coupling controls, joint playback, viewport drag mode, overlap-pair highlighting and sampled-pose navigation. Setup generates a local panel macro and optional workbench folder.
+- Added headless native checks of drag projection, forward/inverse coupled movement, half-turn crossing, cancellation, Undo and transaction isolation. Empty transaction cleanup handles clicks without movement and failures before the first change.
+- Updated typed MCP/API discovery for 20 tools and 43 operations. Panel UI and physical mouse interaction require the user's manual check; no desktop interaction is used for the new automated controller checks.
 - Added stored affine joint couplings with forward/inverse positioning, offsets, unwrapped coordinates, cycle/conflict guards and native save/reopen support.
 - Added BREP overlap/contact/clearance checks and discrete motion sampling on a hidden native model copy, preserving source pose and Undo history.
 - Revisions now hash mesh-free BREP content for all shapes, avoiding false changes caused by native document-copy caches.

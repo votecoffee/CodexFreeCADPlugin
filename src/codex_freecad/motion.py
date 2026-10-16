@@ -5,11 +5,12 @@ import json
 from .engine import CadError, number
 
 
-def rules(asm):
-    try:
-        items = json.loads(getattr(asm, "CadMotionCouplings", "[]"))
-    except (TypeError, ValueError) as exc:
-        raise CadError("Invalid stored motion couplings") from exc
+def rules(asm, items=None):
+    if items is None:
+        try:
+            items = json.loads(getattr(asm, "CadMotionCouplings", "[]"))
+        except (TypeError, ValueError) as exc:
+            raise CadError("Invalid stored motion couplings") from exc
     if not isinstance(items, list) or len(items) > 100:
         raise CadError("Motion supports at most 100 couplings")
     names = set()
@@ -53,9 +54,9 @@ def moving_joints(asm):
     return {x.Name: x for x in joints(asm) if x.JointType in {"Revolute", "Slider"}}
 
 
-def validate(asm):
+def validate(asm, items=None):
     moving = moving_joints(asm)
-    items = rules(asm)
+    items = rules(asm, items)
     for item in items:
         if item["joint"] not in moving or item["driver"] not in moving:
             raise CadError("Couplings require movable joints in the same assembly")
@@ -124,6 +125,7 @@ def apply(engine, doc, op):
     items = [x for x in items if x["joint"] != op["joint"]]
     if op["op"] == "set_joint_coupling":
         items.append({k: op.get(k, 0) for k in ("joint", "driver", "ratio", "offset")})
+    validate(asm, items)
     if "CadMotionCouplings" not in asm.PropertiesList:
         asm.addProperty("App::PropertyString", "CadMotionCouplings", "CAD motion")
         asm.setEditorMode("CadMotionCouplings", 1)

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import tomllib
+from pathlib import Path
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
@@ -79,3 +80,8 @@ def test_generated_configuration_has_absolute_local_commands(tmp_path):
     start_code = (tmp_path / "setup/StartBridge.FCMacro").read_text()
     assert "importlib.reload" in start_code
     compile(start_code, "StartBridge.FCMacro", "exec")
+    for path in (tmp_path / "setup").rglob("*"):
+        if path.suffix in {".FCMacro", ".py"}:
+            compile(path.read_text(encoding="utf-8"), str(path), "exec")
+    assert Path(result["panel_macro"]).is_file()
+    assert (Path(result["freecad_workbench"]) / "InitGui.py").is_file()

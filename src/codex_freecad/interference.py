@@ -112,8 +112,7 @@ def sample(
         raise CadError("Motion samples must select components belonging to this assembly")
     if len(objects) * (len(objects) - 1) // 2 * steps > 5000:
         raise CadError("Motion sampling is limited to 5,000 pair-pose checks")
-    if doc.HasPendingTransaction:
-        raise CadError("Finish the current document edit before sampling motion")
+    engine.require_idle(doc, "sampling motion")
     original_active = engine.app.ActiveDocument
     clone = engine.app.newDocument("MotionCheck" + uuid.uuid4().hex[:12], hidden=True)
     frames = []
