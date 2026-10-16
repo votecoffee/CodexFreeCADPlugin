@@ -174,6 +174,9 @@ class Engine:
             "type": obj.TypeId,
             "state": list(obj.State),
             "depends_on": list(dict.fromkeys(x.Name for x in obj.OutList)),
+            "expressions": [
+                {"property": path, "expression": text} for path, text in obj.ExpressionEngine
+            ],
         }
         if hasattr(obj, "Shape"):
             shape = obj.Shape
@@ -459,7 +462,15 @@ class Engine:
     def operation(self, doc, op):
         kind = op["op"]
         details = {}
-        if kind == "import_model":
+        if kind == "create_parameters":
+            from .parameters import create
+
+            obj = create(self, doc, op)
+        elif kind in {"set_expression", "clear_expression"}:
+            from .parameters import apply
+
+            obj = apply(self, doc, op)
+        elif kind == "import_model":
             source = self.workspace.path(op["path"], {".step", ".stp", ".brep", ".stl"})
             if not source.is_file():
                 raise CadError("Import file does not exist")
@@ -606,6 +617,11 @@ class Engine:
                 raise CadError("Datum target must be a sketch")
             if isinstance(index, bool) or not isinstance(index, int) or index < 0:
                 raise CadError("constraint_index must be a nonnegative integer")
+            from .parameters import expression_paths, numeric_path
+
+            path = numeric_path(obj, "Constraints[" + str(index) + "]", target=True)
+            if path in expression_paths(obj):
+                raise CadError("Constraint has an expression; edit its driving parameter instead")
             obj.setDatum(index, self.app.Units.Quantity(op["value"]))
             if obj.solve() != 0:
                 raise CadError("Sketch solver rejected the datum")
@@ -665,6 +681,10 @@ class Engine:
             setattr(obj, prop, value)
         elif kind == "set_placement":
             obj = self.obj(doc, op["object"])
+            if any(path.lstrip(".").startswith("Placement.") for path, _ in obj.ExpressionEngine):
+                raise CadError(
+                    "Placement has an expression; edit or clear its driving expression first"
+                )
             axis = self.vector(op.get("axis", [0, 0, 1]))
             angle = number(op.get("angle", 0))
             if axis.Length == 0:
@@ -884,6 +904,9 @@ CONSTRAINT_TYPES = {
     "Angle",
 }
 OPERATION_KEYS = {
+    "create_parameters": ({"name", "parameters"}, {"label"}),
+    "set_expression": ({"object", "property", "expression"}, set()),
+    "clear_expression": ({"object", "property"}, set()),
     "add_sketch_geometry": ({"object", "geometry"}, set()),
     "revolve": ({"name", "source"}, {"center", "axis", "angle", "solid", "label"}),
     "linear_pattern": ({"name", "source", "count", "step"}, {"label"}),

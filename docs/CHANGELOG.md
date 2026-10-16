@@ -1,5 +1,12 @@
 # Changes
 
+## Unreleased
+
+- Added native named length, angle, number and integer parameter containers.
+- Added arithmetic expressions on numeric feature properties, placement translations and named/indexed dimensional sketch constraints, with dependency propagation and explicit expression removal.
+- Exposed expression bindings in object/document inspection and prevented direct datum/placement writes from silently overriding expression-driven values.
+- Restricted new expression input to arithmetic, units, pi and numeric references inside the same document; invalid units, cycles and failed recomputes roll back the transaction.
+
 ## 0.3.0 — 2026-10-16
 
 - Added three-point sketch arcs and optional fully constrained rectangles with named width, height and origin dimensions.

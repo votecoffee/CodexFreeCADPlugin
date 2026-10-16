@@ -24,7 +24,7 @@ def generate(workspace, output, freecad_cmd=None):
         "bridge.stop()\n"
         "import importlib\n"
         "importlib.invalidate_caches()\n"
-        "for _module_name in ('codex_freecad', 'codex_freecad.engine', 'codex_freecad.sketches', 'codex_freecad.patterns', 'codex_freecad.client', 'codex_freecad.bridge'):\n"
+        "for _module_name in ('codex_freecad', 'codex_freecad.engine', 'codex_freecad.sketches', 'codex_freecad.patterns', 'codex_freecad.parameters', 'codex_freecad.client', 'codex_freecad.bridge'):\n"
         "    importlib.reload(importlib.import_module(_module_name))\n"
         "from codex_freecad import bridge\n"
         f"bridge.start({str(workspace)!r}, {str(state_file)!r})\n"

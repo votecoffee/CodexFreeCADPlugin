@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 
 
 class Operation(BaseModel):
@@ -259,6 +259,39 @@ class SetCircularPattern(Operation):
     angle: float = Field(default=360, ge=-360, le=360)
 
 
+class Parameter(Operation):
+    name: str
+    type: Literal["length", "angle", "number", "integer"]
+    value: StrictFloat | StrictInt | StrictStr
+    description: str = Field(default="", max_length=1000)
+
+
+class Parameters(Operation):
+    op: Literal["create_parameters"]
+    name: str
+    parameters: list[Parameter] = Field(min_length=1, max_length=100)
+    label: str | None = None
+
+
+class Expression(Operation):
+    op: Literal["set_expression"]
+    object: str
+    property: str = Field(
+        description="Numeric property, Placement.Base.x/y/z or Constraints[index/name]"
+    )
+    expression: str = Field(
+        min_length=1,
+        max_length=1000,
+        description="Arithmetic (+ - * / ^), parentheses, units, pi and same-document numeric properties; no functions or external documents",
+    )
+
+
+class ClearExpression(Operation):
+    op: Literal["clear_expression"]
+    object: str
+    property: str = Field(description="Remove expression while retaining its last evaluated value")
+
+
 Edit = Annotated[
     Box
     | Cylinder
@@ -281,6 +314,9 @@ Edit = Annotated[
     | LinearPattern
     | CircularPattern
     | SetLinearPattern
-    | SetCircularPattern,
+    | SetCircularPattern
+    | Parameters
+    | Expression
+    | ClearExpression,
     Field(discriminator="op"),
 ]
