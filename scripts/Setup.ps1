@@ -1,6 +1,7 @@
 param(
     [string]$Workspace = '',
-    [string]$FreeCADCmd = ''
+    [string]$FreeCADCmd = '',
+    [string[]]$Extensions = @()
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -14,5 +15,6 @@ if (-not (Test-Path -LiteralPath $pythonPath)) {
 if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
 $setupArgs = @('-m', 'codex_freecad.setup', '--workspace', $Workspace, '--output', (Join-Path $projectRoot '.local'))
 if ($FreeCADCmd) { $setupArgs += @('--freecad-cmd', $FreeCADCmd) }
+foreach ($directory in $Extensions) { $setupArgs += @('--extensions', $directory) }
 & $pythonPath @setupArgs
 if ($LASTEXITCODE -ne 0) { throw 'Configuration generation failed.' }

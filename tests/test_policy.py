@@ -84,4 +84,19 @@ def test_generated_configuration_has_absolute_local_commands(tmp_path):
         if path.suffix in {".FCMacro", ".py"}:
             compile(path.read_text(encoding="utf-8"), str(path), "exec")
     assert Path(result["panel_macro"]).is_file()
+    assert Path(result["reload_macro"]).is_file()
     assert (Path(result["freecad_workbench"]) / "InitGui.py").is_file()
+
+
+def test_startup_extension_roots_are_configured_once_for_both_backends(tmp_path):
+    directory = tmp_path / "installed extensions"
+    directory.mkdir()
+    result = generate(tmp_path / "models", tmp_path / "setup", extension_dirs=[directory])
+    config = tomllib.loads(Path(result["codex_config"]).read_text())
+    assert config["mcp_servers"]["freecad-headless"]["args"][-2:] == [
+        "--extensions",
+        str(directory.resolve()),
+    ]
+    assert "extension_dirs=" in Path(result["start_macro"]).read_text()
+    reload_code = Path(result["reload_macro"]).read_text()
+    assert "reload_extensions" in reload_code and "importlib.reload" not in reload_code

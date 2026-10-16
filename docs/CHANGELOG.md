@@ -1,5 +1,13 @@
 # Changes
 
+## 0.8.0 (in progress; GUI acceptance pending) — 2026-10-16
+
+- Added a stable capability catalog, runtime schemas, read-only query dispatch, an extension edit envelope and a reload command. Existing typed operations remain compatible; future extension features do not change MCP tool schemas.
+- Added generation-isolated source loading with relative helper snapshots, content fingerprints, atomic publication, stale-catalog guards and failed-load recovery. Configured extension roots are trusted startup configuration; tools accept no code or module paths.
+- Moved the native dock and drag controller behind stable facades into a reloadable CAD panel extension. Reload preserves panel settings, pauses playback, removes old callbacks and restores the previous generation if UI rebuilding fails. Actual GUI verification remains user-run.
+- Added installed tube creation and mass-property capabilities, native query rollback guards and rejection of generation-owned model/view proxies. A persistent stdio MCP test confirms new-feature discovery, identical tool schemas, unchanged native worker PID, failed-update recovery and preserved native models/Undo.
+- Setup generates ReloadExtensions.FCMacro and supports explicit external extension directories for live and headless sessions. Portable native packages now include extension manifests and implementations.
+
 ## 0.7.0 (GUI acceptance pending) — 2026-10-16
 
 - Added the native Codex CAD dock with source-parameter inspection/editing, coupling controls, joint playback, viewport drag mode, overlap-pair highlighting and sampled-pose navigation. Setup generates a local panel macro and optional workbench folder.

@@ -7,7 +7,9 @@ from pathlib import Path
 
 from build_planetary_demo import run_native
 
+from codex_freecad import __version__
 from codex_freecad.client import find_freecad_cmd
+from codex_freecad.native_package import copy_native_package
 
 
 def main():
@@ -28,23 +30,7 @@ def main():
     assert hashlib.sha256(original.read_bytes()).hexdigest() == source_hash
     root = Path(__file__).resolve().parents[1]
     package = workspace / "native/codex_freecad"
-    package.mkdir(parents=True)
-    for module in (
-        "__init__",
-        "engine",
-        "assemblies",
-        "motion",
-        "interference",
-        "viewport",
-        "panel",
-        "bridge",
-        "client",
-        "features",
-        "parameters",
-        "patterns",
-        "sketches",
-    ):
-        shutil.copy2(root / "src/codex_freecad" / (module + ".py"), package)
+    copy_native_package(package)
     macro = """# Run through FreeCAD: Macro > Macros > Execute.
 import sys
 from pathlib import Path
@@ -53,8 +39,8 @@ import FreeCADGui as Gui
 _folder = Path(__file__).resolve().parent
 sys.path.insert(0, str(_folder / 'native'))
 from codex_freecad import __version__, panel
-if __version__ != '0.7.0':
-    raise RuntimeError('Restart FreeCAD before opening this v0.7 demo; an older integration is loaded')
+if __version__ != 'DEMO_VERSION':
+    raise RuntimeError('Restart FreeCAD before opening this demo; a different integration core is loaded')
 _path = _folder / 'PlanetaryGearbox-Coupled.FCStd'
 _doc = next((d for d in App.listDocuments().values() if d.FileName and Path(d.FileName).resolve() == _path.resolve()), None)
 if _doc is None:
@@ -69,6 +55,7 @@ _dock.drag_button.setChecked(True)
 Gui.getDocument(_doc.Name).activeView().viewTop()
 Gui.getDocument(_doc.Name).activeView().fitAll()
 """
+    macro = macro.replace("DEMO_VERSION", __version__)
     compile(macro, "OpenCoupledGearbox.FCMacro", "exec")
     (workspace / "OpenCoupledGearbox.FCMacro").write_text(macro, encoding="utf-8")
     shutil.copy2(root / "docs/PANEL_TESTING.md", workspace / "Readme.md")

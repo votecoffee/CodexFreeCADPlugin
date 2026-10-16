@@ -81,8 +81,11 @@ def main():
         folder / "native",
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
-    for module in (folder / "native/codex_freecad").glob("*.py"):
-        if module.read_bytes() != (root / "src/codex_freecad" / module.name).read_bytes():
+    for module in (folder / "native/codex_freecad").rglob("*"):
+        if not module.is_file() or module.suffix not in {".py", ".json"}:
+            continue
+        relative = module.relative_to(folder / "native/codex_freecad")
+        if module.read_bytes() != (root / "src/codex_freecad" / relative).read_bytes():
             raise RuntimeError("Native demo/source mismatch: " + module.name)
     entries = [
         {

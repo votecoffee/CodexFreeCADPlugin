@@ -457,6 +457,13 @@ class JointCoupling(Operation):
     offset: float = Field(default=0, description="Follower coordinate = ratio * driver + offset")
 
 
+class ExtensionOperation(Operation):
+    op: Literal["extension"]
+    capability: str = Field(description="Installed capability name from list_capabilities")
+    arguments: dict = Field(description="Validated against describe_capability's current schema")
+    catalog_revision: str | None = None
+
+
 class ClearJointCoupling(Operation):
     op: Literal["clear_joint_coupling"]
     assembly: str
@@ -504,6 +511,7 @@ Edit = Annotated[
     | JointPositions
     | SolveAssembly
     | JointCoupling
-    | ClearJointCoupling,
+    | ClearJointCoupling
+    | ExtensionOperation,
     Field(discriminator="op"),
 ]

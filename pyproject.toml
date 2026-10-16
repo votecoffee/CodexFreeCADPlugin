@@ -20,6 +20,9 @@ codex-freecad-setup = "codex_freecad.setup:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+codex_freecad = ["extensions/*/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["native: requires a real FreeCAD installation"]

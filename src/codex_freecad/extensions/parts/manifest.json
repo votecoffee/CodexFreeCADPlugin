@@ -1,0 +1,36 @@
+{
+  "id": "parts",
+  "version": "1.0.0",
+  "api_version": 1,
+  "description": "Native parametric parts and geometric properties",
+  "ui": false,
+  "capabilities": {
+    "create_tube": {
+      "kind": "edit",
+      "description": "Create an editable hollow cylinder using two native cylinders and a native cut. Lengths are mm.",
+      "handler": "create_tube",
+      "parameters": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "outer_radius", "inner_radius", "height"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,59}$"},
+          "outer_radius": {"type": "number", "exclusiveMinimum": 0},
+          "inner_radius": {"type": "number", "exclusiveMinimum": 0},
+          "height": {"type": "number", "exclusiveMinimum": 0}
+        }
+      }
+    },
+    "mass_properties": {
+      "kind": "query",
+      "description": "Return native volume, area and center of mass. Optional material density in kg/m3 produces mass in kg.",
+      "handler": "mass_properties",
+      "parameters": {
+        "type": "object", "additionalProperties": false, "required": ["object"],
+        "properties": {
+          "object": {"type": "string", "minLength": 1, "maxLength": 80},
+          "density_kg_m3": {"type": "number", "exclusiveMinimum": 0}
+        }
+      }
+    }
+  }
+}

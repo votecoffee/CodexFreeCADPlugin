@@ -39,11 +39,12 @@ def find_freecad_cmd(explicit=None):
 
 
 class HeadlessClient:
-    def __init__(self, workspace, freecad_cmd=None, timeout=120):
+    def __init__(self, workspace, freecad_cmd=None, timeout=120, extension_dirs=None):
         self.workspace = Path(workspace).expanduser().resolve()
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.freecad_cmd = freecad_cmd
         self.timeout = timeout
+        self.extension_dirs = extension_dirs
         self.process = None
         self.lock = threading.Lock()
         self.responses = queue.Queue()
@@ -90,6 +91,10 @@ class HeadlessClient:
         env = dict(
             os.environ, CODEX_FREECAD_WORKSPACE=str(self.workspace), PYTHONIOENCODING="utf-8"
         )
+        if self.extension_dirs is not None:
+            env["CODEX_FREECAD_EXTENSION_PATHS"] = json.dumps(
+                [str(Path(p).expanduser().resolve()) for p in self.extension_dirs]
+            )
         self.process = subprocess.Popen(
             [
                 executable,

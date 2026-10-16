@@ -7,6 +7,7 @@ import base64
 import hashlib
 import json
 import math
+import os
 import re
 import shutil
 import struct
@@ -104,12 +105,15 @@ def encode(value):
 
 
 class Engine:
-    def __init__(self, workspace, gui=False):
+    def __init__(self, workspace, gui=False, extension_dirs=None):
         import FreeCAD
+
+        from .extension_runtime import get_registry
 
         self.app = FreeCAD
         self.workspace = Workspace(workspace)
         self.gui = gui
+        self.registry = get_registry(extension_dirs)
 
     def document(self, name):
         doc = self.app.listDocuments().get(name)
@@ -263,6 +267,10 @@ class Engine:
             "export_model",
             "get_selection",
             "capture_view",
+            "list_capabilities",
+            "describe_capability",
+            "run_query",
+            "reload_extensions",
         }
         if method not in methods:
             raise CadError("Unsupported method: " + str(method))
@@ -271,12 +279,97 @@ class Engine:
     def status(self):
         return {
             "plugin_version": __version__,
+            "backend_pid": os.getpid(),
             "freecad_version": list(self.app.Version()),
             "mode": "live" if self.gui else "headless",
             "units": "mm, degrees",
             "workspace": str(self.workspace.root),
             "documents": self.list_documents(),
             "operations": sorted(OPERATION_KEYS),
+            "extensions": self.registry.catalog(),
+        }
+
+    def list_capabilities(self):
+        return self.registry.catalog()
+
+    def describe_capability(self, capability):
+        return self.registry.describe(capability)
+
+    def run_query(self, document, capability, arguments, catalog_revision=None):
+        doc = self.document(document)
+        self.require_idle(doc, "running an extension query")
+        self.registry.capability(capability, catalog_revision, "query")
+        if not doc.UndoMode:
+            raise CadError("Enable native Undo before running extension queries")
+        before = self.revision(doc)
+        doc.openTransaction("Codex extension query guard")
+        try:
+            result = self.registry.invoke(
+                self, doc, capability, arguments, "query", catalog_revision
+            )
+            if doc.HasPendingTransaction or self.revision(doc) != before:
+                raise CadError(
+                    "Query handler changed the model; its document transaction was rolled back"
+                )
+            return result
+        finally:
+            changed = bool(doc.HasPendingTransaction)
+            self.finish_transaction(doc, cancel=True)
+            if changed:
+                doc.recompute()
+
+    def reload_extensions(self):
+        if self.app.getActiveTransaction() is not None:
+            raise CadError("Finish the current document edit before reloading extensions")
+        for doc in self.app.listDocuments().values():
+            self.require_idle(doc, "reloading extensions")
+        if self.gui:
+            import FreeCADGui as Gui
+
+            if Gui.Control.activeDialog():
+                raise CadError("Finish the active FreeCAD task before reloading extensions")
+        previous = self.registry.active
+        candidate = self.registry.prepare()
+        if candidate is None:
+            return {"reloaded": False, "changed_extensions": [], **self.registry.catalog()}
+        state = None
+        try:
+            if self.gui:
+                from . import panel
+
+                state = panel.detach_for_reload()
+        except Exception:
+            candidate.close()
+            raise
+        self.registry.active = candidate
+        try:
+            if state is not None:
+                panel.restore_after_reload(state)
+        except Exception as exc:
+            try:
+                panel.shutdown()
+            finally:
+                self.registry.active = previous
+                candidate.close()
+            try:
+                panel.restore_after_reload(state)
+            except Exception as restore_error:
+                raise CadError(
+                    "Extension generation restored; reopen the CAD panel: " + str(restore_error)
+                ) from exc
+            raise CadError("UI reload rejected; previous generation restored: " + str(exc)) from exc
+        changed = sorted(
+            name
+            for name in previous.extensions.keys() | candidate.extensions.keys()
+            if previous.extensions.get(name, {}).get("sha256")
+            != candidate.extensions.get(name, {}).get("sha256")
+        )
+        previous.close()
+        return {
+            "reloaded": True,
+            "changed_extensions": changed,
+            "panel_rebuilt": state is not None,
+            **self.registry.catalog(),
         }
 
     def list_documents(self):
@@ -481,6 +574,18 @@ class Engine:
                 results.append(self.operation(doc, op))
                 doc.recompute()
             for obj in doc.Objects:
+                if any(op["op"] == "extension" for op in operations):
+                    proxies = [getattr(obj, "Proxy", None)]
+                    if self.gui and hasattr(obj, "ViewObject"):
+                        proxies.append(getattr(obj.ViewObject, "Proxy", None))
+                    for proxy in proxies:
+                        module = getattr(proxy, "__module__", type(proxy).__module__)
+                        if module.startswith("_codex_cad_extension_") or getattr(
+                            proxy, "__name__", ""
+                        ).startswith("_codex_cad_extension_"):
+                            raise CadError(
+                                "Extension features must use persistent native objects, without generation-owned Python proxies"
+                            )
                 if "Invalid" in obj.State or "Error" in obj.State:
                     raise CadError("Recompute failed for " + obj.Name + ": " + str(obj.State))
                 if hasattr(obj, "Shape") and not obj.Shape.isNull() and not obj.Shape.isValid():
@@ -526,7 +631,11 @@ class Engine:
     def operation(self, doc, op):
         kind = op["op"]
         details = {}
-        if kind in {"set_joint_coupling", "clear_joint_coupling"}:
+        if kind == "extension":
+            return self.registry.invoke(
+                self, doc, op["capability"], op["arguments"], "edit", op.get("catalog_revision")
+            )
+        elif kind in {"set_joint_coupling", "clear_joint_coupling"}:
             from .motion import apply
 
             obj = apply(self, doc, op)
@@ -1020,6 +1129,7 @@ CONSTRAINT_TYPES = {
     "Angle",
 }
 OPERATION_KEYS = {
+    "extension": ({"capability", "arguments"}, {"catalog_revision"}),
     "set_joint_coupling": ({"assembly", "joint", "driver", "ratio"}, {"offset"}),
     "clear_joint_coupling": ({"assembly", "joint"}, set()),
     "create_assembly": ({"name"}, {"label"}),

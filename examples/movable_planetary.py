@@ -136,12 +136,12 @@ def build_and_render(workspace):
     )
     (workspace / "motion-build.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     # A portable native-only subset supports the optional player without MCP/Pydantic.
+    from codex_freecad.native_package import copy_native_package
+
     root = Path(__file__).resolve().parents[1]
     native = workspace / "native"
     package = native / "codex_freecad"
-    package.mkdir(parents=True, exist_ok=True)
-    for name in ("__init__.py", "engine.py", "assemblies.py", "motion.py"):
-        shutil.copy2(root / "src" / "codex_freecad" / name, package / name)
+    copy_native_package(package)
     shutil.copy2(
         root / "examples" / "planetary_motion_controls.py", native / "planetary_motion_controls.py"
     )

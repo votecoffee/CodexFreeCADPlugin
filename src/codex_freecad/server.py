@@ -34,8 +34,52 @@ def create_server(client):
         "millimeters and degrees. Pass the inspected revision into edits to detect manual changes. "
         "Group dependent operations into one atomic batch. Inspect result geometry and capture the "
         "live view to verify. Save only to an explicit workspace path. Never retry an ambiguous "
-        "timeout write without inspecting the model. Live and headless servers own separate sessions.",
+        "timeout write without inspecting the model. Live and headless servers own separate sessions. "
+        "For extension features, list_capabilities then describe_capability. Queries use run_query; "
+        "edits use apply_operations with op=extension, capability, arguments and catalog_revision. "
+        "reload_extensions refreshes installed code and the capability catalog in this connection.",
     )
+
+    @server.tool(annotations=READ)
+    def list_capabilities() -> dict:
+        """Discover installed extension capabilities, kinds, versions and catalog revision.
+
+        Use describe_capability before invoking a capability. Discover again after reloading.
+        New capabilities appear here without changing the fixed MCP tool list.
+        """
+        return client.call("list_capabilities")
+
+    @server.tool(annotations=READ)
+    def describe_capability(capability: str) -> dict:
+        """Get an installed capability's exact argument schema, kind, version and catalog revision."""
+        return client.call("describe_capability", capability=capability)
+
+    @server.tool(annotations=READ)
+    def run_query(
+        document: str, capability: str, arguments: dict, catalog_revision: str | None = None
+    ) -> dict:
+        """Run an installed read-only query with runtime schema validation and a document rollback guard.
+
+        Describe its arguments first. Edits use apply_operations with op='extension', capability,
+        arguments and optional catalog_revision, retaining the normal atomic Undo transaction.
+        """
+        return client.call(
+            "run_query",
+            document=document,
+            capability=capability,
+            arguments=arguments,
+            catalog_revision=catalog_revision,
+        )
+
+    @server.tool(annotations=WRITE)
+    def reload_extensions() -> dict:
+        """Reload trusted installed CAD/UI extensions without restarting this MCP connection or FreeCAD.
+
+        No code/path arguments are accepted. Native documents and Undo remain open. Finish active
+        edits first. Changed UI is rebuilt with playback paused. A failed load retains working code.
+        Core/MCP schema or native-runtime changes require their normal process/connection update.
+        """
+        return client.call("reload_extensions")
 
     @server.tool(annotations=READ)
     def freecad_status() -> dict:
@@ -287,12 +331,20 @@ def main():
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--state-file", type=Path)
     parser.add_argument("--freecad-cmd")
+    parser.add_argument(
+        "--extensions",
+        action="append",
+        type=Path,
+        help="Trusted installed extension directory; repeatable, headless only",
+    )
     args = parser.parse_args()
     client = (
-        HeadlessClient(args.workspace, args.freecad_cmd)
+        HeadlessClient(args.workspace, args.freecad_cmd, extension_dirs=args.extensions)
         if args.mode == "headless"
         else LiveClient(args.state_file or args.workspace / ".codex-freecad-live.json")
     )
+    if args.mode == "live" and args.extensions:
+        parser.error("Configure live extension directories in the generated FreeCAD startup macro")
     create_server(client).run(transport="stdio")
 
 

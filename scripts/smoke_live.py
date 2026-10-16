@@ -80,7 +80,7 @@ async def mcp_check(workspace):
     )
     async with Client(parameters, read_timeout_seconds=30) as client:
         tools = (await client.list_tools()).tools
-        assert len(tools) == 20
+        assert len(tools) == 24
         viewed = await client.call_tool("set_view", {"document": "LivePlate", "orientation": "top"})
         assert not viewed.is_error, viewed
         topology = await client.call_tool(

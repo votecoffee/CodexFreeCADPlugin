@@ -110,6 +110,7 @@ def verify(workspace):
     before = engine.revision(doc)
     doc.openTransaction("Pending user edit")
     for operation in (
+        lambda: engine.reload_extensions(),
         lambda: engine.apply_operations(
             doc.Name, [{"op": "set_property", "object": "Arm", "property": "Length", "value": 50}]
         ),

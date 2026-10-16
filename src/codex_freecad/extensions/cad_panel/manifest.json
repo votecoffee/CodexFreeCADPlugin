@@ -1,0 +1,8 @@
+{
+  "id": "cad_panel",
+  "version": "1.0.0",
+  "api_version": 1,
+  "description": "Native Codex CAD dock, playback and viewport motion controls",
+  "ui": true,
+  "capabilities": {}
+}

@@ -18,10 +18,10 @@ MAX_BODY = 1024 * 1024
 
 
 class Bridge:
-    def __init__(self, workspace, state_file):
+    def __init__(self, workspace, state_file, extension_dirs=None):
         from PySide import QtCore
 
-        self.engine = Engine(workspace, gui=True)
+        self.engine = Engine(workspace, gui=True, extension_dirs=extension_dirs)
         self.state_file = Path(state_file).resolve()
         self.token = secrets.token_urlsafe(32)
         self.jobs = queue.Queue(maxsize=64)
@@ -160,14 +160,14 @@ class Bridge:
             future.cancel()
 
 
-def start(workspace, state_file):
+def start(workspace, state_file, extension_dirs=None):
     global _bridge
     import FreeCAD
     import FreeCADGui
 
     if _bridge is not None:
         _bridge.stop()
-    _bridge = Bridge(workspace, state_file)
+    _bridge = Bridge(workspace, state_file, extension_dirs)
     _bridge.start()
     FreeCADGui.getMainWindow().destroyed.connect(_bridge.stop)
     FreeCAD.Console.PrintMessage(
