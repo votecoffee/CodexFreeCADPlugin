@@ -1,5 +1,7 @@
 # Validation record — v0.7.0 — 2026-10-16
 
+**180 automated tests pass**, with zero failures, errors or skipped cases, on native FreeCAD 1.0.2, host Python 3.13 and MCP SDK 2.3.0. Ruff lint and formatting checks pass, and pip reports no broken requirements. The v0.7.0 wheel was installed into a fresh target and imported with an isolated host interpreter (`-I -S`); its own packaged native worker created a coupled arm, sampled it without changing the revision, saved FCStd and reopened the saved ratio/pose in a fresh worker.
+
 The engine exposes **20 MCP tools and 43 structured edit operations**. New native checks cover persistent affine coupling, forward/inverse mixed-unit positioning, unwrapped turns, dependency chains, cycle/conflict guards, limits, rollback, Undo, and FCStd save/reopen. Typed stdio MCP exercises both coupling operations and both interference tools. The optional Responses adapter discovers 19 text-result tool schemas without a paid API call.
 
 Native BREP tests distinguish a known 500 mm³ box overlap, zero-volume contact, a 2 mm gap and insufficient clearance. Motion sampling detects a collision between clear endpoints while preserving the source revision, pose and preceding Undo, and closes its hidden copy after failure. A three-joint dependency chain confirms inverse sampling coordinates and rejection of a cycle without changing the source revision.
