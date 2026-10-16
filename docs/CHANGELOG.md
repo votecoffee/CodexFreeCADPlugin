@@ -1,5 +1,10 @@
 # Changes
 
+## Demo additions — 2026-10-16
+
+- Added an editable 26-solid cutaway planetary gearbox using native involute profiles and the existing structured modeling engine, with a colored STEP export and separate exploded presentation.
+- Added an isolated native build/render runner and verified saved-file geometry, static gear clearances, STEP preservation and parameter edits/undo after reopen.
+
 ## 0.5.0 — 2026-10-16
 
 - Added native cylindrical/conical helices with handedness, taper validation and editable/expression-driven pitch, height and radius. Helical solid sweeps are checked against analytic wire volume and native save/reopen behavior.

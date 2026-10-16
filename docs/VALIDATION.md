@@ -14,6 +14,14 @@ The v0.5.0 wheel was installed without dependencies into a fresh target and impo
 
 Both backends are validated on this installed native version. Paid OpenAI API execution, plugin-browser installation, other FreeCAD versions/platforms and broad assembly/workbench coverage remain unverified. No push was performed by this agent; origin pushing remains the user's step.
 
+## Planetary gearbox demonstration — 2026-10-16
+
+The additional native example builds an 18/18/54-tooth cutaway gearbox with three planet gears, a 152 mm base plate, a three-arm carrier, shafts, washers and socket-head fasteners. FreeCAD's built-in PartDesign involute utility creates the editable profiles; the integration engine constructs downstream solid features. Two native external profiles use a -0.01 profile-shift coefficient to provide clearance in this arrangement. The colored presentation and exploded snapshots were rendered and visually inspected in an isolated FreeCAD GUI.
+
+After native FCStd reopen, all **26 solid instances** across 13 visible component groups are valid and positive-volume. Native total volume is **204502.91067785767 mm³**. The colored STEP roundtrip retains 26 valid solids with volume **204502.91067778438 mm³**, within 1e-6 relative tolerance. All three sun/planet and planet/full-ring Boolean intersections measure **0.0 mm³** in this static arrangement. This is a geometry/layout check, not a motion or load validation.
+
+Using the shared engine after reopen, changing `Design.GearWidth` from 12 to 11 mm changes sun-gear volume by the expected 11/12 factor; Undo restores the original. Changing `Design.CutawayAngle` to 110 degrees produces a valid housing; Undo restores it. Verification leaves the source file bytes unchanged. The separate exploded document also reopens with 26 valid solids; it contains independent presentation snapshots. Lint and formatting checks pass for the additional builder/renderer. No MCP operation or release version changed for this example.
+
 ## Historical validation — v0.4.0
 
 **102 automated tests pass**, with zero failures, errors or skipped cases, on native FreeCAD 1.0.2, host Python 3.13 and MCP SDK 2.3.0. FreeCAD reports revision `39319` and source commit `256fc7eff3379911ab5daf88e10182c509aa8052`; its embedded Python is 3.11.13. The integration exposes 17 MCP tools and 31 structured edit operations.
