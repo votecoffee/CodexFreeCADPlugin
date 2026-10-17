@@ -1,13 +1,13 @@
 # Changes
 
-## FreeCADMCPServer rename — 2026-10-17
+## Unreleased
 
-- Renamed the project, local checkout, Git origin and source archives to `FreeCADMCPServer`. The generated plugin and marketplace display names use the new project name; existing install/module/plugin identifiers stay compatible.
-- Rebuilt launchers at the new absolute path with all 37 dependency versions preserved and regenerated FreeCAD macros/MCP configuration. The 33 configuration/registry tests, lint/format/dependency checks and five fresh headless hardware checks pass. GitHub origin is reachable. No push or desktop interaction was performed.
+- Reorganized the root README around installation, usage, API and contribution guidance, with detailed tool and example reference pages.
+- Added public-repository hygiene guidance and an ignored `local/` directory for private notes. Removed workstation-specific paths and session logs from public documentation and generated release guides.
 
-## Repository rename — 2026-10-16
+## Project rename — 2026-10-17
 
-- Corrected the local repository and source-archive directory name to `CodexFreeCADPlugin`, updated setup/test instructions, and changed local origin to the renamed GitHub URL. Regenerated local configuration and rebuilt environment launchers at the new path with all 37 dependency versions preserved. The 33 configuration/registry tests and fresh headless hardware demo checks pass. Remote access verification returned HTTP 404 with the available credentials; no push was performed.
+- Renamed the project and repository to `FreeCADMCPServer`, including generated display names and source archives. The Python distribution/CLI (`codex-freecad`), module (`codex_freecad`) and plugin ID (`freecad-modeling`) remain compatible.
 
 ## 0.9.0 (GUI acceptance pending) — 2026-10-16
 
@@ -15,13 +15,13 @@
 - Added simple through/blind holes, counterbores, countersinks, full bolt-circle layouts and through-extent refresh. Every bore/recess must remove material, and invalid/no-hit/empty-result edits roll back the complete batch. Native cylinders/cones, expressions and booleans preserve editable dimensions without saved extension proxies.
 - Added explicitly dimensioned hex and socket-cap bolts, hex nuts and plain washers with position/axis/spin controls. Geometry is simplified and unthreaded; no standard size, fit, load or automatic mating claims are made.
 - Added native geometry, parameter, transaction, reopen and persistent-MCP reload coverage, including a chained cylindrical-cut regression. Cutter end planes extend clear of the native boolean edge tolerance. Native expression functions retain exact hex dimension formulas across serialization.
-- Added a headless 23-solid hardware demo, independent analytic volume formulas, 253 BREP pair checks with zero positive-volume overlaps and FCStd/STEP persistence checks. All 248 tests, lint/format, isolated wheel/portable checks and v0.8-core compatibility checks pass. GUI interaction remains user-run.
+- Added a headless 23-solid hardware demo, independent analytic volume formulas, 253 BREP pair checks with zero positive-volume overlaps and FCStd/STEP persistence checks. Added isolated wheel/portable and v0.8-core compatibility checks. GUI interaction requires separate manual validation.
 
 ## 0.8.0 (GUI acceptance pending) — 2026-10-16
 
 - Added a stable capability catalog, runtime schemas, read-only query dispatch, an extension edit envelope and a reload command. Existing typed operations remain compatible; future extension features do not change MCP tool schemas.
 - Added generation-isolated source loading with relative helper snapshots, content fingerprints, atomic publication, stale-catalog guards and failed-load recovery. Configured extension roots are trusted startup configuration; tools accept no code or module paths.
-- Moved the native dock and drag controller behind stable facades into a reloadable CAD panel extension. Reload preserves panel settings, pauses playback, removes old callbacks and restores the previous generation if UI rebuilding fails. Actual GUI verification remains user-run.
+- Moved the native dock and drag controller behind stable facades into a reloadable CAD panel extension. Reload preserves panel settings, pauses playback, removes old callbacks and restores the previous generation if UI rebuilding fails. Actual GUI verification requires separate manual validation.
 - Added installed tube creation and mass-property capabilities, native query rollback guards and rejection of generation-owned model/view proxies. A persistent stdio MCP test confirms new-feature discovery, identical tool schemas, unchanged native worker PID, failed-update recovery and preserved native models/Undo.
 - Setup generates ReloadExtensions.FCMacro and supports explicit external extension directories for live and headless sessions. Portable native packages now include extension manifests and implementations.
 - Native startup reports invalid extension configuration immediately, and repaired initial startup can retry through the same host client. Response queues are isolated per native worker so a retired reader cannot contaminate recovery. All 213 tests, lint/format checks, isolated wheel and portable-runtime native reload checks pass.
@@ -30,7 +30,7 @@
 
 - Added the native Codex CAD dock with source-parameter inspection/editing, coupling controls, joint playback, viewport drag mode, overlap-pair highlighting and sampled-pose navigation. Setup generates a local panel macro and optional workbench folder.
 - Added headless native checks of drag projection, forward/inverse coupled movement, half-turn crossing, cancellation, Undo and transaction isolation. Empty transaction cleanup handles clicks without movement and failures before the first change.
-- Updated typed MCP/API discovery for 20 tools and 43 operations. Panel UI and physical mouse interaction require the user's manual check; no desktop interaction is used for the new automated controller checks.
+- Updated typed MCP/API discovery for 20 tools and 43 operations. Panel UI and physical mouse interaction require manual validation; no desktop interaction is used for the new automated controller checks.
 - Added stored affine joint couplings with forward/inverse positioning, offsets, unwrapped coordinates, cycle/conflict guards and native save/reopen support.
 - Added BREP overlap/contact/clearance checks and discrete motion sampling on a hidden native model copy, preserving source pose and Undo history.
 - Revisions now hash mesh-free BREP content for all shapes, avoiding false changes caused by native document-copy caches.
@@ -63,7 +63,7 @@
 - Added arithmetic expressions on numeric feature properties, placement translations and named/indexed dimensional sketch constraints, with dependency propagation and explicit expression removal.
 - Exposed expression bindings in object/document inspection and prevented direct datum/placement writes from silently overriding expression-driven values.
 - Restricted new expression input to arithmetic, units, pi and numeric references inside the same document; invalid units, cycles and failed recomputes roll back the transaction.
-- Added a parameter-driven loft/mirror example for both backends, expanded MCP/native/live validation, and committed the implementation in separate increments. Origin is configured; pushing remains a manual user action.
+- Added a parameter-driven loft/mirror example for both backends, expanded MCP/native/live validation, with dependency, rollback and persistence checks.
 
 ## 0.3.0 — 2026-10-16
 

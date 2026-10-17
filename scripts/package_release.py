@@ -75,9 +75,7 @@ def main():
         if digest(Path(report[key]["path"])) != report[key]["sha256"]:
             raise RuntimeError("Native sample changed since its validation report")
 
-    raw = subprocess.check_output(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root
-    )
+    raw = subprocess.check_output(["git", "ls-files", "-z", "--cached"], cwd=root)
     names = sorted(set(name for name in raw.decode("utf-8").split("\0") if name))
     entries = [
         {"path": name, "sha256": digest(root / name), "bytes": (root / name).stat().st_size}
@@ -116,19 +114,19 @@ def main():
                     raise RuntimeError("Wheel/source mismatch: " + name)
 
     validation_scope = (
-        "Native headless checks passed. New panel GUI checks and physical mouse dragging remain pending the user's manual test."
+        "Native headless checks passed. Panel GUI checks and physical mouse dragging require separate manual validation."
         if headless
         else f"All {len(report['checks'])} recorded native GUI checks passed. Physical mouse gestures require separate evidence."
     )
     guide = rf"""# FreeCADMCPServer v{version}
 
-The project is updated in `{root}` with {tool_count} MCP tools and {operation_count} edit operations. **{counts["passed"]} automated tests passed**, with {counts["skipped"]} skipped.
+This release provides {tool_count} MCP tools and {operation_count} edit operations. **{counts["passed"]} automated tests passed**, with {counts["skipped"]} skipped.
 
 {validation_scope}
 
 The included {sample_name} sample has {report["shape"]["solids"]} valid solid instances and native total volume {report["shape"]["volume_mm3"]} mm³. Read `native-validation-v{version}.json` for the actual sampled geometry and verification scope. Discrete motion checks do not prove continuous collision-free travel, physical gear contact or load capacity.
 
-This source corresponds to local Git commit `{git_commit}`. The manifest records the source commit and SHA-256 hashes. No push was performed; the user pushes to origin.
+This source corresponds to Git commit `{git_commit}`. The manifest records the source commit and SHA-256 hashes.
 
 ## Load the update
 
@@ -142,7 +140,7 @@ Model provides protected parameter editing and a linked-source shortcut. Motion 
 
 Open the included FCStd yourself to inspect the native feature history. Individual fastener dimensions live on their `<name>Parameters` objects; the result's placement remains editable. The STEP file contains evaluated solid geometry. These new models do not require extension-owned executable proxies to reopen or recompute.
 
-Read `docs/PANEL_TESTING.md` in the source archive for the user's manual panel/drag check. From the repository, run `.venv\Scripts\python.exe scripts\smoke_panel.py --interactive` to open an isolated test window. New GUI checks are intentionally left for the user; headless controller tests do not prove Coin event delivery or physical picking.
+Read `docs/PANEL_TESTING.md` in the source archive for the manual panel/drag procedure. From the repository, run `.venv\Scripts\python.exe scripts\smoke_panel.py --interactive` to open an isolated test window. Record GUI and physical gesture results separately; headless controller tests do not prove Coin event delivery or physical picking.
 
 The optional Responses adapter exposes {tool_count - 1} text-result tools. Paid API execution, plugin-browser installation, closed-loop driving, nested assemblies, dynamics and other FreeCAD versions remain unverified. Earlier versioned artifacts remain intact.
 """

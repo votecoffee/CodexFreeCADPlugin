@@ -99,8 +99,8 @@ def main():
         "mass_properties": mass,
         "extensions": status["extensions"],
         "checks": checks,
-        "panel_gui_validation": "pending user-run smoke test",
-        "physical_drag_validation": "pending user's manual check",
+        "panel_gui_validation": "requires manual GUI smoke test",
+        "physical_drag_validation": "requires manual gesture check",
     }
     (workspace / "result.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(workspace / "result.json")

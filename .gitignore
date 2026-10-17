@@ -9,4 +9,13 @@ dist/
 work/
 models/
 .local/
+
+# Private notes, usage records and per-machine handoffs
+/local/
+
+# Local credentials and bridge/runtime state
 .env
+.env.*
+!.env.example
+.codex-freecad-live.json
+.runtime/

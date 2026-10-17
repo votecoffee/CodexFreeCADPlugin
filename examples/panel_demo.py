@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def verify_panel(dock, engine, doc):
-    """Direct Qt/model checks for the user-run smoke test; no pointer automation."""
+    """Direct Qt/model checks for the opt-in GUI smoke test; no pointer automation."""
     import FreeCADGui as Gui
     from PySide import QtCore
 

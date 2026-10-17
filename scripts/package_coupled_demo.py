@@ -100,8 +100,8 @@ def main():
         "version": __version__,
         "git_commit": commit,
         "backend": "headless",
-        "panel_gui_validation": "pending user-run smoke test",
-        "physical_drag_validation": "pending user's manual check",
+        "panel_gui_validation": "requires manual GUI smoke test",
+        "physical_drag_validation": "requires manual gesture check",
         "files": entries,
     }
     (folder / "MANIFEST.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")

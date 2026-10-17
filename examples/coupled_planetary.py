@@ -86,8 +86,8 @@ def build(workspace):
         "couplings": rules,
         "sampled_gear_checks": samples,
         "scope": "18 discrete sun/planet/planet BREP checks; source pose/revision preserved. Housing, full-ring mesh, continuous travel, loads and dynamics are outside these new sampled checks.",
-        "panel_gui_validation": "pending user-run smoke test",
-        "physical_drag_validation": "pending user's manual check",
+        "panel_gui_validation": "requires manual GUI smoke test",
+        "physical_drag_validation": "requires manual gesture check",
     }
     (workspace / "verification.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     App.closeDocument(doc)
