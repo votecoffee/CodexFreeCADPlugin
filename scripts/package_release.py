@@ -83,17 +83,17 @@ def main():
         {"path": name, "sha256": digest(root / name), "bytes": (root / name).stat().st_size}
         for name in names
     ]
-    source_zip = output / f"CodexFreeCADPlugin-v{version}-source.zip"
+    source_zip = output / f"FreeCADMCPServer-v{version}-source.zip"
     with zipfile.ZipFile(source_zip, "w", zipfile.ZIP_DEFLATED) as bundle:
         for item in entries:
-            bundle.write(root / item["path"], "CodexFreeCADPlugin/" + item["path"])
+            bundle.write(root / item["path"], "FreeCADMCPServer/" + item["path"])
         bundle.writestr(
-            "CodexFreeCADPlugin/SOURCE_MANIFEST.json", json.dumps({"files": entries}, indent=2)
+            "FreeCADMCPServer/SOURCE_MANIFEST.json", json.dumps({"files": entries}, indent=2)
         )
     with zipfile.ZipFile(source_zip) as source, zipfile.ZipFile(wheel) as installed:
         for item in entries:
             if (
-                hashlib.sha256(source.read("CodexFreeCADPlugin/" + item["path"])).hexdigest()
+                hashlib.sha256(source.read("FreeCADMCPServer/" + item["path"])).hexdigest()
                 != item["sha256"]
             ):
                 raise RuntimeError("Source archive verification failed")
@@ -112,7 +112,7 @@ def main():
             raise RuntimeError("Wheel is missing or has unexpected package modules/manifests")
         for name in actual_package:
             if name.startswith("codex_freecad/"):
-                if installed.read(name) != source.read("CodexFreeCADPlugin/src/" + name):
+                if installed.read(name) != source.read("FreeCADMCPServer/src/" + name):
                     raise RuntimeError("Wheel/source mismatch: " + name)
 
     validation_scope = (
@@ -120,7 +120,7 @@ def main():
         if headless
         else f"All {len(report['checks'])} recorded native GUI checks passed. Physical mouse gestures require separate evidence."
     )
-    guide = rf"""# FreeCAD plugin v{version}
+    guide = rf"""# FreeCADMCPServer v{version}
 
 The project is updated in `{root}` with {tool_count} MCP tools and {operation_count} edit operations. **{counts["passed"]} automated tests passed**, with {counts["skipped"]} skipped.
 

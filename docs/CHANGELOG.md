@@ -1,5 +1,10 @@
 # Changes
 
+## FreeCADMCPServer rename — 2026-10-17
+
+- Renamed the project, local checkout, Git origin and source archives to `FreeCADMCPServer`. The generated plugin and marketplace display names use the new project name; existing install/module/plugin identifiers stay compatible.
+- Rebuilt launchers at the new absolute path with all 37 dependency versions preserved and regenerated FreeCAD macros/MCP configuration. The 33 configuration/registry tests, lint/format/dependency checks and five fresh headless hardware checks pass. GitHub origin is reachable. No push or desktop interaction was performed.
+
 ## Repository rename — 2026-10-16
 
 - Corrected the local repository and source-archive directory name to `CodexFreeCADPlugin`, updated setup/test instructions, and changed local origin to the renamed GitHub URL. Regenerated local configuration and rebuilt environment launchers at the new path with all 37 dependency versions preserved. The 33 configuration/registry tests and fresh headless hardware demo checks pass. Remote access verification returned HTTP 404 with the available credentials; no push was performed.

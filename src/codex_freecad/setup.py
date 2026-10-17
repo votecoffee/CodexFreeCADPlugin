@@ -103,7 +103,7 @@ def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
         "description": "Inspect and edit local FreeCAD models in a live window or background worker.",
         "mcpServers": "./.mcp.json",
         "interface": {
-            "displayName": "FreeCAD Modeling",
+            "displayName": "FreeCADMCPServer",
             "shortDescription": "Edit live and background FreeCAD models",
         },
     }

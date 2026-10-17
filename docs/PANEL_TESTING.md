@@ -17,7 +17,7 @@ Couplings are native saved data interpreted by the Codex CAD controller and chat
 
 ## Run the panel checks yourself
 
-From PowerShell in `C:\~LocalWork\Repos\Programming\~Github\CodexFreeCADPlugin`:
+From PowerShell in `C:\~LocalWork\Repos\Programming\~Github\FreeCADMCPServer`:
 
 ```powershell
 .venv\Scripts\python.exe scripts\smoke_panel.py --interactive

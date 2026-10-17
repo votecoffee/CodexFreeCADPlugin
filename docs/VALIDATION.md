@@ -1,4 +1,12 @@
-# Validation record — v0.9.0 — 2026-10-16
+# Validation record — v0.9.0
+
+## FreeCADMCPServer rename — 2026-10-17
+
+The local checkout is `C:\~LocalWork\Repos\Programming\~Github\FreeCADMCPServer`, and origin is `https://github.com/votecoffee/FreeCADMCPServer.git`. `git ls-remote origin HEAD` succeeds and returned `c4dc89f128971f3caec470cae36978c0d627f171` at the initial connectivity check. No push was performed.
+
+All **33 configuration/registry tests pass** at the new path. Generated macro syntax, absolute server commands, CLI launchers and the `FreeCADMCPServer` plugin display name are checked. All 37 installed dependency versions are preserved; lint, format and dependency checks pass. Five fresh native hardware checks save/reopen 23 valid solids, match analytic volume, retain STEP geometry and find zero positive-volume overlaps across 253 BREP pairs. The wheel is rebuilt for the updated metadata/display name. Source archive filenames and their internal root use `FreeCADMCPServer`. GUI testing remains user-run. The earlier full 248-test result below predates this rename; it was not repeated for these path and branding changes.
+
+## Previous relocation and feature validation — 2026-10-16
 
 After relocating the checkout to `CodexFreeCADPlugin`, **33 configuration/registry tests pass**. Environment launchers and local FreeCAD macros use the new absolute path, all 37 dependency versions are unchanged, and fresh native hardware checks again save/reopen 23 valid solids, match the analytic volume, pass all 253 static part-pair checks with zero positive-volume overlaps, and roundtrip STEP. The earlier full 248-test run below predates the directory rename; it was not repeated for this path-only change. GitHub remote verification returned 404 with current access; the requested origin URL is configured locally.
 

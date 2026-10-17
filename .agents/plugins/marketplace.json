@@ -1,6 +1,6 @@
 {
   "name": "freecad-development",
-  "interface": {"displayName": "FreeCAD Development"},
+  "interface": {"displayName": "FreeCADMCPServer"},
   "plugins": [
     {
       "name": "freecad-modeling",

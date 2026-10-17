@@ -1,6 +1,8 @@
-# FreeCAD Modeling for Codex
+# FreeCADMCPServer
 
-A working local MCP integration for editing FreeCAD models from a Codex chat, with equal modeling support for an open FreeCAD window and a background FreeCADCmd session. Project directory: `C:\~LocalWork\Repos\Programming\~Github\CodexFreeCADPlugin`.
+A working local MCP integration for editing FreeCAD models from a Codex chat, with equal modeling support for an open FreeCAD window and a background FreeCADCmd session. Project directory: `C:\~LocalWork\Repos\Programming\~Github\FreeCADMCPServer`.
+
+Repository: [votecoffee/FreeCADMCPServer](https://github.com/votecoffee/FreeCADMCPServer).
 
 Version **0.9.0** adds reloadable hole and fastener tools: through/blind holes, counterbores, countersinks, bolt circles, hex/socket-cap bolts, nuts and washers. Dimensions remain editable through persistent native features and expressions. Fasteners have simplified unthreaded geometry and explicit dimensions. New capabilities use v0.8's stable extension interface, so they can load into an existing compatible backend with `reload_extensions`. Existing modeling, assemblies, saved couplings and interference tools remain available. Native validation uses **FreeCAD 1.0.2**, host **Python 3.13** and official MCP Python SDK **2.3.0**; the native runtime has no host MCP/Pydantic dependencies. No OpenAI key is needed. Actual GUI reload/drag verification remains the user's manual step.
 
@@ -16,6 +18,8 @@ From PowerShell in the project directory:
 ```
 
 Setup creates the project virtual environment, installs dependencies, and generates machine-specific configuration in `.local`. Registration adds **freecad-live** and **freecad-headless** to your user Codex MCP configuration. Choose this direct registration route OR the local plugin route below to avoid duplicate tools. Setup and native validation have already run on this computer; global Codex registration has deliberately been left for installation.
+
+Installation identifiers are `codex-freecad` for the Python distribution/CLI, `codex_freecad` for the Python module, and `freecad-modeling` for the plugin. Its display name is **FreeCADMCPServer**.
 
 Start a new Codex chat after registering the servers. The background server starts its own FreeCADCmd when its first modeling tool is called. For live editing, open FreeCAD and run `.local\StartBridge.FCMacro` using **Macro → Macros → Execute**. Keep that FreeCAD window open. Run `.local\StopBridge.FCMacro` to disconnect it. No FreeCAD add-on installation or administrator rights are needed.
 
@@ -34,7 +38,7 @@ Try these prompts:
 Setup also generates `.local\plugin\.codex-plugin\plugin.json` and `.local\plugin\.mcp.json`. The repository marketplace at `.agents\plugins\marketplace.json` points at this generated package. The supported compatibility manifest bundles both MCP servers. To register the marketplace explicitly and install the package:
 
 ```powershell
-codex plugin marketplace add 'C:\~LocalWork\Repos\Programming\~Github\CodexFreeCADPlugin'
+codex plugin marketplace add 'C:\~LocalWork\Repos\Programming\~Github\FreeCADMCPServer'
 codex plugin add freecad-modeling@freecad-development
 ```
 
