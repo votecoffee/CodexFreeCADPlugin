@@ -33,7 +33,10 @@ class Snapshot(importlib.abc.MetaPathFinder, importlib.abc.Loader):
             package = name.endswith("__init__.py")
             suffix = name[:-12].rstrip("/") if package else name[:-3]
             fullname = self.prefix + ("." + suffix.replace("/", ".") if suffix else "")
-            self.sources[fullname] = (content, str(folder / name), package)
+            filename = str(folder / name)
+            # Validate every helper before publication, including modules imported
+            # only when a capability is first invoked. Compilation has no side effects.
+            self.sources[fullname] = (compile(content, filename, "exec"), filename, package)
         sys.meta_path.insert(0, self)
 
     def find_spec(self, fullname, path=None, target=None):
@@ -47,11 +50,11 @@ class Snapshot(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         return None
 
     def exec_module(self, module):
-        content, filename, package = self.sources[module.__name__]
+        code, filename, package = self.sources[module.__name__]
         module.__file__ = filename
         if package:
             module.__path__ = []  # Relative imports resolve through this snapshot only.
-        exec(compile(content, filename, "exec"), module.__dict__)
+        exec(code, module.__dict__)
 
     def load(self):
         import importlib

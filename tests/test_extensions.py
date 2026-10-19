@@ -122,6 +122,21 @@ def test_catalog_schema_is_copied_and_stale_or_wrong_kind_calls_are_rejected(ins
         registry.invoke(None, None, "demo.answer", {}, "query", revision)
 
 
+def test_syntax_error_in_lazy_helper_rejects_generation_before_publication(installed):
+    registry, folder = installed
+    helper = folder / "lazy_helper.py"
+    helper.write_text("VALUE = 11\n", encoding="utf-8")
+    publish(registry)
+    previous = registry.active
+    old_names = {name for name in sys.modules if name.startswith("_codex_cad_extension_")}
+    helper.write_text("def invalid(:\n", encoding="utf-8")
+    with pytest.raises(CadError, match="previous generation retained"):
+        registry.prepare()
+    assert registry.active is previous
+    assert answer(registry) == 1
+    assert {name for name in sys.modules if name.startswith("_codex_cad_extension_")} == old_names
+
+
 def test_new_capability_and_removal_are_catalog_changes(installed):
     registry, folder = installed
     manifest = json.loads((folder / "manifest.json").read_text())
