@@ -57,6 +57,16 @@ Setup creates `.venv`, installs the package and development dependencies, and ge
 .\scripts\Setup.ps1 -Workspace 'C:\CAD\Models' -FreeCADCmd 'C:\Program Files\FreeCAD 1.0\bin\FreeCADCmd.exe'
 ```
 
+Windows users can install and start the headless stdio server with the root launcher:
+
+```cmd
+.\Install-and-Run.cmd
+```
+
+It uses the same setup script, then starts the server with `models/` as its workspace. FreeCAD and Python must already be installed. It works from any current directory, leaves the desktop alone, and writes installation/status messages to stderr so stdout remains available for MCP. The server waits for an MCP client; it does not open an interactive prompt.
+
+Use `-InstallOnly` for setup alone, or `-SkipInstall` for later launches. Arguments include `-Mode live`, `-Workspace "C:\CAD\Models"` and `-FreeCADCmd "C:\Program Files\FreeCAD 1.0\bin\FreeCADCmd.exe"`. Relative workspaces resolve against the checkout. Repeat custom workspace/FreeCADCmd arguments when using `-SkipInstall`. Live mode connects to a bridge you start manually with the generated macro. The launcher does not register an MCP client; see the next section. Run `.\Install-and-Run.cmd -Help` for help.
+
 ### Connect an MCP client
 
 For Codex, run:
