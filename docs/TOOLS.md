@@ -40,7 +40,7 @@ Discover `holes.drill`, `holes.bolt_circle`, `holes.refresh`, `fasteners.bolt`, 
 
 Run `.venv\Scripts\python.exe scripts\smoke_hardware.py --workspace work\my-hardware-demo` to build and verify a 23-solid flange/fastener and hole-coupon sample headlessly in a new folder. It saves editable FCStd and STEP files. No GUI or desktop input is used by that script. Fasteners are unthreaded and do not automatically mate to holes or claim standard sizes, tolerances or load ratings.
 
-Not yet implemented: sketch splines/ellipses, closed-loop joint driving, nested assemblies, assembly contact/dynamics, sheet metal, TechDraw and arbitrary Python execution. Existing FCStd features can be inspected, and supported scalar parameters can be edited even when this version cannot create that feature type. This is a growing modeling toolset, not complete FreeCAD workbench coverage.
+Not yet implemented: sketch splines/ellipses, closed-loop joint driving, nested assemblies, assembly contact/dynamics, sheet metal and arbitrary Python execution. [Engineering extensions](ENGINEERING.md) add BOMs, parameter studies and limited TechDraw/SVG sheets. Existing FCStd features can be inspected, and supported scalar parameters can be edited even when this version cannot create that feature type. This is a growing modeling toolset, not complete FreeCAD workbench coverage.
 
 ### Movable assemblies
 

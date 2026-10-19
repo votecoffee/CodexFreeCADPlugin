@@ -6,7 +6,7 @@ Create, inspect and edit native FreeCAD models from an MCP client such as Codex,
 
 Version **0.9.0** includes reloadable hole and fastener tools, parametric modeling, movable assemblies, saved joint couplings and interference checks. See the [changelog](docs/CHANGELOG.md) for release details.
 
-The current checkout also includes a source-aware bill of materials with persistent part metadata and refreshable native spreadsheets, plus source-preserving parameter sweeps and saved configuration snapshots. See [engineering extensions](docs/ENGINEERING.md).
+The current checkout also includes a source-aware bill of materials, refreshable native spreadsheets, source-preserving parameter sweeps, saved configuration snapshots and dimensioned TechDraw sheets with headless SVG rendering. See [engineering extensions](docs/ENGINEERING.md).
 
 The Python distribution and CLI retain the name `codex-freecad`, the import is `codex_freecad`, and the optional Codex plugin ID is `freecad-modeling` for compatibility. Their display name is **FreeCADMCPServer**.
 
@@ -28,7 +28,7 @@ FreeCADMCPServer exposes 24 fixed MCP tools and 44 structured operation kinds, w
 
 Supported workflows include sketches, pads and pockets, revolutions, patterns, sweeps and helices, lofts, mirrors, expressions, STEP/BREP/STL import, edge finishing, holes, simplified fasteners and assemblies with fixed, revolute and slider joints. The live backend also provides selection, viewport images and a native **Codex CAD** dock with parameter controls, playback and viewport dragging.
 
-Coverage is growing: closed-loop joint driving, nested assemblies, contact dynamics, sheet metal and TechDraw are not implemented. Fasteners are unthreaded geometry; discrete interference samples do not establish continuous collision-free travel. The [tool reference](docs/TOOLS.md) describes supported inputs and limits. Native panel reload and physical dragging require the [manual GUI checks](docs/PANEL_TESTING.md).
+Coverage is growing: closed-loop joint driving, nested assemblies, contact dynamics and sheet metal are not implemented. Drawing support currently covers orthographic views and overall extents with SVG output. Fasteners are unthreaded geometry; discrete interference samples do not establish continuous collision-free travel. The [tool reference](docs/TOOLS.md) describes supported inputs and limits. Native panel reload and physical dragging require the [manual GUI checks](docs/PANEL_TESTING.md).
 
 ## Install
 
@@ -133,7 +133,7 @@ with HeadlessClient("models") as cad:
 - [Tools, modeling operations, assemblies and file behavior](docs/TOOLS.md)
 - [Examples and demonstrations](docs/EXAMPLES.md)
 - [Hole and fastener capabilities](docs/HOLES_FASTENERS.md)
-- [Engineering extensions and bills of materials](docs/ENGINEERING.md)
+- [Engineering extensions: BOMs, parameter studies and drawings](docs/ENGINEERING.md)
 - [Extension installation, reloads and authoring](docs/EXTENSIONS.md)
 - [Native panel and manual drag checks](docs/PANEL_TESTING.md)
 - [Architecture](docs/ARCHITECTURE.md)

@@ -1,0 +1,122 @@
+{
+  "id": "drawings",
+  "version": "1.0.0",
+  "api_version": 1,
+  "description": "Native orthographic TechDraw sheets, extent dimensions and GUI-independent SVG rendering",
+  "ui": false,
+  "capabilities": {
+    "create_sheet": {
+      "kind": "edit",
+      "description": "Create A4/A3 landscape native TechDraw views with associative overall extent dimensions. Supports front/top/right and fitted or explicit scale.",
+      "handler": "create_sheet",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "objects"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,39}$"
+          },
+          "objects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "paper": {
+            "type": "string",
+            "enum": [
+              "A4",
+              "A3"
+            ],
+            "default": "A4"
+          },
+          "views": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "enum": [
+                "front",
+                "top",
+                "right"
+              ]
+            },
+            "default": [
+              "front",
+              "top",
+              "right"
+            ]
+          },
+          "scale": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 100
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 80,
+            "default": "Engineering drawing"
+          },
+          "part_number": {
+            "type": "string",
+            "maxLength": 64,
+            "default": ""
+          },
+          "revision": {
+            "type": "string",
+            "maxLength": 32,
+            "default": ""
+          }
+        }
+      }
+    },
+    "refresh_sheet": {
+      "kind": "edit",
+      "description": "Refresh an integration-created drawing after source edits. Refit layout and rebuild owned extent dimensions before rendering or saving.",
+      "handler": "refresh_sheet",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "page"
+        ],
+        "properties": {
+          "page": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      }
+    },
+    "render_svg": {
+      "kind": "query",
+      "description": "Return a dimensioned SVG string from a refreshed native drawing using the BREP projector without TechDrawGui. Does not write a file.",
+      "handler": "render_svg",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "page"
+        ],
+        "properties": {
+          "page": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      }
+    }
+  }
+}

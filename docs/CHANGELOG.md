@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added reloadable native TechDraw sheets, orthographic projection snapshots, numerically checked extent dimensions, explicit refresh and GUI-independent SVG rendering. Stale source geometry is rejected until refresh; native Qt core dispatch completes headless projections without a GUI window.
 - Added reloadable parameter sweeps on hidden native dependency copies, optional density-based mass and frozen native configuration snapshots. Queries preserve source revision/Undo, clean up failed samples and reject expression-driven or unsupported inputs.
 - Added a reloadable BOM extension with explicit part/assembly selection, source-aware link quantities, native part metadata, known-density mass, escaped CSV and refreshable native spreadsheet snapshots. Native tests cover Undo, failure rollback and save/reopen.
 - Reorganized the root README around installation, usage, API and contribution guidance, with detailed tool and example reference pages.

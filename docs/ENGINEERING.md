@@ -52,3 +52,25 @@ To retain geometry, use the `studies.create_variants` edit capability with the s
 ```
 
 Variants are frozen evaluated BREP snapshots. They do not retain the source feature history and do not regenerate when the source changes. They remain usable after save/reopen without executable extension proxies. Creating all variants is one undoable model edit; saving/exporting the group members is a separate action.
+
+## Dimensioned drawings
+
+`drawings.create_sheet` is an edit capability with required `name` and `objects`. It creates a native `TechDraw::DrawPage`, an embedded FreeCAD blank landscape template, front/top/right views and native overall width/height extent dimensions. Optional arguments are `paper` (`A4` or `A3`), `views` (a distinct subset of `front`, `top`, `right`), `scale` (0.01–100), `title`, `part_number` and `revision`. Omit scale for a fitted standard scale; an explicit scale that cannot fit is rejected.
+
+```json
+{"op":"extension","capability":"drawings.create_sheet","arguments":{"name":"PlateDrawing","objects":["Plate"],"paper":"A4","title":"Mounting plate","part_number":"PLATE-001","revision":"A"}}
+```
+
+Sources must be 1–20 distinct top-level positive-volume solids or components in a supported root identity assembly, with at most 5,000 edges. A hidden native `Part::Feature` projection snapshot evaluates the selected sources, including all compact link-array instances. Native extent dimensions associate with this snapshot. The drawing stores original source links for explicit refresh; it does not add executable feature proxies.
+
+After source edits, invoke `drawings.refresh_sheet` with `page`. This updates the projection snapshot, refits the sheet and rebuilds owned native dimensions. Source fingerprints prevent rendering a sheet whose original geometry changed without a refresh. Native dimension values are checked against independent projected BREP bounds. Creation and refresh are undoable model edits and survive save/reopen.
+
+`drawings.render_svg` is a read-only query with `page`. It returns `media_type`, SVG text in `svg`, its SHA-256 hash, paper dimensions, scale and view measurements. It uses the native BREP projector and standard XML serialization, without `TechDrawGui` export functions. Client code can save the returned text to an SVG file; the query itself does not write files. The SVG presents orthographic geometry and overall extent dimensions in mm. It does not specify hole locations, diameter dimensions, hidden-line options, tolerances, GD&T, fits or PDF output.
+
+```json
+{"document":"Model","capability":"drawings.render_svg","arguments":{"page":"PlateDrawing"}}
+```
+
+FreeCAD 1.0.2 completes exact TechDraw projection through Qt queued signals. Headless drawing creation uses a core event dispatcher with no windows, processes projection completion with keyboard/pointer events excluded, and bounds dimension-completion waits. The dispatcher remains owned by the stable FreeCAD runtime across extension reloads. No host MCP/Pydantic package is imported into FreeCAD.
+
+FreeCADCmd checks cover native dimensions, curves, translated parts, link arrays, refresh, stale-source rejection, Undo, save/reopen and SVG XML. Actual GUI page layout and physical printing require separate manual inspection. SVG output uses a fixed layout and overall extents; it is not a complete manufacturing drawing specification.
