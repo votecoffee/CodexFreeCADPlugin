@@ -1,5 +1,7 @@
 # Codex plugin and Universal Tools integration
 
+The [shared-framework host](FRAMEWORK.md) is now the primary development direction. This page documents the existing optional direct-to-broker route. Its compatibility checks do not establish aggregation of a framework-based app host.
+
 FreeCADMCPServer remains an independent MCP application. Setup always generates its own `freecad-modeling` Codex plugin and direct stdio configuration, plus optional Universal Tools service manifests. Neither backend requires the broker to run.
 
 The standalone package uses Codex's [local marketplace and plugin format](https://developers.openai.com/plugins/build/plugins). Universal Tools registration is a separate application integration contract.

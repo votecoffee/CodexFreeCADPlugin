@@ -18,7 +18,7 @@ WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world
 EDIT = ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_hint=False)
 
 
-def create_server(client, *, broker_extensions=None):
+def create_server(client, *, broker_extensions=None, framework_backend=False):
     @asynccontextmanager
     async def lifespan(server):
         try:
@@ -39,6 +39,15 @@ def create_server(client, *, broker_extensions=None):
         "edits use apply_operations with op=extension, capability, arguments and catalog_revision. "
         "reload_extensions refreshes installed code and the capability catalog in this connection.",
     )
+
+    if framework_backend:
+
+        @server.tool(annotations=READ)
+        def get_workflow(topic: Literal["overview", "extensions", "recovery"] = "overview") -> dict:
+            """Read current FreeCAD workflow guidance without contacting a native model."""
+            from .workflows import describe_workflow
+
+            return describe_workflow(topic)
 
     if broker_extensions is not None:
 
@@ -345,6 +354,9 @@ def main():
     parser.add_argument("--state-file", type=Path)
     parser.add_argument("--freecad-cmd")
     parser.add_argument(
+        "--framework-backend", action="store_true", help="Expose app workflow guidance"
+    )
+    parser.add_argument(
         "--broker-catalog",
         action="store_true",
         help="Expose installation-only capability metadata for Universal Tools",
@@ -364,7 +376,9 @@ def main():
     if args.mode == "live" and args.extensions and not args.broker_catalog:
         parser.error("Configure live extension directories in the generated FreeCAD startup macro")
     create_server(
-        client, broker_extensions=(args.extensions or []) if args.broker_catalog else None
+        client,
+        broker_extensions=(args.extensions or []) if args.broker_catalog else None,
+        framework_backend=args.framework_backend,
     ).run(transport="stdio")
 
 

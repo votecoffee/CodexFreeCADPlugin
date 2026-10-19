@@ -1,0 +1,143 @@
+import json
+import shutil
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+import pytest
+
+import codex_freecad
+from codex_freecad.framework_setup import publish
+
+
+@pytest.fixture
+def source_package(tmp_path):
+    source = tmp_path / "source" / "codex_freecad"
+    shutil.copytree(
+        Path(codex_freecad.__file__).parent,
+        source,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    return source
+
+
+def candidate(tmp_path, source=None, **kwargs):
+    return publish(
+        tmp_path / "CAD models",
+        tmp_path / "candidate",
+        sys.executable,
+        source_package=source,
+        **kwargs,
+    )
+
+
+def test_framework_dependency_is_separate_from_sdk2_backend():
+    root = Path(__file__).parents[1]
+    backend = tomllib.loads((root / "pyproject.toml").read_text())
+    host = tomllib.loads((root / "framework-host/pyproject.toml").read_text())
+    assert backend["project"]["dependencies"] == ["mcp==2.3.0"]
+    assert host["project"]["dependencies"] == ["universal-codex-tools==0.13.0"]
+    assert "mcp==1.30.0" in (root / "framework-host/requirements.lock").read_text()
+
+
+def test_candidate_keeps_standalone_plugin_and_has_no_installation_side_effects(tmp_path):
+    result = candidate(tmp_path)
+    definition = json.loads(Path(result["publication"]).read_bytes())
+    assert definition["id"] == "freecad-mcp-server"
+    assert {b["service"]["id"] for b in definition["backends"]} == {
+        "freecad-live",
+        "freecad-headless",
+    }
+    assert all(b["service"]["session_mode"] == "exclusive" for b in definition["backends"])
+    assert not Path(result["state"]).exists()
+    assert not (tmp_path / "CAD models").exists()
+    plugin = Path(result["plugin"])
+    config = json.loads((plugin / ".mcp.json").read_bytes())
+    assert set(config["mcpServers"]) == {"freecad"}
+    server = config["mcpServers"]["freecad"]
+    assert server["args"][1] == "freecad_mcp_host" and server["args"][-1] == "proxy"
+    assert (plugin / "skills/freecad-modeling/SKILL.md").is_file()
+    assert "Universal Tools installation is optional" in definition["instructions"]
+
+
+def test_source_changes_publish_new_immutable_closure_with_same_resource_ids(
+    tmp_path, source_package
+):
+    first = candidate(tmp_path, source_package)
+    original = json.loads(Path(first["publication"]).read_bytes())
+    frozen = Path(first["deployment"]) / "package/codex_freecad/workflows.py"
+    before = frozen.read_bytes()
+    with (source_package / "workflows.py").open("a") as stream:
+        stream.write("\n# New immutable backend publication\n")
+    second = candidate(tmp_path, source_package)
+    updated = json.loads(Path(second["publication"]).read_bytes())
+    assert first["deployment"] != second["deployment"]
+    assert frozen.read_bytes() == before
+    assert [b["service"]["resource_id"] for b in original["backends"]] == [
+        b["service"]["resource_id"] for b in updated["backends"]
+    ]
+    assert all(
+        a["revision"] != b["revision"]
+        for a, b in zip(original["backends"], updated["backends"], strict=True)
+    )
+
+
+def test_repeat_publication_is_idempotent_and_rejects_modified_deployment(tmp_path):
+    first = candidate(tmp_path)
+    assert candidate(tmp_path)["deployment"] == first["deployment"]
+    original = Path(first["publication"]).read_bytes()
+    bad = Path(first["deployment"]) / "package/codex_freecad/workflows.py"
+    bad.write_text("# Unexpected change")
+    with pytest.raises(ValueError, match="immutable backend deployment changed"):
+        candidate(tmp_path)
+    assert Path(first["publication"]).read_bytes() == original
+    assert bad.read_text() == "# Unexpected change"
+
+
+@pytest.mark.parametrize("change", ["source", "extra", "manifest"])
+def test_bootstrap_verifies_complete_declared_closure_before_loading_backend(tmp_path, change):
+    result = candidate(tmp_path)
+    deployment = Path(result["deployment"])
+    good = subprocess.run(
+        [sys.executable, "-B", str(deployment / "launcher.py"), "--help"],
+        capture_output=True,
+        timeout=30,
+    )
+    assert good.returncode == 0 and b"--framework-backend" in good.stdout
+    target = {
+        "source": "package/codex_freecad/server.py",
+        "extra": "extra.py",
+        "manifest": "closure.json",
+    }[change]
+    (deployment / target).write_text("# Modified closure")
+    bad = subprocess.run(
+        [sys.executable, "-B", str(deployment / "launcher.py"), "--help"],
+        capture_output=True,
+        timeout=30,
+    )
+    assert bad.returncode != 0 and b"Backend closure" in bad.stderr
+    assert not (tmp_path / "CAD models").exists()
+
+
+def test_custom_extensions_are_frozen_in_both_backend_publications(tmp_path):
+    installed = tmp_path / "installed"
+    installed.mkdir()
+    (installed / "resource.txt").write_text("Original installed resource")
+    result = candidate(tmp_path, extension_dirs=[installed])
+    definition = json.loads(Path(result["publication"]).read_bytes())
+    snapshot = str(Path(result["deployment"]) / "extensions/0")
+    for backend in definition["backends"]:
+        args = backend["service"]["transport"]["args"]
+        assert args.count("--extensions") == 1 and args[args.index("--extensions") + 1] == snapshot
+        assert str(installed) not in args
+    assert (Path(snapshot) / "resource.txt").read_text() == "Original installed resource"
+
+
+def test_workflow_guidance_is_available_without_native_target():
+    from codex_freecad.workflows import describe_workflow
+
+    assert describe_workflow()["schema_version"] == 1
+    assert "Never replay" in describe_workflow("recovery")["guidance"]
+    with pytest.raises(ValueError, match="Unknown"):
+        describe_workflow("arbitrary-python")

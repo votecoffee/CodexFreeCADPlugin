@@ -10,6 +10,8 @@ The current checkout also includes saved design requirements with opt-in edit en
 
 The Python distribution and CLI retain the name `codex-freecad`, the import is `codex_freecad`, and the optional Codex plugin ID is `freecad-modeling` for compatibility. Their display name is **FreeCADMCPServer**.
 
+Development now includes an **experimental app-owned shared-framework host** pinned to `universal-codex-tools==0.13.0`, with a stable MCP front door and immutable backend publications. Its separate environment preserves the CAD backend's MCP 2.3 dependency. FreeCAD keeps its own standalone plugin; the Universal Tools plugin and broker are optional. Existing installed workflows are unchanged. See [framework development and acceptance gaps](docs/FRAMEWORK.md).
+
 ## Table of Contents
 
 - [Background](#background)
@@ -147,6 +149,7 @@ For a complete BOM, thickness-study and drawing example, run `.venv\Scripts\pyth
 
 ## Documentation
 
+- [Experimental shared-framework host and backend publication](docs/FRAMEWORK.md)
 - [Standalone plugin and Universal Tools broker setup](docs/BROKER.md)
 - [Tools, modeling operations, assemblies and file behavior](docs/TOOLS.md)
 - [Examples and demonstrations](docs/EXAMPLES.md)

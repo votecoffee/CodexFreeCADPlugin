@@ -103,6 +103,7 @@ def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
         "version": __version__,
         "description": "Inspect and edit local FreeCAD models in a live window or background worker.",
         "mcpServers": "./.mcp.json",
+        "skills": "./skills/",
         "interface": {
             "displayName": "FreeCADMCPServer",
             "shortDescription": "Edit live and background FreeCAD models",
@@ -113,6 +114,12 @@ def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
     )
     (plugin / ".mcp.json").write_text(
         json.dumps({"mcpServers": servers}, indent=2) + "\n", encoding="utf-8"
+    )
+    skill = plugin / "skills" / "freecad-modeling"
+    skill.mkdir(parents=True, exist_ok=True)
+    (skill / "SKILL.md").write_text(
+        Path(__file__).with_name("standalone_skill.md").read_text(encoding="utf-8"),
+        encoding="utf-8",
     )
     marketplace = output / ".agents" / "plugins"
     marketplace.mkdir(parents=True, exist_ok=True)
