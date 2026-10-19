@@ -59,11 +59,18 @@ async def exercise(args):
     shutil.copytree(args.source, source, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     provider = Path(__file__).parent / "fixtures/framework_provider.py"
     shutil.copyfile(provider, source / "fixture_provider.py")
+    workspace, output = args.root / "disposable-models", args.root / "candidate"
+    native_marker = workspace / "native-dispatch-forbidden.txt"
     with (source / "client.py").open("a") as stream:
         stream.write(
-            "\nfrom .fixture_provider import FixtureClient\nHeadlessClient = LiveClient = FixtureClient\n"
+            "\ndef _forbidden_native(*args, **kwargs):\n"
+            f"    marker = Path({str(native_marker)!r})\n"
+            "    marker.parent.mkdir(parents=True, exist_ok=True)\n"
+            "    marker.write_text('Native dispatch blocked by disposable-provider test')\n"
+            "    raise AssertionError('Native dispatch is forbidden in this profile')\n"
+            "HeadlessClient._start = LiveClient.call = _forbidden_native\n"
+            "from .fixture_provider import FixtureClient\nHeadlessClient = LiveClient = FixtureClient\n"
         )
-    workspace, output = args.root / "disposable-models", args.root / "candidate"
     result = publish(
         workspace, output, sys.executable, backend_python=args.backend_python, source_package=source
     )
@@ -347,11 +354,12 @@ async def exercise(args):
                 == "uncertain"
             )
         assert len(audit.read_text().splitlines()) == before_lost + 1
+        assert not native_marker.exists(), "A native dispatch was attempted in the fixture profile"
         record = {
             "framework": version("universal-codex-tools"),
             "framework_sdk": version("mcp"),
             "frontend_tools": 14,
-            "native_dispatches": 0,
+            "native_dispatches": int(native_marker.exists()),
             "same_session_refresh": True,
             "durable_recovery_barrier": True,
             "samples": measurements,

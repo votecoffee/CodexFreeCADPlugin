@@ -2,17 +2,17 @@
 
 The shared app framework is the primary development direction. FreeCAD owns its standalone Codex plugin, stable discovery/invocation interface, CAD backends and native validation. The optional universal broker remains a separate integration; using the shared framework does not require its plugin or daemon. Existing installed routes are not migrated by this prototype.
 
-**Current target: MCP 2.3.0 throughout.** The initially supplied framework 0.13.0 wheel pins MCP 1.30.0. Its isolated compatibility experiment is historical evidence, not acceptance of the current target. Do not install that legacy wheel or downgrade MCP. Framework package selection, lock regeneration and MCP 2.3 framework transport validation remain blocked until the updated framework artifact is available. The installation commands below describe the intended development flow after that dependency update.
+**Current baseline: framework 0.14.0 and MCP 2.3.0 throughout.** The framework uses `MCPServer`, typed pagination and snake_case Python fields with wire aliases. SDK 1.x compatibility is not required. This application's isolated profile uses the negotiated `2025-11-25` handshake; modern discovery/cache and multi-round-trip protocol workflows are not claimed. Framework support for SDK 2.2 does not establish this app's acceptance of a different version than its exact MCP 2.3 pin.
 
 ## Packages and SDK boundary
 
 | Package | Environment | Pinned dependency |
 | --- | --- | --- |
 | `codex-freecad` | CAD MCP backend | `mcp==2.3.0` |
-| `freecad-mcp-host` | App-owned host | MCP 2.3.0 required; updated framework pin pending |
+| `freecad-mcp-host` | App-owned host | `universal-codex-tools==0.14.0`, `mcp==2.3.0` |
 | Native FreeCAD engine | FreeCAD's bundled Python | Native FreeCAD modules; no host MCP/Pydantic imports |
 
-The host imports `universal_tools.framework` from a normal exact package dependency. Update that framework pin and regenerate `framework-host/requirements.lock` together after verifying the new MCP 2.3 wheel. The current old framework pin intentionally cannot resolve alongside the explicit MCP 2.3 requirement; this prevents a resolver from downgrading MCP. Use normal pip installation or an explicit editable framework checkout for coordinated development. No framework source is copied into this project, no Git submodule is used, and no public package feed or native .NET binding is assumed.
+The host imports `universal_tools.framework` from a normal exact package dependency. The framework pin and `framework-host/requirements.lock` are updated together from the MCP 2.3 baseline. Use normal pip installation with a verified wheel or an explicit editable framework checkout for coordinated development. No framework source is copied into this project, no Git submodule is used, and no public package feed or native .NET binding is assumed. A separate app-owned environment keeps deployment/rollback independent even though both host and backend now use MCP 2.3.
 
 Create a separate environment and install the host with a verified framework wheel available in a chosen wheel directory:
 

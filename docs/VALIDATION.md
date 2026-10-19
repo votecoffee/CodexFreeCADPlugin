@@ -41,7 +41,7 @@ Tests using UI lifecycle doubles check controller contracts. They do not establi
 
 ## Broker interoperability
 
-The experimental app-owned framework now requires MCP 2.3 throughout. The updated framework package and lock are pending; the earlier isolated MCP 1.30 compatibility run is historical evidence only. It does not require the Universal Tools plugin or a universal daemon. After installing the verified updated framework, include its disposable-provider protocol profile:
+The experimental app-owned framework pins framework 0.14.0 and MCP 2.3 throughout. It does not require the Universal Tools plugin or a universal daemon. After installing the verified framework wheel and host package, include its disposable-provider protocol profile:
 
 ```powershell
 $env:FREECAD_FRAMEWORK_PYTHON = 'C:\Apps\FreeCADHost\python.exe'

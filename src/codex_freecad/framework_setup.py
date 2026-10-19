@@ -221,7 +221,7 @@ def publish(
         "deployment": str(deployment),
         "state": str(state),
         "plugin": str(plugin),
-        "framework": "0.13.0",
+        "framework": "0.14.0",
         "content_revision": content_revision,
         "host_commands": {
             name: [str(host_python), *command, name] for name in ("init", "serve", "status", "stop")
