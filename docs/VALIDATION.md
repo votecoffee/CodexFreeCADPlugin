@@ -39,6 +39,19 @@ Coverage includes:
 
 Tests using UI lifecycle doubles check controller contracts. They do not establish Qt behavior, Coin event delivery or physical mouse picking.
 
+## Broker interoperability
+
+The host suite checks standalone/broker selection, disabled and broken plugin detection, installation preview, registration conflicts, explicit write allowlists, unchanged direct MCP schemas and metadata discovery without executing extension code.
+
+For an installed Universal Tools runtime (0.8 or later) and native FreeCADCmd, opt into the isolated broker test:
+
+```powershell
+$env:FREECAD_BROKER_PYTHON = 'C:\Apps\Broker\python.exe'
+.\.venv\Scripts\pytest.exe -q tests\test_broker_native.py
+```
+
+The test uses that interpreter with new temporary broker state, a free loopback port and a disposable CAD workspace. It does not use the normal broker state or install a Codex plugin. It checks metadata for both backends without starting FreeCADCmd, extension search, exclusive ownership, duplicate request rejection, native edits/revisions, Undo and save/reopen across retained sessions. Without the environment variable this case skips. Live GUI editing and Codex plugin-browser installation remain manual checks.
+
 ## Headless smoke checks
 
 Each command needs a fresh output folder and uses FreeCADCmd without desktop interaction:

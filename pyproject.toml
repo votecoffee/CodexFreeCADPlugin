@@ -25,7 +25,10 @@ codex_freecad = ["extensions/*/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["native: requires a real FreeCAD installation"]
+markers = [
+    "native: requires a real FreeCAD installation",
+    "broker: requires FREECAD_BROKER_PYTHON pointing to a Universal Tools runtime",
+]
 
 [tool.ruff]
 line-length = 100

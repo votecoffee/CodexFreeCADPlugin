@@ -37,7 +37,7 @@ Coverage is growing: closed-loop joint driving, nested assemblies, contact dynam
 - **FreeCAD 1.0.2**, including `FreeCADCmd`, installed separately. Other FreeCAD versions are unverified.
 - **Python 3.13** and the Windows Python launcher (`py`) for the PowerShell setup script. The package declares Python 3.11 or later; the reference host environment is Python 3.13 on Windows.
 - **Git** to clone the repository.
-- **Codex CLI**, if using the registration script. Other MCP clients can launch the server through stdio.
+- **Codex CLI**, if installing the standalone plugin or using direct registration. Other MCP clients can launch the server through stdio.
 
 FreeCAD uses its bundled Python interpreter. Do not install the host MCP dependencies into FreeCAD's Python. See [validation scope](docs/VALIDATION.md) for platform and runtime boundaries.
 

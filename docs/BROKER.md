@@ -2,6 +2,8 @@
 
 FreeCADMCPServer remains an independent MCP application. Setup always generates its own `freecad-modeling` Codex plugin and direct stdio configuration, plus optional Universal Tools service manifests. Neither backend requires the broker to run.
 
+The standalone package uses Codex's [local marketplace and plugin format](https://developers.openai.com/plugins/build/plugins). Universal Tools registration is a separate application integration contract.
+
 ## Choose a connection
 
 Run setup, then use the broker-aware installer:
@@ -21,6 +23,8 @@ Broken or ambiguous enabled broker runtimes stop installation. They do not silen
 ```powershell
 .\scripts\Install-CodexPlugin.ps1 -Integration broker -BrokerPython 'C:\Apps\Broker\python.exe' -BrokerState 'C:\Apps\Broker\state'
 ```
+
+Universal Tools 0.8 or later is required for exclusive sessions, exact write allowlists and capability catalogs. Before registering either service, the installer validates all pending manifests using the selected broker's actual Python package. An incompatible runtime stops without registering services, even if its cached plugin advertises a newer version. The installer never upgrades the broker automatically.
 
 `-Integration standalone` explicitly chooses the FreeCAD plugin even when Universal Tools is installed. `-Integration none` performs no connection changes. `-CodexHome` supports a separate Codex installation. Detection reads user settings and installed cache files; it does not resolve project or managed policy overrides, check the running broker, or prove that a particular chat has enabled the plugin. Use an explicit choice when those settings differ.
 

@@ -110,6 +110,7 @@ def test_standalone_override_and_none_remain_available(installation, tmp_path):
         connection_plan(installation, codex_home=home, integration="standalone")["integration"]
         == "standalone"
     )
+    execute_plan(connection_plan(installation, integration="none"))
     assert connection_plan(installation, integration="none") == {
         "integration": "none",
         "commands": [],
@@ -148,6 +149,11 @@ def test_registration_preflight_is_idempotent_and_preserves_conflicts(installati
         }
         (services / (name + ".json")).write_text(json.dumps(normalized))
     assert connection_plan(installation, codex_home=home)["commands"] == []
+    checks = []
+    execute_plan(
+        connection_plan(installation, codex_home=home), run=lambda cmd, **kwargs: checks.append(cmd)
+    )
+    assert len(checks) == 1 and checks[0][1] == "-c"
     conflict = services / "freecad-headless.json"
     wrong = json.loads(conflict.read_text())
     wrong["allow_writes"] = False
@@ -177,11 +183,37 @@ def test_execution_preserves_argv_environment_and_stops_on_failure(installation,
         execute_plan(plan, run=fail)
 
 
+def test_malformed_codex_sections_stop_planning(installation, tmp_path):
+    home = tmp_path / "codex"
+    home.mkdir()
+    (home / "config.toml").write_text('plugins = ["invalid"]')
+    with pytest.raises(ValueError, match="Cannot read Codex configuration"):
+        connection_plan(installation, codex_home=home)
+
+
 def test_broker_requires_a_real_install_and_complete_explicit_paths(installation, tmp_path):
     with pytest.raises(ValueError, match="No enabled"):
         connection_plan(installation, integration="broker", codex_home=tmp_path / "empty")
     with pytest.raises(ValueError, match="both"):
         connection_plan(installation, codex_home=tmp_path / "empty", broker_python=sys.executable)
+
+
+def test_incompatible_runtime_stops_before_either_registration(installation, tmp_path):
+    import subprocess
+
+    home = tmp_path / "codex"
+    cached_broker(home, tmp_path)
+    plan = connection_plan(installation, codex_home=home)
+    calls = []
+
+    def reject(command, **kwargs):
+        calls.append(command)
+        raise subprocess.CalledProcessError(1, command)
+
+    with pytest.raises(ValueError, match="No services were registered"):
+        execute_plan(plan, run=reject)
+    assert len(calls) == 1 and calls[0][1] == "-c"
+    assert calls[0][-2:] == [command[-1] for command in plan["commands"]]
 
 
 def test_installation_catalog_never_imports_extension_code_or_native_backend(tmp_path):

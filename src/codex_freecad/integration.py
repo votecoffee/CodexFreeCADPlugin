@@ -62,7 +62,14 @@ def broker_services(servers, workspace, extension_dirs=()):
 def read_config(codex_home):
     path = codex_home / "config.toml"
     try:
-        return tomllib.loads(path.read_text(encoding="utf-8-sig")) if path.exists() else {}
+        config = tomllib.loads(path.read_text(encoding="utf-8-sig")) if path.exists() else {}
+        for section in ("plugins", "mcp_servers"):
+            entries = config.get(section, {})
+            if not isinstance(entries, dict) or any(
+                not isinstance(item, dict) for item in entries.values()
+            ):
+                raise ValueError("Invalid Codex configuration section: " + section)
+        return config
     except (OSError, ValueError) as exc:
         raise ValueError(
             "Cannot read Codex configuration; select an explicit integration after repair"
@@ -113,6 +120,8 @@ def detect_broker(codex_home, config):
 def connection_plan(
     output, *, integration="auto", codex_home=None, broker_python=None, broker_state=None
 ):
+    if integration not in {"auto", "broker", "standalone", "none"}:
+        raise ValueError("Unknown Codex integration")
     output = Path(output).expanduser().resolve()
     codex_home = (
         Path(codex_home or os.environ.get("CODEX_HOME", Path.home() / ".codex"))
@@ -137,7 +146,7 @@ def connection_plan(
     selected = "broker" if broker else "standalone"
     if integration == "broker" and broker is None:
         raise ValueError("No enabled Universal Tools plugin found; supply explicit broker paths")
-    commands = []
+    commands, manifests = [], []
     if selected == "broker":
         # Do not silently duplicate an existing direct route or remove user configuration.
         if any(
@@ -157,6 +166,7 @@ def connection_plan(
             raise ValueError("Broker Python or initialized broker state is missing")
         for name in ("freecad-live", "freecad-headless"):
             manifest = output / "broker" / (name + ".service.json")
+            manifests.append(str(manifest))
             expected = json.loads(manifest.read_text(encoding="utf-8"))
             destination = state / "services" / (name + ".json")
             if destination.exists():
@@ -199,12 +209,33 @@ def connection_plan(
         "codex_home": str(codex_home),
         "broker": broker,
         "commands": commands,
+        "service_manifests": manifests,
         "next": "refresh_services" if broker else "Start a new Codex chat",
     }
 
 
 def execute_plan(plan, *, run=subprocess.run):
+    if plan["integration"] == "none":
+        return
     environment = dict(os.environ, CODEX_HOME=plan["codex_home"])
+    if plan["integration"] == "broker":
+        manifests = plan["service_manifests"]
+        # Validate every pending manifest with the actual runtime before registering either.
+        # A newer cached plugin can still point at an older installed broker package.
+        probe = [
+            plan["broker"]["python"],
+            "-c",
+            "import sys; from pathlib import Path; from universal_tools.models import load_manifest; "
+            "[load_manifest(Path(p)) for p in sys.argv[1:]]",
+            *manifests,
+        ]
+        try:
+            run(probe, check=True, env=environment, capture_output=True, timeout=30)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            raise ValueError(
+                "Broker runtime cannot validate FreeCAD service manifests. Upgrade Universal Tools "
+                "to 0.8 or later, or explicitly choose the standalone plugin. No services were registered."
+            ) from exc
     for command in plan["commands"]:
         # argv arrays and no shell preserve paths containing spaces and metacharacters.
         run(command, check=True, env=environment, stdout=sys.stderr)
