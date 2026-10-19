@@ -1,11 +1,18 @@
 param(
     [string]$Workspace = '',
     [string]$FreeCADCmd = '',
-    [string[]]$Extensions = @()
+    [string[]]$Extensions = @(),
+    [ValidateSet('headless', 'live')]
+    [string]$ShortcutMode = 'headless',
+    [switch]$NoStartMenuShortcut
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 if (-not $Workspace) { $Workspace = Join-Path $projectRoot 'models' }
+$Workspace = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Workspace)
+if ($FreeCADCmd) {
+    $FreeCADCmd = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($FreeCADCmd)
+}
 $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pythonPath)) {
     & py -3.13 -m venv (Join-Path $projectRoot '.venv')
@@ -18,3 +25,6 @@ if ($FreeCADCmd) { $setupArgs += @('--freecad-cmd', $FreeCADCmd) }
 foreach ($directory in $Extensions) { $setupArgs += @('--extensions', $directory) }
 & $pythonPath @setupArgs
 if ($LASTEXITCODE -ne 0) { throw 'Configuration generation failed.' }
+if (-not $NoStartMenuShortcut) {
+    & (Join-Path $PSScriptRoot 'Create-StartMenuShortcut.ps1') -Workspace $Workspace -FreeCADCmd $FreeCADCmd -Mode $ShortcutMode
+}

@@ -7,3 +7,5 @@
 *.cmd text eol=crlf
 *.FCStd binary
 *.png binary
+*.ico binary
+*.svg text eol=lf

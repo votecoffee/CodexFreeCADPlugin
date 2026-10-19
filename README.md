@@ -67,6 +67,8 @@ It uses the same setup script, then starts the server with `models/` as its work
 
 Use `-InstallOnly` for setup alone, or `-SkipInstall` for later launches. Arguments include `-Mode live`, `-Workspace "C:\CAD\Models"` and `-FreeCADCmd "C:\Program Files\FreeCAD 1.0\bin\FreeCADCmd.exe"`. Relative workspaces resolve against the checkout. Repeat custom workspace/FreeCADCmd arguments when using `-SkipInstall`. Live mode connects to a bridge you start manually with the generated macro. The launcher does not register an MCP client; see the next section. Run `.\Install-and-Run.cmd -Help` for help.
 
+Installation creates a **FreeCADMCPServer** shortcut in the current user's Start menu with the bundled application icon. It remembers the selected mode, workspace and FreeCADCmd path, and launches the existing installation without reinstalling dependencies. No administrator access is needed. Use `-NoStartMenuShortcut` with either installer to skip creating/updating the shortcut. `scripts\Setup.ps1` defaults the shortcut to headless mode; pass `-ShortcutMode live` for a live shortcut. The entry starts the stdio server in a console and waits for an MCP client. Live mode uses the bridge you start manually in FreeCAD. Rerun setup after moving the checkout to update shortcut paths; deleting the Start menu entry removes the shortcut.
+
 ### Connect an MCP client
 
 For Codex, run:

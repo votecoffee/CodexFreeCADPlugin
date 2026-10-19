@@ -15,6 +15,8 @@ Optional FreeCADCmd executable for setup and the headless backend.
 Install dependencies and generate configuration, then exit.
 .PARAMETER SkipInstall
 Run with the existing virtual environment without installing or regenerating files.
+.PARAMETER NoStartMenuShortcut
+Install without creating or updating the current user's Start menu shortcut.
 .PARAMETER Help
 Print launcher usage without installing or starting anything.
 .EXAMPLE
@@ -30,6 +32,7 @@ param(
     [string]$FreeCADCmd = '',
     [switch]$InstallOnly,
     [switch]$SkipInstall,
+    [switch]$NoStartMenuShortcut,
     [switch]$Help
 )
 
@@ -43,6 +46,7 @@ Usage: Install-and-Run.cmd [options]
   -FreeCADCmd PATH     Optional FreeCADCmd executable
   -InstallOnly         Install and generate configuration, then exit
   -SkipInstall         Start the existing installation without setup
+  -NoStartMenuShortcut  Skip Start menu shortcut creation during setup
   -Help                Show this help
 The server speaks MCP over stdio and waits for a client. Start the live bridge manually.
 '@)
@@ -57,9 +61,15 @@ The server speaks MCP over stdio and waits for a client. Start the live bridge m
         $Workspace = Join-Path $projectRoot $Workspace
     }
     $Workspace = [IO.Path]::GetFullPath($Workspace)
+    if ($FreeCADCmd) {
+        $FreeCADCmd = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($FreeCADCmd)
+    }
     $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
     if (-not $SkipInstall) {
-        $setupArgs = @{ Workspace = $Workspace; FreeCADCmd = $FreeCADCmd }
+        $setupArgs = @{
+            Workspace = $Workspace; FreeCADCmd = $FreeCADCmd
+            ShortcutMode = $Mode; NoStartMenuShortcut = [bool]$NoStartMenuShortcut
+        }
         & (Join-Path $PSScriptRoot 'Setup.ps1') @setupArgs |
             ForEach-Object { [Console]::Error.WriteLine([string]$_) }
     }
