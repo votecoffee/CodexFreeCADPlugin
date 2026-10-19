@@ -67,7 +67,7 @@ def test_engineering_extensions_load_and_recover_in_one_existing_mcp_connection(
             )
             before = (await call("inspect_document", document="Model"))["revision"]
             source = Path(codex_freecad.__file__).parent / "extensions"
-            for name in ("bom", "studies", "drawings"):
+            for name in ("bom", "studies", "drawings", "requirements"):
                 target = root / ("installed_" + name)
                 shutil.copytree(source / name, target, ignore=shutil.ignore_patterns("__pycache__"))
                 manifest_path = target / "manifest.json"
@@ -78,6 +78,7 @@ def test_engineering_extensions_load_and_recover_in_one_existing_mcp_connection(
             assert loaded["changed_extensions"] == [
                 "installed_bom",
                 "installed_drawings",
+                "installed_requirements",
                 "installed_studies",
             ]
             assert (await client.list_tools()).model_dump(mode="json") == tools
@@ -128,13 +129,66 @@ def test_engineering_extensions_load_and_recover_in_one_existing_mcp_connection(
                     values=[20],
                     objects=["Block"],
                 ),
+                extension(
+                    "requirements.create_set",
+                    name="Limits",
+                    rules=[
+                        {"id": "Volume", "metric": "volume", "object": "Block", "maximum": 15000},
+                        {
+                            "id": "Length",
+                            "metric": "property",
+                            "object": "Block",
+                            "property": "Length",
+                            "maximum": 45,
+                        },
+                    ],
+                ),
             )
+            limits = await query("requirements.evaluate", set="Limits")
+            assert limits["all_passed"]
+            guarded = await query(
+                "studies.preview_changes", **preview_arguments, requirement_sets=["Limits"]
+            )
+            assert not guarded["requirements"]["all_passed_after"]
+            baseline = (await call("inspect_document", document="Model"))["revision"]
+            assert (await client.call_tool("apply_operations", guarded["apply_arguments"])).is_error
+            assert (await call("inspect_document", document="Model"))["revision"] == baseline
+            passing_guarded = await query(
+                "studies.preview_changes",
+                objects=["Block"],
+                requirement_sets=["Limits"],
+                changes=[{"object": "Block", "property": "Length", "value": 42}],
+            )
+            assert passing_guarded["requirements"]["all_passed_after"]
+            rule_helper = root / "installed_requirements/rules.py"
+            rule_source = rule_helper.read_text(encoding="utf-8")
+            rule_helper.write_text(rule_source + "\n# rule helper update\n", encoding="utf-8")
+            assert (await call("reload_extensions"))["changed_extensions"] == [
+                "installed_requirements"
+            ]
+            assert await query("requirements.evaluate", set="Limits") == limits
+            stale = await client.call_tool("apply_operations", passing_guarded["apply_arguments"])
+            assert stale.is_error
+            assert (await call("inspect_document", document="Model"))["revision"] == baseline
+            catalog = (await call("list_capabilities"))["catalog_revision"]
+            rule_helper.write_text("def invalid(:\n", encoding="utf-8")
+            assert (await client.call_tool("reload_extensions", {})).is_error
+            assert (await call("list_capabilities"))["catalog_revision"] == catalog
+            assert await query("requirements.evaluate", set="Limits") == limits
+            rule_helper.write_text(rule_source, encoding="utf-8")
+            await call("reload_extensions")
             rendered = await query("drawings.render_svg", page="Drawing")
             assert rendered["views"][0]["width_mm"] == pytest.approx(40)
             await call("save_document", document="Model", path="Engineering.FCStd")
             # The external extension packages are absent in this fresh native worker.
             with HeadlessClient(workspace, find_freecad_cmd()) as other:
                 name = other.call("open_document", path="Engineering.FCStd")["name"]
+                assert other.call(
+                    "run_query",
+                    document=name,
+                    capability="requirements.evaluate",
+                    arguments={"set": "Limits"},
+                )["result"]["all_passed"]
                 assert other.call("inspect_object", document=name, object_name="Variants_001_01")[
                     "shape"
                 ]["volume_mm3"] == pytest.approx(6000)

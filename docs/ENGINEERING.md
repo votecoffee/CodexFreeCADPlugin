@@ -53,6 +53,42 @@ To retain geometry, use the `studies.create_variants` edit capability with the s
 
 Variants are frozen evaluated BREP snapshots. They do not retain the source feature history and do not regenerate when the source changes. They remain usable after save/reopen without executable extension proxies. Creating all variants is one undoable model edit; saving/exporting the group members is a separate action.
 
+## Saved design requirements
+
+The `requirements` extension stores explicit limits as native model metadata. It supplies four capabilities:
+
+- `requirements.create_set` (edit): required `name` and `rules`.
+- `requirements.update_set` (edit): required `set` and a complete replacement `rules` list.
+- `requirements.evaluate` (query): required `set`; reports `pass`, `fail` or `error` for every rule and `all_passed` for the complete set.
+- `requirements.enforce` (edit): required `set`; raises when any rule fails or cannot be measured, rolling back the entire enclosing `apply_operations` batch. Put enforcement after all edits to be checked.
+
+Each set contains 1–50 rules with distinct identifier `id`, `metric`, internal `object` name and at least one inclusive `minimum` or `maximum`. Optional `absolute_tolerance` defaults to zero and expands the numeric bounds in the measurement's units. Supported metrics are:
+
+| Metric | Additional fields | Measurement |
+| --- | --- | --- |
+| `property` | `property` | Supported numeric scalar in native base units: mm, degrees, mm², mm³, percent or dimensionless. Generic `App::PropertyQuantity` properties are rejected because their dimensions are unspecified. |
+| `volume` | None | Selected solid volume in mm³. |
+| `mass` | Positive `density_kg_m3` | Volume × explicitly supplied density, in kg. Density is stored in the rule and is not inferred from material metadata. |
+| `extent` | `axis`: `x`, `y` or `z` | Axis-aligned bounding-box size in model coordinates, in mm. |
+| `clearance` | Distinct `other` object; optional `overlap_tolerance_mm3` | Minimum BREP distance in mm, plus positive-volume overlap. Overlap above the tolerance fails even when minimum distance zero would meet the numeric bounds. |
+
+Clearance overlap tolerance defaults to 0.000001 mm³; contact is allowed when the requested minimum is zero. Absolute tolerance affects distance/other numeric limits, not overlap tolerance. These are nominal geometry measurements at the current pose, not manufacturing tolerance or load assessments. Geometry targets must be top-level positive-volume solids or components of a supported root identity assembly, with at most 5,000 distinct measured shape edges per set evaluation. Internal names identify targets; labels do not. Native source links detect missing or replaced targets; a broken link set reports errors until explicitly updated.
+
+```json
+{"op":"extension","capability":"requirements.create_set","arguments":{"name":"FitLimits","rules":[{"id":"MinimumGap","metric":"clearance","object":"Shaft","other":"Sleeve","minimum":0.5,"absolute_tolerance":0.000001},{"id":"MaximumMass","metric":"mass","object":"Shaft","density_kg_m3":7850,"maximum":0.055}]}}
+```
+
+To check arbitrary supported model edits as one transaction, append enforcement:
+
+```json
+[
+  {"op":"set_property","object":"Design","property":"ShaftRadius","value":7.25},
+  {"op":"extension","capability":"requirements.enforce","arguments":{"set":"FitLimits"}}
+]
+```
+
+Use `expected_revision` on the enclosing edit. Enforcement checks the state at its position in the batch; later operations, direct FreeCAD edits, saving and exporting are not automatically guarded. Sets are opt-in checks, not a global document policy. A query reporting failure does not itself mutate or reject the source design. Rule creation and updates are undoable, and rules/source links survive native FCStd save/reopen without executable extension proxies. The set is a native property container with `Proxy=None`; definition hashes identify the exact saved rules.
+
 ## Change previews
 
 `studies.preview_changes` is a query that evaluates several numeric scalar edits together on an owned hidden dependency copy. Required arguments are `changes` (1–20 distinct object/property/value entries) and `objects` (1–20 distinct selected output solids). Optional `density_kg_m3` adds mass measurements. The same units, driver protections, output selection rules and 500-object document limit as parameter studies apply. Each state is limited to 5,000 edges across the selected shapes. Values must be between -1,000,000 and 1,000,000; integer properties require integer JSON values.
@@ -64,6 +100,8 @@ Variants are frozen evaluated BREP snapshots. They do not retain the source feat
 The result reports each parameter's original, requested and evaluated value, and each output's before/after bounds, area, volume and optional mass. Native BREP differences report added and removed material in model coordinates, with a volume consistency check. This detects equal-volume reshaping and translation that a net-volume comparison misses. Reports cover only the selected solids; sums across overlapping selections do not represent a material union. Dimensions driven by expressions must be changed through their input parameters. Generic edits to managed assembly/pattern properties remain blocked.
 
 `apply_arguments` contains `document`, the source `expected_revision`, and the exact ordered `set_property` operations used for the preview. Pass this object to `apply_operations` to apply the proposed edits as one undoable transaction. A source change since preview causes the revision guard to reject the edit. Previewing does not apply edits, save files or create persistent model objects. This is a numeric geometry comparison, not a collision, strength or manufacturing assessment.
+
+Optional `requirement_sets` selects 1–5 distinct saved sets to evaluate before and after the proposed changes on the hidden copy. The returned `requirements` section reports both states, checked set count and `all_passed_after`. With no selected sets, zero checks are performed. A failing proposal still returns measurements for review; its generated `apply_arguments` append catalog-guarded enforcement operations, which reject application until the proposed design satisfies all selected sets. A catalog change also rejects the generated enforcement plan; describe/re-preview with the current capabilities.
 
 Python workflow using an existing client:
 

@@ -1,0 +1,233 @@
+{
+  "id": "requirements",
+  "version": "1.0.0",
+  "api_version": 1,
+  "description": "Saved design limits, native checks and opt-in transactional enforcement",
+  "ui": false,
+  "capabilities": {
+    "create_set": {
+      "kind": "edit",
+      "description": "Save explicit numeric property, volume, mass, extent and clearance limits as native linked model metadata.",
+      "handler": "create_set",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "rules"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+          },
+          "rules": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "metric",
+                "object"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                },
+                "metric": {
+                  "type": "string",
+                  "enum": [
+                    "property",
+                    "volume",
+                    "mass",
+                    "extent",
+                    "clearance"
+                  ]
+                },
+                "object": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                },
+                "other": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                },
+                "property": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                },
+                "axis": {
+                  "type": "string",
+                  "enum": [
+                    "x",
+                    "y",
+                    "z"
+                  ]
+                },
+                "minimum": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "maximum": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "absolute_tolerance": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1000000.0
+                },
+                "density_kg_m3": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1000000.0
+                },
+                "overlap_tolerance_mm3": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1000000.0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "update_set": {
+      "kind": "edit",
+      "description": "Replace all rules and source links in an existing requirement set as one undoable edit.",
+      "handler": "update_set",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "set",
+          "rules"
+        ],
+        "properties": {
+          "set": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+          },
+          "rules": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "metric",
+                "object"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                },
+                "metric": {
+                  "type": "string",
+                  "enum": [
+                    "property",
+                    "volume",
+                    "mass",
+                    "extent",
+                    "clearance"
+                  ]
+                },
+                "object": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                },
+                "other": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                },
+                "property": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                },
+                "axis": {
+                  "type": "string",
+                  "enum": [
+                    "x",
+                    "y",
+                    "z"
+                  ]
+                },
+                "minimum": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "maximum": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "absolute_tolerance": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1000000.0
+                },
+                "density_kg_m3": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1000000.0
+                },
+                "overlap_tolerance_mm3": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1000000.0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "evaluate": {
+      "kind": "query",
+      "description": "Report pass/fail/error for saved requirements against current geometry without changing the model.",
+      "handler": "evaluate",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "set"
+        ],
+        "properties": {
+          "set": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+          }
+        }
+      }
+    },
+    "enforce": {
+      "kind": "edit",
+      "description": "Check saved requirements at this point in the batch and raise on failure so the entire batch rolls back. Place after all proposed edits. Does not enforce later edits automatically.",
+      "handler": "enforce",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "set"
+        ],
+        "properties": {
+          "set": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+          }
+        }
+      }
+    }
+  }
+}

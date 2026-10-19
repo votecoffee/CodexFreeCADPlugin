@@ -51,12 +51,25 @@ def preview(engine, doc, arguments):
             }
         )
     operations = [{"op": "set_property", **item} for item in changes]
+    requirement_sets = arguments.get("requirement_sets", [])
+    if len(set(requirement_sets)) != len(requirement_sets):
+        raise CadError("Preview requirement sets must be unique")
+
+    def requirements(target):
+        return [
+            engine.registry.invoke(engine, target, "requirements.evaluate", {"set": name}, "query")[
+                "result"
+            ]
+            for name in requirement_sets
+        ]
+
     source_revision = engine.revision(doc)
     density = arguments.get("density_kg_m3")
     with hidden_copy(engine, doc) as clone:
         check_recompute(clone)
         before = [measure(engine, clone, name, density) for name in names]
         before_shapes = selected_shapes(engine, clone, names)
+        requirements_before = requirements(clone)
         # Use the exact same operation order and guards as the proposed source edit.
         for index, operation in enumerate(operations):
             try:
@@ -66,6 +79,7 @@ def preview(engine, doc, arguments):
                 raise CadError(f"Preview change {index} failed: {exc}") from exc
         after = [measure(engine, clone, name, density) for name in names]
         after_shapes = selected_shapes(engine, clone, names)
+        requirements_after = requirements(clone)
         for row in parameters:
             row["after"] = scalar(engine.obj(clone, row["object"]), row["property"])
         objects = []
@@ -90,10 +104,26 @@ def preview(engine, doc, arguments):
             if density is not None:
                 row["delta_mass_kg"] = new["mass_kg"] - old["mass_kg"]
             objects.append(row)
+    if requirement_sets:
+        operations += [
+            {
+                "op": "extension",
+                "capability": "requirements.enforce",
+                "arguments": {"set": name},
+                "catalog_revision": engine.registry.active.revision,
+            }
+            for name in requirement_sets
+        ]
     return {
         "document": doc.Name,
         "parameters": parameters,
         "objects": objects,
+        "requirements": {
+            "set_count": len(requirement_sets),
+            "before": requirements_before,
+            "after": requirements_after,
+            "all_passed_after": all(item["all_passed"] for item in requirements_after),
+        },
         "apply_arguments": {
             "document": doc.Name,
             "expected_revision": source_revision,
