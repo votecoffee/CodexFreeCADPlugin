@@ -9,7 +9,7 @@ description = "Experimental app-owned stable MCP host for FreeCADMCPServer"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = ["universal-codex-tools==0.13.0"]
+dependencies = ["universal-codex-tools==0.13.0", "mcp==2.3.0"]
 
 [project.scripts]
 freecad-mcp-host = "freecad_mcp_host.__main__:main"

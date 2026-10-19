@@ -15,6 +15,10 @@ from . import APPLICATION_ID, FRAMEWORK_VERSION
 
 
 def check_runtime():
+    if version("mcp") != "2.3.0":
+        raise BrokerError(
+            "FreeCAD requires MCP 2.3.0; update the framework package without downgrading"
+        )
     if version("universal-codex-tools") != FRAMEWORK_VERSION:
         raise BrokerError("Install the exact pinned FreeCAD host framework version")
 
@@ -53,9 +57,10 @@ def initialize_app(state, path, port):
 async def status(state):
     async with RemoteBackend(load_settings(state)) as backend:
         result = await backend.invoke("broker_status", {})
-        if result.isError:
+        payload = result.model_dump(mode="json", by_alias=True, exclude_none=True)
+        if payload.get("isError"):
             raise BrokerError("FreeCAD host is unavailable; start its app-owned serve command")
-        return result.structuredContent
+        return payload.get("structuredContent") or json.loads(payload["content"][0]["text"])
 
 
 def main():

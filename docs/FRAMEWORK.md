@@ -2,15 +2,17 @@
 
 The shared app framework is the primary development direction. FreeCAD owns its standalone Codex plugin, stable discovery/invocation interface, CAD backends and native validation. The optional universal broker remains a separate integration; using the shared framework does not require its plugin or daemon. Existing installed routes are not migrated by this prototype.
 
+**Current target: MCP 2.3.0 throughout.** The initially supplied framework 0.13.0 wheel pins MCP 1.30.0. Its isolated compatibility experiment is historical evidence, not acceptance of the current target. Do not install that legacy wheel or downgrade MCP. Framework package selection, lock regeneration and MCP 2.3 framework transport validation remain blocked until the updated framework artifact is available. The installation commands below describe the intended development flow after that dependency update.
+
 ## Packages and SDK boundary
 
 | Package | Environment | Pinned dependency |
 | --- | --- | --- |
 | `codex-freecad` | CAD MCP backend | `mcp==2.3.0` |
-| `freecad-mcp-host` | Separate app-owned host | `universal-codex-tools==0.13.0`, which pins MCP 1.30.0 |
+| `freecad-mcp-host` | App-owned host | MCP 2.3.0 required; updated framework pin pending |
 | Native FreeCAD engine | FreeCAD's bundled Python | Native FreeCAD modules; no host MCP/Pydantic imports |
 
-The host imports `universal_tools.framework` from a normal package dependency. Keep its transitive pins in `framework-host/requirements.lock`. Use the verified framework wheel with normal pip installation, or an explicit editable framework checkout for coordinated development. No framework source is copied into this project, no Git submodule is used, and no public package feed or native .NET binding is assumed.
+The host imports `universal_tools.framework` from a normal exact package dependency. Update that framework pin and regenerate `framework-host/requirements.lock` together after verifying the new MCP 2.3 wheel. The current old framework pin intentionally cannot resolve alongside the explicit MCP 2.3 requirement; this prevents a resolver from downgrading MCP. Use normal pip installation or an explicit editable framework checkout for coordinated development. No framework source is copied into this project, no Git submodule is used, and no public package feed or native .NET binding is assumed.
 
 Create a separate environment and install the host with a verified framework wheel available in a chosen wheel directory:
 
@@ -26,6 +28,14 @@ For a release, build/install the host wheel instead of the editable host. Verify
 .\.venv\Scripts\python.exe -m pip wheel --no-deps --wheel-dir dist .
 .\.venv\Scripts\python.exe -m pip wheel --no-deps --wheel-dir dist framework-host
 ```
+
+The wheel auditor checks trusted framework hash, wheel RECORD entries, exact normal dependency pins, MCP 2.3 requirements and application code/resource bytes against this checkout:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\verify_framework_wheels.py --backend-wheel dist\codex_freecad-0.9.0-py3-none-any.whl --host-wheel dist\freecad_mcp_host-0.1.0-py3-none-any.whl --framework-wheel C:\Packages\VerifiedWheels\framework.whl --framework-sha256 EXPECTED_SHA256
+```
+
+The old framework artifact is rejected before installation. Unit fixtures for this audit do not establish that an actual updated framework artifact exists.
 
 ## Generate a candidate
 
@@ -58,7 +68,7 @@ Routine extension reload still uses the existing `reload_extensions` operation. 
 
 ## Validation and remaining gaps
 
-Host tests cover publication immutability, complete captured closure checks, standalone package generation and separation of SDK dependencies. The isolated framework profile substitutes a disposable provider beneath the original CAD MCP handlers and uses real stdio/HTTP framework transports. It must compare direct versus hosted schemas/results/media, independent frontend ownership, revisions, write receipts, failed publication/recovery and same-session refresh before integration is claimed. Keep per-run captures and latency samples in ignored `local/` or `work/`.
+Host tests cover publication immutability, complete captured closure checks, standalone package generation and separation of SDK dependencies. The opt-in isolated framework profile substitutes a disposable provider beneath the original CAD MCP handlers and uses real stdio/HTTP framework transports. It checks direct versus hosted schemas/results/media, independent frontend ownership, revisions/Undo, write receipts, failed publication/recovery, same-session refresh and a lost-reply recovery barrier after restart. It records five warm direct/host inspection samples; each host sample includes describing the tool and invoking it. These are not pure transport overhead or native latency acceptance. See [validation commands](VALIDATION.md#broker-interoperability). Keep per-run captures and latency samples in ignored `local/` or `work/`.
 
 Actual FreeCAD GUI behavior, native generation migration, real Codex plugin activation, reconnect/reload acceptance, full direct/host latency criteria and optional aggregation of this framework host remain separate acceptance work. The existing direct-to-broker route does not establish nested framework-host aggregation. Serialized backend calls can delay other calls on that same backend; this prototype does not add app-owned jobs or parallel private contexts.
 

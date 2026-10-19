@@ -41,6 +41,15 @@ Tests using UI lifecycle doubles check controller contracts. They do not establi
 
 ## Broker interoperability
 
+The experimental app-owned framework now requires MCP 2.3 throughout. The updated framework package and lock are pending; the earlier isolated MCP 1.30 compatibility run is historical evidence only. It does not require the Universal Tools plugin or a universal daemon. After installing the verified updated framework, include its disposable-provider protocol profile:
+
+```powershell
+$env:FREECAD_FRAMEWORK_PYTHON = 'C:\Apps\FreeCADHost\python.exe'
+.\.venv\Scripts\pytest.exe -q -m 'not native'
+```
+
+The framework case starts only an isolated app host and published SDK 2 workers with fixture providers below the original MCP handlers. It checks complete selected results/media, separate frontend ownership, model revision/Undo across deferred publication, same-session frontend schema stability, failed-candidate recovery, one recorded effect after a lost reply and a durable no-replay barrier across host restart. It records five warm direct/host inspection samples locally. Those samples do not establish native latency criteria, large-payload performance or Codex UI acceptance. See [framework package and lifecycle boundaries](FRAMEWORK.md). Without the environment variable this profile skips; no current installed route is changed.
+
 The host suite checks standalone/broker selection, disabled and broken plugin detection, installation preview, registration conflicts, explicit write allowlists, unchanged direct MCP schemas and metadata discovery without executing extension code.
 
 For an installed Universal Tools runtime (0.8 or later) and native FreeCADCmd, opt into the isolated broker test:
