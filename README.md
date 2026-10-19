@@ -6,7 +6,7 @@ Create, inspect and edit native FreeCAD models from an MCP client such as Codex,
 
 Version **0.9.0** includes reloadable hole and fastener tools, parametric modeling, movable assemblies, saved joint couplings and interference checks. See the [changelog](docs/CHANGELOG.md) for release details.
 
-The current checkout also includes a source-aware bill of materials, refreshable native spreadsheets, source-preserving parameter sweeps, numeric change previews with added/removed material reports, saved configuration snapshots and dimensioned TechDraw sheets with headless SVG rendering. See [engineering extensions](docs/ENGINEERING.md).
+The current checkout also includes saved design requirements with opt-in edit enforcement, a source-aware bill of materials, refreshable native spreadsheets, source-preserving parameter sweeps, numeric change previews with added/removed material reports, saved configuration snapshots and dimensioned TechDraw sheets with headless SVG rendering. See [engineering extensions](docs/ENGINEERING.md).
 
 The Python distribution and CLI retain the name `codex-freecad`, the import is `codex_freecad`, and the optional Codex plugin ID is `freecad-modeling` for compatibility. Their display name is **FreeCADMCPServer**.
 
@@ -135,7 +135,8 @@ For a complete BOM, thickness-study and drawing example, run `.venv\Scripts\pyth
 - [Tools, modeling operations, assemblies and file behavior](docs/TOOLS.md)
 - [Examples and demonstrations](docs/EXAMPLES.md)
 - [Hole and fastener capabilities](docs/HOLES_FASTENERS.md)
-- [Engineering extensions: BOMs, parameter studies and drawings](docs/ENGINEERING.md)
+- [Engineering extensions: requirements, BOMs, studies and drawings](docs/ENGINEERING.md)
+- [Feature roadmap](docs/ROADMAP.md)
 - [Extension installation, reloads and authoring](docs/EXTENSIONS.md)
 - [Native panel and manual drag checks](docs/PANEL_TESTING.md)
 - [Architecture](docs/ARCHITECTURE.md)

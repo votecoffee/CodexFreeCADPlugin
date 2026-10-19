@@ -78,6 +78,14 @@ The preview JSON includes the revision-bound operations for that point in the wo
 
 The default run uses FreeCADCmd and opens no GUI. Add `--mode live` with the connected bridge's workspace to use an existing FreeCAD window. Choose a fresh `--name` for repeat runs; existing output files are preserved. [Engineering capabilities](ENGINEERING.md) describe refresh rules and limits. The sheet supplies overall extents; it does not specify manufacturing tolerances or hole-location/diameter dimensions.
 
+## Saved fit and mass requirements
+
+```powershell
+.\.venv\Scripts\python.exe examples\design_requirements.py --workspace work\requirements-demo
+```
+
+The example creates a parametric shaft inside a sleeve, with saved radial-clearance, shaft-mass and length requirements. It previews an oversized shaft, confirms that applying it rolls back, then previews/applies a valid change. Independent formulas verify 0.75 mm radial clearance and nominal steel mass. Outputs are an editable FCStd file, a two-solid STEP file and a JSON report with rule results and artifact hashes. The default uses FreeCADCmd and opens no GUI; `--mode live` uses the explicitly connected bridge. Use a fresh name/output folder when repeating the example.
+
 ## Optional OpenAI Responses API example
 
 ```powershell

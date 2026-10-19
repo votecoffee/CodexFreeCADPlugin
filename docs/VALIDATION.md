@@ -34,7 +34,8 @@ Coverage includes:
 - BOM source identity, link-array quantities, explicit density, formula-safe CSV/spreadsheet cells, snapshot refresh and native persistence.
 - Parameter-study expression propagation on hidden copies, failure cleanup, source revision/Undo preservation and frozen configuration snapshots.
 - Numeric multi-property previews, equal-volume reshaping, disjoint translation, curved material differences, stale-apply rejection and matching native apply/Undo/save/reopen results.
-- Native TechDraw extent values against projected BREP bounds, curved/translated/link-array sources, refresh/stale-source guards, SVG XML and native save/reopen. A persistent MCP regression loads all three engineering packages into the original connection and tests a successful drawing-generation update plus failed-update recovery.
+- Saved design requirements for numeric properties, known-density mass, volume, axis extents and BREP clearance/overlap, including contact, numerical tolerance, source revision preservation, failing-batch rollback, explicit updates and native save/reopen. Previews include before/after rule reports and enforcement in returned apply arguments.
+- Native TechDraw extent values against projected BREP bounds, curved/translated/link-array sources, refresh/stale-source guards, SVG XML and native save/reopen. A persistent MCP regression loads the engineering packages into the original connection and tests drawing, preview-helper and requirement-helper updates plus failed-update recovery.
 
 Tests using UI lifecycle doubles check controller contracts. They do not establish Qt behavior, Coin event delivery or physical mouse picking.
 
@@ -52,6 +53,8 @@ The hardware sample contains 23 selected solid instances: a flange, six socket b
 The extension smoke check exercises capability discovery, reload and persisted geometry. The persistent-connection regressions in `tests/` provide additional checks for stable transport schemas and failed-update recovery.
 
 `examples/engineering_plate.py --workspace work/engineering-demo` combines holes, linked instances, BOMs, thickness studies, numeric change previews, frozen variants and dimensioned native/SVG sheets. Run with the project's Python; it verifies analytic volumes and added/removed material, then writes local hash evidence. Use a fresh output name for repeat runs. SVG rendering can be inspected independently of the native FreeCAD GUI; native GUI page layout and physical printing still need manual checks.
+
+`examples/design_requirements.py --workspace work/requirements-demo` creates a shaft/sleeve fit example with saved limits. It verifies an oversized proposal is rejected without source mutation, applies a passing proposal, checks radial clearance and mass against analytic formulas, and saves FCStd/STEP plus local hash/rule evidence.
 
 ## Manual GUI checks
 
