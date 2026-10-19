@@ -53,6 +53,34 @@ To retain geometry, use the `studies.create_variants` edit capability with the s
 
 Variants are frozen evaluated BREP snapshots. They do not retain the source feature history and do not regenerate when the source changes. They remain usable after save/reopen without executable extension proxies. Creating all variants is one undoable model edit; saving/exporting the group members is a separate action.
 
+## Change previews
+
+`studies.preview_changes` is a query that evaluates several numeric scalar edits together on an owned hidden dependency copy. Required arguments are `changes` (1–20 distinct object/property/value entries) and `objects` (1–20 distinct selected output solids). Optional `density_kg_m3` adds mass measurements. The same units, driver protections, output selection rules and 500-object document limit as parameter studies apply. Each state is limited to 5,000 edges across the selected shapes. Values must be between -1,000,000 and 1,000,000; integer properties require integer JSON values.
+
+```json
+{"document":"Model","capability":"studies.preview_changes","arguments":{"changes":[{"object":"Design","property":"Length","value":80},{"object":"Plate","property":"Width","value":40}],"objects":["Plate"],"density_kg_m3":2700}}
+```
+
+The result reports each parameter's original, requested and evaluated value, and each output's before/after bounds, area, volume and optional mass. Native BREP differences report added and removed material in model coordinates, with a volume consistency check. This detects equal-volume reshaping and translation that a net-volume comparison misses. Reports cover only the selected solids; sums across overlapping selections do not represent a material union. Dimensions driven by expressions must be changed through their input parameters. Generic edits to managed assembly/pattern properties remain blocked.
+
+`apply_arguments` contains `document`, the source `expected_revision`, and the exact ordered `set_property` operations used for the preview. Pass this object to `apply_operations` to apply the proposed edits as one undoable transaction. A source change since preview causes the revision guard to reject the edit. Previewing does not apply edits, save files or create persistent model objects. This is a numeric geometry comparison, not a collision, strength or manufacturing assessment.
+
+Python workflow using an existing client:
+
+```python
+report = cad.call(
+    "run_query", document="Model", capability="studies.preview_changes",
+    arguments={
+        "changes": [{"object": "Design", "property": "Thickness", "value": 6}],
+        "objects": ["Plate"],
+    },
+)["result"]
+print(report["objects"])
+cad.call("apply_operations", **report["apply_arguments"])
+```
+
+The hidden copy closes after either success or failure. Source parameters, active document and Undo are preserved. Applying and saving remain separate actions. The capability and its relative helper module reload through the existing stable tools without changing MCP schemas.
+
 ## Dimensioned drawings
 
 `drawings.create_sheet` is an edit capability with required `name` and `objects`. It creates a native `TechDraw::DrawPage`, an embedded FreeCAD blank landscape template, front/top/right views and native overall width/height extent dimensions. Optional arguments are `paper` (`A4` or `A3`), `views` (a distinct subset of `front`, `top`, `right`), `scale` (0.01–100), `title`, `part_number` and `revision`. Omit scale for a fitted standard scale; an explicit scale that cannot fit is rejected.

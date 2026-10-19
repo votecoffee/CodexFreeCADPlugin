@@ -1,4 +1,4 @@
-"""Create a drilled plate, three-part BOM, thickness variants and a dimensioned SVG sheet."""
+"""Create a drilled plate, BOM, change preview, thickness variants and dimensioned SVG."""
 
 import argparse
 import hashlib
@@ -20,6 +20,7 @@ def build(cad, workspace, name):
         "drawing": name + ".svg",
         "bom": name + "-BOM.csv",
         "study": name + "-Study.json",
+        "preview": name + "-Preview.json",
         "verification": name + "-Verification.json",
     }
     if any((workspace / path).exists() for path in outputs.values()):
@@ -94,6 +95,23 @@ def build(cad, workspace, name):
     for frame in study["frames"]:
         if not math.isclose(frame["total_volume_mm3"], net_area * frame["value"], rel_tol=1e-8):
             raise AssertionError("Thickness study disagrees with analytic drilled plate volume")
+    preview = query(
+        "studies.preview_changes",
+        changes=[
+            {"object": "Design", "property": "Thickness", "value": 6},
+            {"object": "Blank", "property": "Length", "value": 90},
+        ],
+        objects=["PlateRow"],
+        density_kg_m3=2700,
+    )
+    material = preview["objects"][0]
+    for key, expected in {
+        "added_volume_mm3": 10 * 50 * 6 * 3,
+        "removed_volume_mm3": net_area * 2 * 3,
+        "delta_volume_mm3": (10 * 50 * 6 - net_area * 2) * 3,
+    }.items():
+        if not math.isclose(material[key], expected, rel_tol=1e-8):
+            raise AssertionError("Change preview disagrees with analytic linked-plate material")
     if cad.call("inspect_document", document=name)["revision"] != before:
         raise AssertionError("Parameter query changed the source model")
     variants = cad.call(
@@ -133,11 +151,15 @@ def build(cad, workspace, name):
     (workspace / outputs["drawing"]).write_text(drawing["svg"], encoding="utf-8")
     (workspace / outputs["bom"]).write_text(bom["csv"], encoding="utf-8", newline="")
     (workspace / outputs["study"]).write_text(json.dumps(study, indent=2) + "\n", encoding="utf-8")
+    (workspace / outputs["preview"]).write_text(
+        json.dumps(preview, indent=2) + "\n", encoding="utf-8"
+    )
     report = {
         "name": name,
         "backend": cad.call("status")["mode"],
         "checks": [
             "analytic plate volumes for all three thicknesses",
+            "analytic added/removed material for two proposed edits across three linked plates",
             "query preserves source revision",
             "BOM counts three linked plates",
             "native TechDraw extent dimensions validated during creation",

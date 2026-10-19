@@ -94,7 +94,29 @@ def test_engineering_extensions_load_and_recover_in_one_existing_mcp_connection(
             assert [frame["total_volume_mm3"] for frame in study["frames"]] == pytest.approx(
                 [6000, 12000]
             )
+            preview_arguments = {
+                "changes": [
+                    {"object": "Block", "property": "Length", "value": 60},
+                    {"object": "Block", "property": "Width", "value": 20},
+                ],
+                "objects": ["Block"],
+            }
+            preview = await query("studies.preview_changes", **preview_arguments)
+            assert preview["objects"][0]["added_volume_mm3"] == pytest.approx(4000)
+            assert preview["objects"][0]["removed_volume_mm3"] == pytest.approx(4000)
             assert (await call("inspect_document", document="Model"))["revision"] == before
+            helper = root / "installed_studies/preview.py"
+            helper_source = helper.read_text(encoding="utf-8")
+            helper.write_text(helper_source + "\n# helper generation update\n", encoding="utf-8")
+            assert (await call("reload_extensions"))["changed_extensions"] == ["installed_studies"]
+            assert await query("studies.preview_changes", **preview_arguments) == preview
+            catalog = (await call("list_capabilities"))["catalog_revision"]
+            helper.write_text("def invalid(:\n", encoding="utf-8")
+            assert (await client.call_tool("reload_extensions", {})).is_error
+            assert (await call("list_capabilities"))["catalog_revision"] == catalog
+            assert await query("studies.preview_changes", **preview_arguments) == preview
+            helper.write_text(helper_source, encoding="utf-8")
+            await call("reload_extensions")
             await edit(
                 extension("bom.create_sheet", name="BOM", objects=["Block"]),
                 extension("drawings.create_sheet", name="Drawing", objects=["Block"]),

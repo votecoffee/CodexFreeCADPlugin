@@ -1,28 +1,30 @@
 """Bounded parameter studies on owned hidden copies; no source transactions are managed here."""
 
 import uuid
+from contextlib import contextmanager
 
 from codex_freecad.engine import CadError
 from codex_freecad.parameters import NUMERIC_TYPES
 
 
-def validate(engine, doc, arguments):
-    driver = engine.obj(doc, arguments["object"])
-    prop = arguments["property"]
+def numeric_driver(engine, doc, name, prop):
+    driver = engine.obj(doc, name)
     if prop not in driver.PropertiesList or driver.getTypeIdOfProperty(prop) not in NUMERIC_TYPES:
-        raise CadError("Sweep driver must be a supported numeric scalar property")
+        raise CadError("Study driver must be a supported numeric scalar property")
     if "ReadOnly" in driver.getPropertyStatus(prop):
-        raise CadError("Sweep driver property is read-only")
-    if len(set(arguments["objects"])) != len(arguments["objects"]):
-        raise CadError("Sweep output objects must be unique")
-    if len(arguments["objects"]) * len(arguments["values"]) > 200:
-        raise CadError("Parameter studies are limited to 200 object-configuration measurements")
+        raise CadError("Study driver property is read-only")
+    return driver
+
+
+def validate_outputs(engine, doc, names):
+    if len(set(names)) != len(names):
+        raise CadError("Study output objects must be unique")
     if len(doc.Objects) > 500:
         raise CadError("Parameter studies support documents with at most 500 objects")
     for obj in doc.Objects:
         if any(other.Document != doc for other in obj.OutList):
             raise CadError("Parameter studies require same-document dependencies")
-    for name in arguments["objects"]:
+    for name in names:
         obj = engine.obj(doc, name)
         parent = obj.getParentGeoFeatureGroup()
         if parent is not None and (
@@ -30,6 +32,37 @@ def validate(engine, doc, arguments):
         ):
             raise CadError("Select top-level output solids or root identity assembly components")
         engine.shape(doc, name)
+
+
+def validate(engine, doc, arguments):
+    numeric_driver(engine, doc, arguments["object"], arguments["property"])
+    validate_outputs(engine, doc, arguments["objects"])
+    if len(arguments["objects"]) * len(arguments["values"]) > 200:
+        raise CadError("Parameter studies are limited to 200 object-configuration measurements")
+
+
+@contextmanager
+def hidden_copy(engine, doc):
+    original_active = engine.app.ActiveDocument
+    clone = engine.app.newDocument("ParameterStudy" + uuid.uuid4().hex[:12], hidden=True)
+    try:
+        clone.copyObject(list(doc.Objects), True)
+        clone.recompute()
+        for obj in clone.Objects:
+            if any(other.Document != clone for other in obj.OutList):
+                raise CadError("Native copy retained an external dependency")
+        yield clone
+    finally:
+        engine.app.closeDocument(clone.Name)
+        if original_active is not None and original_active.Name in engine.app.listDocuments():
+            engine.app.setActiveDocument(original_active.Name)
+
+
+def check_recompute(doc):
+    doc.recompute()
+    for obj in doc.Objects:
+        if "Invalid" in obj.State or "Error" in obj.State:
+            raise CadError("Recompute failed for " + obj.Name)
 
 
 def measure(engine, doc, name, density):
@@ -54,16 +87,8 @@ def measure(engine, doc, name, density):
 
 def evaluate(engine, doc, arguments, snapshots=False):
     validate(engine, doc, arguments)
-    original_active = engine.app.ActiveDocument
-    clone = engine.app.newDocument("ParameterStudy" + uuid.uuid4().hex[:12], hidden=True)
     frames, shapes = [], []
-    try:
-        clone.copyObject(list(doc.Objects), True)
-        clone.recompute()
-        # Every cloned dependency must remain internal, including links/expressions.
-        for obj in clone.Objects:
-            if any(other.Document != clone for other in obj.OutList):
-                raise CadError("Native copy retained an external dependency")
+    with hidden_copy(engine, doc) as clone:
         for index, value in enumerate(arguments["values"]):
             try:
                 engine.operation(
@@ -75,10 +100,7 @@ def evaluate(engine, doc, arguments, snapshots=False):
                         "value": value,
                     },
                 )
-                clone.recompute()
-                for obj in clone.Objects:
-                    if "Invalid" in obj.State or "Error" in obj.State:
-                        raise CadError("Recompute failed for " + obj.Name)
+                check_recompute(clone)
                 measurements = [
                     measure(engine, clone, name, arguments.get("density_kg_m3"))
                     for name in arguments["objects"]
@@ -97,10 +119,6 @@ def evaluate(engine, doc, arguments, snapshots=False):
                     )
             except Exception as exc:
                 raise CadError(f"Parameter sample {index} (value={value}) failed: {exc}") from exc
-    finally:
-        engine.app.closeDocument(clone.Name)
-        if original_active is not None and original_active.Name in engine.app.listDocuments():
-            engine.app.setActiveDocument(original_active.Name)
     driver = engine.obj(doc, arguments["object"])
     return {
         "object": driver.Name,
@@ -114,6 +132,12 @@ def evaluate(engine, doc, arguments, snapshots=False):
 def parameter_sweep(engine, doc, arguments):
     report, _ = evaluate(engine, doc, arguments)
     return report
+
+
+def preview_changes(engine, doc, arguments):
+    from .preview import preview
+
+    return preview(engine, doc, arguments)
 
 
 def create_variants(engine, doc, arguments):

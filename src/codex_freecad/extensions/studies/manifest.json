@@ -1,10 +1,44 @@
 {
   "id": "studies",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "api_version": 1,
   "description": "Source-preserving parameter studies and native configuration snapshots",
   "ui": false,
   "capabilities": {
+    "preview_changes": {
+      "kind": "query",
+      "description": "Preview several numeric edits on a hidden native copy. Compare selected solids, including added/removed material, and return revision-bound apply arguments without changing the source.",
+      "handler": "preview_changes",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["changes", "objects"],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["object", "property", "value"],
+              "properties": {
+                "object": {"type": "string", "minLength": 1, "maxLength": 80},
+                "property": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"},
+                "value": {"type": "number", "minimum": -1000000, "maximum": 1000000}
+              }
+            }
+          },
+          "objects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {"type": "string", "minLength": 1, "maxLength": 80}
+          },
+          "density_kg_m3": {"type": "number", "exclusiveMinimum": 0, "maximum": 1000000}
+        }
+      }
+    },
     "parameter_sweep": {
       "kind": "query",
       "description": "Evaluate one numeric native property over bounded values on a hidden copy. Return valid solid measurements without changing source pose, revision or Undo.",

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added multi-property numeric change previews on hidden native dependency copies. Reports include before/after geometry, optional mass, BREP added/removed material and revision-bound arguments for a separate atomic apply. Native tests cover equal-volume reshaping, expression propagation, source/Undo preservation, stale edits, failure cleanup and same-connection helper reload recovery.
+- Extension staging now compiles every Python helper before publication, including lazy imports, so syntax failures retain the working generation. The engineering plate example verifies preview material differences across three native linked instances.
 - Added reloadable native TechDraw sheets, orthographic projection snapshots, numerically checked extent dimensions, explicit refresh and GUI-independent SVG rendering. Stale source geometry is rejected until refresh; native Qt core dispatch completes headless projections without a GUI window.
 - Added reloadable parameter sweeps on hidden native dependency copies, optional density-based mass and frozen native configuration snapshots. Queries preserve source revision/Undo, clean up failed samples and reject expression-driven or unsupported inputs.
 - Added a reloadable BOM extension with explicit part/assembly selection, source-aware link quantities, native part metadata, known-density mass, escaped CSV and refreshable native spreadsheet snapshots. Native tests cover Undo, failure rollback and save/reopen.

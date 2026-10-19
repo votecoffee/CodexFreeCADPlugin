@@ -72,7 +72,9 @@ The coupled builder uses FreeCADCmd only. The movable builder renders animation 
 .\.venv\Scripts\python.exe examples\engineering_plate.py --workspace work\engineering-demo
 ```
 
-This creates an editable drilled plate, a three-instance linked row, a native BOM spreadsheet, frozen 4/6/8 mm thickness variants and a native TechDraw sheet. Independent formulas check the drilled plate volume at every sampled thickness. Outputs include FCStd, STEP, a dimensioned SVG, BOM CSV, study JSON and an artifact-hash verification report.
+This creates an editable drilled plate, a three-instance linked row, a native BOM spreadsheet, frozen 4/6/8 mm thickness variants and a native TechDraw sheet. Independent formulas check the drilled plate volume at every sampled thickness. A hidden-copy preview changes thickness and length together, checks added/removed material across all three linked plates and preserves the source. Outputs include FCStd, STEP, a dimensioned SVG, BOM CSV, study/preview JSON and an artifact-hash verification report.
+
+The preview JSON includes the revision-bound operations for that point in the workflow. Later variant/drawing creation changes the revision, so obtain a new preview before applying edits to the finished example. The preview report remains a record of the proposed geometry; the saved model retains its original dimensions.
 
 The default run uses FreeCADCmd and opens no GUI. Add `--mode live` with the connected bridge's workspace to use an existing FreeCAD window. Choose a fresh `--name` for repeat runs; existing output files are preserved. [Engineering capabilities](ENGINEERING.md) describe refresh rules and limits. The sheet supplies overall extents; it does not specify manufacturing tolerances or hole-location/diameter dimensions.
 
