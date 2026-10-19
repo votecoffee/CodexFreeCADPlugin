@@ -163,3 +163,12 @@ def test_curved_boolean_translated_and_link_array_sources(cad):
     root = ET.fromstring(result["svg"])
     ids = [node.get("id") for node in root.iter() if node.get("id")]
     assert len(ids) == len(set(ids))
+
+
+def test_explicit_target_drawing_does_not_modify_another_active_document(cad):
+    cad.call("new_document", name="Other")
+    before = cad.call("inspect_document", document="Other")["revision"]
+    create(cad)
+    assert cad.call("inspect_document", document="Other")["revision"] == before
+    assert cad.call("inspect_document", document="Other")["objects"] == []
+    assert render(cad)["views"][0]["width_mm"] == pytest.approx(40)

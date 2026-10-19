@@ -31,6 +31,9 @@ Coverage includes:
 - Headless drag-controller math, wrap crossings, inverse coupled movement, cancellation, one-gesture Undo and active-edit isolation.
 - Extension schema guards, helper snapshots, generation publication/rollback, stale catalogs and persistent MCP reloads with unchanged tool schemas, native worker PID, model revision and Undo history.
 - Holes, counterbores, countersinks, bolt circles, refreshed through extents and dimensioned bolts/nuts/washers, including failed-cut rollback and editing after reopen.
+- BOM source identity, link-array quantities, explicit density, formula-safe CSV/spreadsheet cells, snapshot refresh and native persistence.
+- Parameter-study expression propagation on hidden copies, failure cleanup, source revision/Undo preservation and frozen configuration snapshots.
+- Native TechDraw extent values against projected BREP bounds, curved/translated/link-array sources, refresh/stale-source guards, SVG XML and native save/reopen. A persistent MCP regression loads all three engineering packages into the original connection and tests a successful drawing-generation update plus failed-update recovery.
 
 Tests using UI lifecycle doubles check controller contracts. They do not establish Qt behavior, Coin event delivery or physical mouse picking.
 
@@ -46,6 +49,8 @@ Each command needs a fresh output folder and uses FreeCADCmd without desktop int
 The hardware sample contains 23 selected solid instances: a flange, six socket bolts with washers/nuts, and a hole coupon with hex hardware. Its report checks native shape validity, independent analytic volume, 253 static BREP part pairs, FCStd reopen, Undo and STEP persistence. Read the generated report for actual outcomes and tolerances.
 
 The extension smoke check exercises capability discovery, reload and persisted geometry. The persistent-connection regressions in `tests/` provide additional checks for stable transport schemas and failed-update recovery.
+
+`examples/engineering_plate.py --workspace work/engineering-demo` combines holes, linked instances, BOMs, thickness studies, frozen variants and dimensioned native/SVG sheets. Run with the project's Python; it verifies analytic volumes and writes local hash evidence. Use a fresh output name for repeat runs. SVG rendering can be inspected independently of the native FreeCAD GUI; native GUI page layout and physical printing still need manual checks.
 
 ## Manual GUI checks
 

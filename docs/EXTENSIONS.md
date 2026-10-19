@@ -45,6 +45,8 @@ Version 0.9 also includes the `holes` and `fasteners` packages. They add six cap
 
 ## Add an extension
 
+The current checkout also includes `bom`, `studies` and `drawings`, adding nine capabilities through the same fixed tool interface. They provide native metadata/spreadsheet BOMs, source-preserving parameter studies and dimensioned native drawing snapshots with SVG rendering. See [ENGINEERING.md](ENGINEERING.md). Installing these complete extension folders and reloading loads the feature code without introducing new MCP tool schemas. Qt core dispatch for headless drawing projection is initialized only when a drawing edit is requested, and remains owned by the native runtime across reloads.
+
 Built-ins live under `src/codex_freecad/extensions` in the development checkout and inside the installed Python package in a wheel. Additional roots are explicit startup configuration, never supplied as tool arguments or automatically discovered in CAD model folders:
 
 ```powershell

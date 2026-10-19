@@ -128,6 +128,8 @@ with HeadlessClient("models") as cad:
 
 `LiveClient` provides the same modeling calls using the bridge state file. Run [examples/direct_client.py](examples/direct_client.py) with `--mode live` for a complete example. See the [example guide](docs/EXAMPLES.md) for more parts, hardware, planetary assemblies and the optional paid Responses API adapter.
 
+For a complete BOM, thickness-study and drawing example, run `.venv\Scripts\python.exe examples\engineering_plate.py --workspace work\engineering-demo`. It creates FCStd/STEP models, a dimensioned SVG, CSV and verification reports using FreeCADCmd. See [engineering examples](docs/EXAMPLES.md#bom-thickness-studies-and-dimensioned-drawings).
+
 ## Documentation
 
 - [Tools, modeling operations, assemblies and file behavior](docs/TOOLS.md)

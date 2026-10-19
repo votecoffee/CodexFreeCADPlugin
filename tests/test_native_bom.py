@@ -1,5 +1,7 @@
 import csv
 import io
+import xml.etree.ElementTree as ET
+import zipfile
 
 import pytest
 
@@ -99,6 +101,13 @@ def test_spreadsheet_literal_text_refresh_undo_and_native_reopen(cad, tmp_path):
     sheet = cad.call("inspect_object", document="Model", object_name="PartsList")
     assert sheet["type"] == "Spreadsheet::Sheet"
     cad.call("save_document", document="Model", path="BOM.FCStd")
+    with zipfile.ZipFile(tmp_path / "BOM.FCStd") as saved:
+        cells = []
+        for filename in saved.namelist():
+            if filename.endswith(".xml"):
+                cells.extend(ET.fromstring(saved.read(filename)).iter("Cell"))
+        assert any(cell.get("content") == "'=1+1" for cell in cells)
+        assert any(cell.get("content") == "'@danger" for cell in cells)
     with HeadlessClient(tmp_path, find_freecad_cmd()) as other:
         reopened = other.call("open_document", path="BOM.FCStd")["name"]
         cad.call(

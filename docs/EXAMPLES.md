@@ -66,6 +66,16 @@ Then add saved ratios and the native panel launcher without opening a GUI:
 
 The coupled builder uses FreeCADCmd only. The movable builder renders animation frames through an isolated GUI. Open the generated macros manually for playback and viewport dragging. Keep the adjacent `native` folder with the portable macros. See [assembly semantics](TOOLS.md#movable-assemblies) and [panel checks](PANEL_TESTING.md).
 
+## BOM, thickness studies and dimensioned drawings
+
+```powershell
+.\.venv\Scripts\python.exe examples\engineering_plate.py --workspace work\engineering-demo
+```
+
+This creates an editable drilled plate, a three-instance linked row, a native BOM spreadsheet, frozen 4/6/8 mm thickness variants and a native TechDraw sheet. Independent formulas check the drilled plate volume at every sampled thickness. Outputs include FCStd, STEP, a dimensioned SVG, BOM CSV, study JSON and an artifact-hash verification report.
+
+The default run uses FreeCADCmd and opens no GUI. Add `--mode live` with the connected bridge's workspace to use an existing FreeCAD window. Choose a fresh `--name` for repeat runs; existing output files are preserved. [Engineering capabilities](ENGINEERING.md) describe refresh rules and limits. The sheet supplies overall extents; it does not specify manufacturing tolerances or hole-location/diameter dimensions.
+
 ## Optional OpenAI Responses API example
 
 ```powershell

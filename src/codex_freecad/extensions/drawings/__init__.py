@@ -264,9 +264,11 @@ def dimensions_svg(parent, cx, cy, width, height, values):
         node(parent, "line", x1=right + 2, x2=right + 10, y1=y, y2=y)
         node(parent, "line", x1=right + 7, x2=right + 9, y1=y + 1, y2=y - 1)
     node(parent, "line", x1=right + 8, x2=right + 8, y1=top, y2=bottom)
+    # Short extents cannot fit rotated text between their extension lines.
+    vertical_text_x = right + (15 if height < 12 else 7)
     for value, x, y, rotation in [
         (values[0], cx, bottom + 7, None),
-        (values[1], right + 7, cy, f"rotate(-90 {right + 7} {cy})"),
+        (values[1], vertical_text_x, cy, f"rotate(-90 {vertical_text_x} {cy})"),
     ]:
         attrs = {
             "x": x,
