@@ -7,6 +7,7 @@ from pathlib import Path
 
 from . import __version__
 from .client import find_freecad_cmd
+from .integration import broker_services
 
 
 def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
@@ -113,6 +114,34 @@ def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
     (plugin / ".mcp.json").write_text(
         json.dumps({"mcpServers": servers}, indent=2) + "\n", encoding="utf-8"
     )
+    marketplace = output / ".agents" / "plugins"
+    marketplace.mkdir(parents=True, exist_ok=True)
+    (marketplace / "marketplace.json").write_text(
+        json.dumps(
+            {
+                "name": "freecad-development",
+                "interface": {"displayName": "FreeCADMCPServer"},
+                "plugins": [
+                    {
+                        "name": "freecad-modeling",
+                        "source": {"source": "local", "path": "./plugin"},
+                        "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+                        "category": "Productivity",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    broker = output / "broker"
+    broker.mkdir(parents=True, exist_ok=True)
+    broker_manifests = []
+    for name, service in broker_services(servers, workspace, extension_dirs).items():
+        path = broker / (name + ".service.json")
+        path.write_text(json.dumps(service, indent=2) + "\n", encoding="utf-8")
+        broker_manifests.append(str(path))
     config = []
     for name, server in servers.items():
         config += [
@@ -132,6 +161,8 @@ def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
         "extension_dirs": extension_dirs,
         "freecad_workbench": str(workbench),
         "plugin": str(plugin),
+        "marketplace": str(output),
+        "broker_manifests": broker_manifests,
         "codex_config": str(output / "codex-mcp.toml"),
     }
 

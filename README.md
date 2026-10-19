@@ -71,22 +71,25 @@ Installation creates a **FreeCADMCPServer** shortcut in the current user's Start
 
 ### Connect an MCP client
 
-For Codex, run:
+For Codex, use the broker-aware installer after setup:
 
 ```powershell
-.\scripts\Register-Codex.ps1
+.\scripts\Install-CodexPlugin.ps1 -Preview
+.\scripts\Install-CodexPlugin.ps1
 ```
 
-This adds `freecad-live` and `freecad-headless` to the user Codex MCP configuration. If setup used a custom workspace, pass the same `-Workspace` argument to registration. Start a new Codex chat after registering.
+It registers both backends with an enabled, installed **Universal Tools** plugin when available. Otherwise it installs FreeCAD's own standalone Codex plugin. Setup always generates both options in `.local/`; it does not install a Codex plugin itself. Use `-Integration standalone` to explicitly choose FreeCAD's plugin, or `-Integration broker` to require the broker. Existing direct connections and conflicting broker registrations require an explicit migration step. See [broker setup and session behavior](docs/BROKER.md).
 
-Alternatively, setup generates a local Codex plugin and a repository marketplace. Use this route instead of direct registration to avoid duplicate tools:
+To install the standalone plugin manually, use the generated marketplace:
 
 ```powershell
-codex plugin marketplace add (Get-Location).Path
+codex plugin marketplace add (Join-Path (Get-Location) '.local')
 codex plugin add freecad-modeling@freecad-development
 ```
 
 The generated plugin points to this checkout's virtual environment. Regenerate configuration after moving the checkout. Plugin-browser installation and public plugin-directory publishing are unverified.
+
+For direct MCP registration without either plugin, run `.\scripts\Register-Codex.ps1`. This adds `freecad-live` and `freecad-headless` to the user Codex MCP configuration. Pass the same `-Workspace` used during setup, then start a new Codex chat. Choose one connection route to avoid duplicate tools.
 
 ### Update extensions
 
@@ -144,6 +147,7 @@ For a complete BOM, thickness-study and drawing example, run `.venv\Scripts\pyth
 
 ## Documentation
 
+- [Standalone plugin and Universal Tools broker setup](docs/BROKER.md)
 - [Tools, modeling operations, assemblies and file behavior](docs/TOOLS.md)
 - [Examples and demonstrations](docs/EXAMPLES.md)
 - [Hole and fastener capabilities](docs/HOLES_FASTENERS.md)

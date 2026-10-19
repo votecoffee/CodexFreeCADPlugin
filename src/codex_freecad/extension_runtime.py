@@ -81,11 +81,12 @@ class Generation:
 
 
 class Registry:
-    def __init__(self, directories=(), builtin=None):
+    def __init__(self, directories=(), builtin=None, *, load=True):
         self.directories = tuple(Path(p).expanduser().resolve() for p in directories)
         self.builtin = Path(builtin) if builtin else Path(__file__).with_name("extensions")
         self.active = None
-        self.active = self.prepare()
+        if load:
+            self.active = self.prepare()
 
     def scan(self):
         extensions = {}

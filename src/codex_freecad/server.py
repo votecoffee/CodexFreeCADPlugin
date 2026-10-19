@@ -18,7 +18,7 @@ WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world
 EDIT = ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_hint=False)
 
 
-def create_server(client):
+def create_server(client, *, broker_extensions=None):
     @asynccontextmanager
     async def lifespan(server):
         try:
@@ -39,6 +39,19 @@ def create_server(client):
         "edits use apply_operations with op=extension, capability, arguments and catalog_revision. "
         "reload_extensions refreshes installed code and the capability catalog in this connection.",
     )
+
+    if broker_extensions is not None:
+
+        @server.tool(annotations=READ)
+        def list_broker_capabilities() -> dict:
+            """Read installed extension metadata without connecting to FreeCAD or loading code.
+
+            This installation snapshot can differ from the active native generation. Describe
+            each capability through the retained backend before using its native catalog revision.
+            """
+            from .broker_catalog import installation_catalog
+
+            return installation_catalog(broker_extensions)
 
     @server.tool(annotations=READ)
     def list_capabilities() -> dict:
@@ -332,6 +345,11 @@ def main():
     parser.add_argument("--state-file", type=Path)
     parser.add_argument("--freecad-cmd")
     parser.add_argument(
+        "--broker-catalog",
+        action="store_true",
+        help="Expose installation-only capability metadata for Universal Tools",
+    )
+    parser.add_argument(
         "--extensions",
         action="append",
         type=Path,
@@ -343,9 +361,11 @@ def main():
         if args.mode == "headless"
         else LiveClient(args.state_file or args.workspace / ".codex-freecad-live.json")
     )
-    if args.mode == "live" and args.extensions:
+    if args.mode == "live" and args.extensions and not args.broker_catalog:
         parser.error("Configure live extension directories in the generated FreeCAD startup macro")
-    create_server(client).run(transport="stdio")
+    create_server(
+        client, broker_extensions=(args.extensions or []) if args.broker_catalog else None
+    ).run(transport="stdio")
 
 
 if __name__ == "__main__":

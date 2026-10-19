@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added broker-aware Codex plugin installation with automatic Universal Tools detection, explicit standalone/broker overrides, preview-only planning and conflict preservation. Setup retains the independent FreeCAD plugin and generates exclusive-session broker manifests with exact write allowlists. Optional broker-only extension discovery reads installation metadata without contacting FreeCAD or importing handlers; the 24 direct MCP tools remain unchanged.
 - Windows setup now creates a per-user Start menu shortcut with the supplied F-and-gear application icon in eight sizes from 16 to 256 pixels. The shortcut preserves the selected backend/workspace/executable and skips dependency installation on launch. Both installers offer `-NoStartMenuShortcut` for unattended or portable setup.
 - Added a root `Install-and-Run.cmd` launcher that reuses setup, supports live/headless modes and custom workspaces, offers install-only/existing-install options, and preserves MCP stdout by routing setup/status output to stderr.
 - Added reloadable saved design requirement sets for numeric properties, volume, known-density mass, axis extents and BREP clearance/overlap. Native source links, explicit tolerances, pass/fail/error reports and a final enforcement operation support opt-in batch rollback. Change previews evaluate selected sets on the hidden copy and append revision/catalog-guarded checks to the apply plan. Added a shaft/sleeve example and a public feature roadmap.
