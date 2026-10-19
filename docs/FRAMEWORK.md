@@ -18,7 +18,7 @@ Create a separate environment and install the host with a verified framework whe
 
 ```powershell
 py -3.13 -m venv .local\framework-runtime
-.\.local\framework-runtime\Scripts\python.exe -m pip install --find-links C:\Packages\VerifiedWheels -r framework-host\requirements.lock -e framework-host
+.\.local\framework-runtime\Scripts\python.exe -m pip install C:\Packages\VerifiedWheels\universal_codex_tools-0.14.0-py3-none-any.whl -r framework-host\requirements.lock -e framework-host
 .\.local\framework-runtime\Scripts\python.exe -m pip check
 ```
 
@@ -36,6 +36,8 @@ The wheel auditor checks trusted framework hash, wheel RECORD entries, exact nor
 ```
 
 The old framework artifact is rejected before installation. Unit fixtures for this audit do not establish that an actual updated framework artifact exists.
+
+Run the auditor from the same source tree used for the build. A Git source export can normalize text line endings differently from an existing Windows working copy; compare wheels built from that export with the exported source, without weakening byte checks. Install the trusted framework wheel by explicit file path to avoid assuming a package-feed release.
 
 ## Generate a candidate
 
