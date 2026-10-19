@@ -32,3 +32,23 @@ Example metadata and sheet operations in one batch:
 ```
 
 Use the document revision guard on edits. A failed operation rolls back the complete native batch; metadata and spreadsheets persist through FCStd save/reopen without extension-owned executable proxies.
+
+## Parameter studies
+
+`studies.parameter_sweep` is a query that evaluates a numeric scalar property over explicitly supplied values. Required arguments are `object` (driver internal name), `property`, `values` and `objects` (selected output solids). An optional `density_kg_m3` adds mass to each output measurement. Numeric quantities use native base units: lengths in mm and angles in degrees; integer properties require integer values.
+
+The engine copies the same-document dependency graph into an owned hidden document, changes the copied driver, recomputes and returns per-configuration solid counts, bounds, area and volume. Source parameters, revision and Undo are preserved. The hidden document is closed on success or failure, and the previous active document is restored. A bad sample rejects the complete query rather than silently skipping a configuration. Expression-driven, read-only and managed fields must be edited through their driving inputs.
+
+Limits are 50 values, 20 distinct output objects, 200 object-configuration measurements, 500 source document objects and numeric values between -1,000,000 and 1,000,000. Outputs must be top-level positive-volume solids or components in a supported identity-placement root assembly. External-document dependencies are unsupported. Volume totals sum selected objects without subtracting overlap; these are discrete design samples, not collision, strength or optimization results.
+
+```json
+{"document":"Model","capability":"studies.parameter_sweep","arguments":{"object":"Design","property":"Thickness","values":[4,6,8],"objects":["Plate"],"density_kg_m3":2700}}
+```
+
+To retain geometry, use the `studies.create_variants` edit capability with the same arguments plus `name`. It evaluates every sample before creating a native group of `Part::Feature` snapshots, with source links, driver property and sampled values recorded as provenance. The result returns the created names and measurements.
+
+```json
+{"op":"extension","capability":"studies.create_variants","arguments":{"name":"ThicknessVariants","object":"Design","property":"Thickness","values":[4,6,8],"objects":["Plate"]}}
+```
+
+Variants are frozen evaluated BREP snapshots. They do not retain the source feature history and do not regenerate when the source changes. They remain usable after save/reopen without executable extension proxies. Creating all variants is one undoable model edit; saving/exporting the group members is a separate action.

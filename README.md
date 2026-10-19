@@ -6,7 +6,7 @@ Create, inspect and edit native FreeCAD models from an MCP client such as Codex,
 
 Version **0.9.0** includes reloadable hole and fastener tools, parametric modeling, movable assemblies, saved joint couplings and interference checks. See the [changelog](docs/CHANGELOG.md) for release details.
 
-The current checkout also includes a source-aware bill of materials with persistent part metadata and refreshable native spreadsheets. See [engineering extensions](docs/ENGINEERING.md).
+The current checkout also includes a source-aware bill of materials with persistent part metadata and refreshable native spreadsheets, plus source-preserving parameter sweeps and saved configuration snapshots. See [engineering extensions](docs/ENGINEERING.md).
 
 The Python distribution and CLI retain the name `codex-freecad`, the import is `codex_freecad`, and the optional Codex plugin ID is `freecad-modeling` for compatibility. Their display name is **FreeCADMCPServer**.
 
