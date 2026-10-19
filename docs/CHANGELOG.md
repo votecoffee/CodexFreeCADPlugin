@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a reloadable BOM extension with explicit part/assembly selection, source-aware link quantities, native part metadata, known-density mass, escaped CSV and refreshable native spreadsheet snapshots. Native tests cover Undo, failure rollback and save/reopen.
 - Reorganized the root README around installation, usage, API and contribution guidance, with detailed tool and example reference pages.
 - Added public-repository hygiene guidance and an ignored `local/` directory for private notes. Removed workstation-specific paths and session logs from public documentation and generated release guides.
 

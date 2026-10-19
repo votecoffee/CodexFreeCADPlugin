@@ -1,0 +1,117 @@
+{
+  "id": "bom",
+  "version": "1.0.0",
+  "api_version": 1,
+  "description": "Source-aware bill of materials and native spreadsheet snapshots",
+  "ui": false,
+  "capabilities": {
+    "inspect": {
+      "kind": "query",
+      "description": "Count explicitly selected native parts, link instances or root assemblies. Group by source identity, never by label. Returns CSV and optional known-density mass.",
+      "handler": "inspect",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "objects"
+        ],
+        "properties": {
+          "objects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 200,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          }
+        }
+      }
+    },
+    "set_metadata": {
+      "kind": "edit",
+      "description": "Set persistent part number, description, material and density on a same-document native source. Density is kg/m3; zero clears known density.",
+      "handler": "set_metadata",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "object"
+        ],
+        "properties": {
+          "object": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "part_number": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "material": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "density_kg_m3": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        }
+      }
+    },
+    "create_sheet": {
+      "kind": "edit",
+      "description": "Create a persistent native spreadsheet snapshot of selected parts. Text is escaped as literal data; use refresh_sheet after model changes.",
+      "handler": "create_sheet",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "objects"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,59}$"
+          },
+          "objects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 200,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          }
+        }
+      }
+    },
+    "refresh_sheet": {
+      "kind": "edit",
+      "description": "Refresh an integration-created BOM spreadsheet from its saved object links. Refresh is one native undoable edit.",
+      "handler": "refresh_sheet",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sheet"
+        ],
+        "properties": {
+          "sheet": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      }
+    }
+  }
+}
