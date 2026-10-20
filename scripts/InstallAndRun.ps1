@@ -2,8 +2,8 @@
 .SYNOPSIS
 Install the checkout and run a FreeCAD MCP server over stdio.
 .DESCRIPTION
-Uses Setup.ps1 to create/update the local virtual environment and generate macros
-and configuration. Installation messages go to stderr to preserve MCP stdout.
+Uses Setup.ps1 to create/update the local virtual environment, generate configuration
+and install FreeCAD's own Codex plugin. Installation messages go to stderr to preserve MCP stdout.
 FreeCAD and Python 3.13 must already be installed. No GUI is opened automatically.
 .PARAMETER Mode
 Run the headless backend (default), or connect to an existing live bridge.
@@ -12,7 +12,9 @@ CAD workspace. Relative paths resolve against the checkout; defaults to models.
 .PARAMETER FreeCADCmd
 Optional FreeCADCmd executable for setup and the headless backend.
 .PARAMETER InstallOnly
-Install dependencies and generate configuration, then exit.
+Install dependencies, generate configuration and install the Codex plugin, then exit.
+.PARAMETER Integration
+Codex integration: standalone (default), none, or an explicit legacy broker/auto route.
 .PARAMETER SkipInstall
 Run with the existing virtual environment without installing or regenerating files.
 .PARAMETER NoStartMenuShortcut
@@ -30,6 +32,8 @@ param(
     [string]$Mode = 'headless',
     [string]$Workspace = '',
     [string]$FreeCADCmd = '',
+    [ValidateSet('standalone', 'broker', 'auto', 'none')]
+    [string]$Integration = 'standalone',
     [switch]$InstallOnly,
     [switch]$SkipInstall,
     [switch]$NoStartMenuShortcut,
@@ -44,7 +48,8 @@ Usage: Install-and-Run.cmd [options]
   -Mode headless|live   Backend to run (default: headless)
   -Workspace PATH      CAD workspace (default: models in this checkout)
   -FreeCADCmd PATH     Optional FreeCADCmd executable
-  -InstallOnly         Install and generate configuration, then exit
+  -Integration ROUTE   standalone (default), none, broker, or legacy auto
+  -InstallOnly         Install, including the Codex plugin, then exit
   -SkipInstall         Start the existing installation without setup
   -NoStartMenuShortcut  Skip Start menu shortcut creation during setup
   -Help                Show this help
@@ -69,6 +74,7 @@ The server speaks MCP over stdio and waits for a client. Start the live bridge m
         $setupArgs = @{
             Workspace = $Workspace; FreeCADCmd = $FreeCADCmd
             ShortcutMode = $Mode; NoStartMenuShortcut = [bool]$NoStartMenuShortcut
+            Integration = $Integration
         }
         & (Join-Path $PSScriptRoot 'Setup.ps1') @setupArgs |
             ForEach-Object { [Console]::Error.WriteLine([string]$_) }

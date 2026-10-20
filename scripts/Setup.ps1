@@ -4,6 +4,8 @@ param(
     [string[]]$Extensions = @(),
     [ValidateSet('headless', 'live')]
     [string]$ShortcutMode = 'headless',
+    [ValidateSet('standalone', 'broker', 'auto', 'none')]
+    [string]$Integration = 'standalone',
     [switch]$NoStartMenuShortcut
 )
 $ErrorActionPreference = 'Stop'
@@ -25,6 +27,9 @@ if ($FreeCADCmd) { $setupArgs += @('--freecad-cmd', $FreeCADCmd) }
 foreach ($directory in $Extensions) { $setupArgs += @('--extensions', $directory) }
 & $pythonPath @setupArgs
 if ($LASTEXITCODE -ne 0) { throw 'Configuration generation failed.' }
+if ($Integration -ne 'none') {
+    & (Join-Path $PSScriptRoot 'Install-CodexPlugin.ps1') -Integration $Integration
+}
 if (-not $NoStartMenuShortcut) {
     & (Join-Path $PSScriptRoot 'Create-StartMenuShortcut.ps1') -Workspace $Workspace -FreeCADCmd $FreeCADCmd -Mode $ShortcutMode
 }

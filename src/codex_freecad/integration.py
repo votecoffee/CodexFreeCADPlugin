@@ -1,4 +1,4 @@
-"""Plan or install a standalone Codex plugin or Universal Tools service registrations."""
+"""Install FreeCAD's own Codex plugin, or explicitly choose a legacy broker route."""
 
 import argparse
 import hashlib
@@ -118,7 +118,7 @@ def detect_broker(codex_home, config):
 
 
 def connection_plan(
-    output, *, integration="auto", codex_home=None, broker_python=None, broker_state=None
+    output, *, integration="standalone", codex_home=None, broker_python=None, broker_state=None
 ):
     if integration not in {"auto", "broker", "standalone", "none"}:
         raise ValueError("Unknown Codex integration")
@@ -245,7 +245,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path(".local"))
     parser.add_argument(
-        "--integration", choices=["auto", "broker", "standalone", "none"], default="auto"
+        "--integration", choices=["standalone", "broker", "auto", "none"], default="standalone"
     )
     parser.add_argument("--codex-home", type=Path)
     parser.add_argument("--broker-python", type=Path)

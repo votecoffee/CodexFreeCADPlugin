@@ -1,13 +1,14 @@
 <#
 .SYNOPSIS
-Connect FreeCAD through Universal Tools when installed, otherwise install its standalone plugin.
+Install FreeCAD's standalone Codex plugin.
 .DESCRIPTION
-Run setup first. Preview prints a plan without changing Codex or broker registration.
+Run setup first with -Integration none when preparing a preview. Preview prints a plan
+without changing Codex or broker registration. Legacy broker/auto routes require an explicit choice.
 Existing direct integrations are never removed and conflicting broker registrations are preserved.
 #>
 param(
     [ValidateSet('auto', 'broker', 'standalone', 'none')]
-    [string]$Integration = 'auto',
+    [string]$Integration = 'standalone',
     [string]$CodexHome = '',
     [string]$BrokerPython = '',
     [string]$BrokerState = '',

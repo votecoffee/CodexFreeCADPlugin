@@ -53,7 +53,7 @@ def test_absent_broker_selects_own_plugin_and_generated_marketplace(installation
 def test_enabled_broker_skips_plugin_install_and_scopes_write_tools(installation, tmp_path):
     home = tmp_path / "codex"
     _, runtime = cached_broker(home, tmp_path)
-    plan = connection_plan(installation, codex_home=home)
+    plan = connection_plan(installation, codex_home=home, integration="auto")
     assert plan["integration"] == "broker" and plan["broker"] == runtime
     assert len(plan["commands"]) == 2
     for command in plan["commands"]:
@@ -69,9 +69,15 @@ def test_enabled_broker_skips_plugin_install_and_scopes_write_tools(installation
 def test_disabled_or_merely_cached_broker_does_not_suppress_standalone(installation, tmp_path):
     home = tmp_path / "codex"
     cached_broker(home, tmp_path, enabled=False)
-    assert connection_plan(installation, codex_home=home)["integration"] == "standalone"
+    assert (
+        connection_plan(installation, codex_home=home, integration="auto")["integration"]
+        == "standalone"
+    )
     (home / "config.toml").write_text("")
-    assert connection_plan(installation, codex_home=home)["integration"] == "standalone"
+    assert (
+        connection_plan(installation, codex_home=home, integration="auto")["integration"]
+        == "standalone"
+    )
 
 
 def test_enabled_but_broken_broker_fails_without_plugin_fallback(installation, tmp_path):
@@ -79,7 +85,7 @@ def test_enabled_but_broken_broker_fails_without_plugin_fallback(installation, t
     cache, _ = cached_broker(home, tmp_path)
     (cache / "runtime.json").write_text("{}")
     with pytest.raises(ValueError, match="invalid cached runtime"):
-        connection_plan(installation, codex_home=home)
+        connection_plan(installation, codex_home=home, integration="auto")
 
 
 def test_ambiguous_broker_runtimes_need_explicit_selection(installation, tmp_path):
@@ -93,9 +99,10 @@ def test_ambiguous_broker_runtimes_need_explicit_selection(installation, tmp_pat
     (other / "plugin.json").write_text(json.dumps({"name": "universal-tools"}))
     (other / "runtime.json").write_text(json.dumps({**runtime, "state": str(other_state)}))
     with pytest.raises(ValueError, match="ambiguous"):
-        connection_plan(installation, codex_home=home)
+        connection_plan(installation, codex_home=home, integration="auto")
     plan = connection_plan(
         installation,
+        integration="broker",
         codex_home=home,
         broker_python=runtime["python"],
         broker_state=runtime["state"],
@@ -103,13 +110,27 @@ def test_ambiguous_broker_runtimes_need_explicit_selection(installation, tmp_pat
     assert plan["broker"] == runtime
 
 
-def test_standalone_override_and_none_remain_available(installation, tmp_path):
+def test_default_installs_own_plugin_even_with_enabled_or_broken_legacy_broker(
+    installation, tmp_path
+):
     home = tmp_path / "codex"
-    cached_broker(home, tmp_path)
-    assert (
-        connection_plan(installation, codex_home=home, integration="standalone")["integration"]
-        == "standalone"
-    )
+    cache, _ = cached_broker(home, tmp_path)
+    before = (home / "config.toml").read_bytes()
+    for runtime in (None, "{}"):
+        if runtime is not None:
+            (cache / "runtime.json").write_text(runtime)
+        plan = connection_plan(installation, codex_home=home)
+        assert plan["integration"] == "standalone" and plan["broker"] is None
+        assert plan["commands"][-1] == [
+            "codex",
+            "plugin",
+            "add",
+            "freecad-modeling@freecad-development",
+        ]
+        assert (home / "config.toml").read_bytes() == before
+
+
+def test_none_remains_available(installation):
     execute_plan(connection_plan(installation, integration="none"))
     assert connection_plan(installation, integration="none") == {
         "integration": "none",
@@ -131,7 +152,7 @@ def test_broker_migration_preserves_existing_direct_connections(installation, tm
     config.write_text(config.read_text() + setting)
     before = config.read_bytes()
     with pytest.raises(ValueError, match="disable it explicitly"):
-        connection_plan(installation, codex_home=home)
+        connection_plan(installation, codex_home=home, integration="broker")
     assert config.read_bytes() == before
 
 
@@ -148,10 +169,11 @@ def test_registration_preflight_is_idempotent_and_preserves_conflicts(installati
             "lease_seconds": 900.0,
         }
         (services / (name + ".json")).write_text(json.dumps(normalized))
-    assert connection_plan(installation, codex_home=home)["commands"] == []
+    assert connection_plan(installation, codex_home=home, integration="broker")["commands"] == []
     checks = []
     execute_plan(
-        connection_plan(installation, codex_home=home), run=lambda cmd, **kwargs: checks.append(cmd)
+        connection_plan(installation, codex_home=home, integration="broker"),
+        run=lambda cmd, **kwargs: checks.append(cmd),
     )
     assert len(checks) == 1 and checks[0][1] == "-c"
     conflict = services / "freecad-headless.json"
@@ -160,7 +182,7 @@ def test_registration_preflight_is_idempotent_and_preserves_conflicts(installati
     conflict.write_text(json.dumps(wrong))
     before = conflict.read_bytes()
     with pytest.raises(ValueError, match="review and replace"):
-        connection_plan(installation, codex_home=home)
+        connection_plan(installation, codex_home=home, integration="broker")
     assert conflict.read_bytes() == before
 
 
@@ -203,7 +225,7 @@ def test_incompatible_runtime_stops_before_either_registration(installation, tmp
 
     home = tmp_path / "codex"
     cached_broker(home, tmp_path)
-    plan = connection_plan(installation, codex_home=home)
+    plan = connection_plan(installation, codex_home=home, integration="broker")
     calls = []
 
     def reject(command, **kwargs):

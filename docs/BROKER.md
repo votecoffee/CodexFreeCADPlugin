@@ -8,19 +8,31 @@ The standalone package uses Codex's [local marketplace and plugin format](https:
 
 ## Choose a connection
 
-Run setup, then use the broker-aware installer:
+Normal setup installs FreeCAD's own standalone Codex plugin, even when Universal Tools is installed:
 
 ```powershell
 .\scripts\Setup.ps1
+```
+
+To inspect or repeat only the plugin step after generating configuration:
+
+```powershell
 .\scripts\Install-CodexPlugin.ps1 -Preview
 .\scripts\Install-CodexPlugin.ps1
 ```
 
-The default `auto` policy checks the user configuration under `CODEX_HOME`, or `~/.codex` when unset. An explicitly enabled `universal-tools@<marketplace>` plugin with a valid cached manifest and runtime selects broker registration. FreeCAD's own plugin is generated but is not installed in this case. The installer registers `freecad-live` and `freecad-headless` through the broker's CLI. Ask an existing broker chat to call `refresh_services` afterward.
+The default `standalone` policy installs `freecad-modeling@freecad-development` from the generated local marketplace. Start a new Codex chat afterward. Shared framework code does not require a universal plugin. This installer keeps the established direct live/headless endpoints; it does not activate the experimental framework host.
 
-If no enabled Universal Tools plugin is found, the installer adds the generated local marketplace and installs `freecad-modeling@freecad-development` through the Codex CLI. A disabled plugin or cache files alone do not count as an enabled installation. Start a new Codex chat after installing the standalone plugin.
+For the optional legacy broker route, generate configuration without installing a standalone plugin, then explicitly select the broker:
 
-Broken or ambiguous enabled broker runtimes stop installation. They do not silently install a second integration. Repair the installation or select a runtime explicitly:
+```powershell
+.\scripts\Setup.ps1 -Integration none
+.\scripts\Install-CodexPlugin.ps1 -Integration broker
+```
+
+Explicit `-Integration auto` preserves the former detection policy. It checks the user configuration under `CODEX_HOME`, or `~/.codex` when unset. An enabled `universal-tools@<marketplace>` plugin with a valid cached manifest/runtime selects broker registration instead of installing FreeCAD's plugin. A disabled plugin or cache alone does not count. Without an enabled broker, `auto` selects standalone. Broker selection registers `freecad-live` and `freecad-headless` through the broker CLI. Ask an existing broker chat to call `refresh_services` afterward.
+
+When explicitly selecting `broker` or `auto`, broken or ambiguous enabled broker runtimes stop installation. Repair the installation or select a runtime explicitly:
 
 ```powershell
 .\scripts\Install-CodexPlugin.ps1 -Integration broker -BrokerPython 'C:\Apps\Broker\python.exe' -BrokerState 'C:\Apps\Broker\state'
@@ -38,7 +50,7 @@ python -m codex_freecad.integration --output .local
 python -m codex_freecad.integration --output .local --apply
 ```
 
-Without `--apply`, the Python command only prints a connection plan. Setup and the Windows root launcher continue to generate configuration without installing a Codex plugin automatically.
+Without `--apply`, the Python command only prints a connection plan. The Python generator never installs a plugin. Windows setup and the root launcher install the standalone plugin by default; pass `-Integration none` to skip connection changes.
 
 ## Existing installations
 

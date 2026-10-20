@@ -53,7 +53,7 @@ cd FreeCADMCPServer
 .\scripts\Setup.ps1
 ```
 
-Setup creates `.venv`, installs the package and development dependencies, and generates installation-specific macros and configuration in ignored `.local/`. The default CAD workspace is ignored `models/`. To use another workspace or FreeCADCmd executable:
+Setup creates `.venv`, installs the package and development dependencies, generates installation-specific macros and configuration in ignored `.local/`, and installs FreeCAD's own Codex plugin. The default CAD workspace is ignored `models/`. Use `-Integration none` for configuration only, such as when using another MCP client or preparing an explicit broker registration. To use another workspace or FreeCADCmd executable:
 
 ```powershell
 .\scripts\Setup.ps1 -Workspace 'C:\CAD\Models' -FreeCADCmd 'C:\Program Files\FreeCAD 1.0\bin\FreeCADCmd.exe'
@@ -67,20 +67,20 @@ Windows users can install and start the headless stdio server with the root laun
 
 It uses the same setup script, then starts the server with `models/` as its workspace. FreeCAD and Python must already be installed. It works from any current directory, leaves the desktop alone, and writes installation/status messages to stderr so stdout remains available for MCP. The server waits for an MCP client; it does not open an interactive prompt.
 
-Use `-InstallOnly` for setup alone, or `-SkipInstall` for later launches. Arguments include `-Mode live`, `-Workspace "C:\CAD\Models"` and `-FreeCADCmd "C:\Program Files\FreeCAD 1.0\bin\FreeCADCmd.exe"`. Relative workspaces resolve against the checkout. Repeat custom workspace/FreeCADCmd arguments when using `-SkipInstall`. Live mode connects to a bridge you start manually with the generated macro. The launcher does not register an MCP client; see the next section. Run `.\Install-and-Run.cmd -Help` for help.
+Use `-InstallOnly` to install without starting a server, or `-SkipInstall` for later launches. Installation includes the standalone Codex plugin by default; `-Integration none` skips that step. Arguments include `-Mode live`, `-Workspace "C:\CAD\Models"` and `-FreeCADCmd "C:\Program Files\FreeCAD 1.0\bin\FreeCADCmd.exe"`. Relative workspaces resolve against the checkout. Repeat custom workspace/FreeCADCmd arguments when using `-SkipInstall`. Live mode connects to a bridge you start manually with the generated macro. Run `.\Install-and-Run.cmd -Help` for help.
 
 Installation creates a **FreeCADMCPServer** shortcut in the current user's Start menu with the bundled [application icon](assets/README.md). It remembers the selected mode, workspace and FreeCADCmd path, and launches the existing installation without reinstalling dependencies. No administrator access is needed. Use `-NoStartMenuShortcut` with either installer to skip creating/updating the shortcut. `scripts\Setup.ps1` defaults the shortcut to headless mode; pass `-ShortcutMode live` for a live shortcut. The entry starts the stdio server in a console and waits for an MCP client. Live mode uses the bridge you start manually in FreeCAD. Rerun setup after moving the checkout or updating the icon to refresh the shortcut; deleting the Start menu entry removes the shortcut.
 
 ### Connect an MCP client
 
-For Codex, use the broker-aware installer after setup:
+Setup installs `freecad-modeling@freecad-development`, independently of any Universal Tools installation. Start a new Codex chat after installation. To preview or repeat only the plugin installation after generating configuration:
 
 ```powershell
 .\scripts\Install-CodexPlugin.ps1 -Preview
 .\scripts\Install-CodexPlugin.ps1
 ```
 
-It registers both backends with an enabled, installed **Universal Tools** plugin when available. Otherwise it installs FreeCAD's own standalone Codex plugin. Setup always generates both options in `.local/`; it does not install a Codex plugin itself. Use `-Integration standalone` to explicitly choose FreeCAD's plugin, or `-Integration broker` to require the broker. Existing direct connections and conflicting broker registrations require an explicit migration step. See [broker setup and session behavior](docs/BROKER.md).
+The default is always FreeCAD's own standalone plugin. The optional legacy broker route requires `-Integration broker`; `-Integration auto` explicitly opts into the former Universal Tools detection policy. Setup still generates both options in `.local/`. Existing direct connections and conflicting broker registrations require an explicit migration step. See [broker setup and session behavior](docs/BROKER.md).
 
 To install the standalone plugin manually, use the generated marketplace:
 
@@ -91,7 +91,7 @@ codex plugin add freecad-modeling@freecad-development
 
 The generated plugin points to this checkout's virtual environment. Regenerate configuration after moving the checkout. Plugin-browser installation and public plugin-directory publishing are unverified.
 
-For direct MCP registration without either plugin, run `.\scripts\Register-Codex.ps1`. This adds `freecad-live` and `freecad-headless` to the user Codex MCP configuration. Pass the same `-Workspace` used during setup, then start a new Codex chat. Choose one connection route to avoid duplicate tools.
+For direct MCP registration without either plugin, first run setup with `-Integration none`, then run `.\scripts\Register-Codex.ps1`. This adds `freecad-live` and `freecad-headless` to the user Codex MCP configuration. Pass the same `-Workspace` used during setup, then start a new Codex chat. Choose one connection route to avoid duplicate tools.
 
 ### Update extensions
 
