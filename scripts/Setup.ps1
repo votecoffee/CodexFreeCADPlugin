@@ -4,7 +4,7 @@ param(
     [string[]]$Extensions = @(),
     [ValidateSet('headless', 'live')]
     [string]$ShortcutMode = 'headless',
-    [ValidateSet('standalone', 'broker', 'auto', 'none')]
+    [ValidateSet('standalone', 'none')]
     [string]$Integration = 'standalone',
     [switch]$NoStartMenuShortcut
 )

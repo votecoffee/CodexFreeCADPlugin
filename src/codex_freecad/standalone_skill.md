@@ -11,4 +11,4 @@ For the direct plugin, use its existing FreeCAD tools. Inspect the named documen
 
 Save or export only to an explicit workspace path. Existing files require explicit overwrite and retain backups. After a lost reply, inspect the original receipt and model state; no automatic retries or fallback routes. Save before releasing a headless context because its unsaved documents close with the worker. Native GUI actions require the user's intended FreeCAD session and remain separate from headless validation.
 
-Framework use does not require the Universal Tools plugin. If the user selected the optional broker connection, use that connection's current discovery and ownership workflow instead. Neither this skill nor model-supplied approval-mode arguments waive app safeguards. Native skill/schema updates require plugin update and Codex reload; backend catalog refresh does not reload this skill.
+Use FreeCAD's own plugin or direct MCP configuration. Neither this skill nor model-supplied approval-mode arguments waive app safeguards. Native skill/schema updates require plugin update and Codex reload; backend catalog refresh does not reload this skill.

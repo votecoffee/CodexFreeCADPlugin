@@ -14,7 +14,7 @@ Optional FreeCADCmd executable for setup and the headless backend.
 .PARAMETER InstallOnly
 Install dependencies, generate configuration and install the Codex plugin, then exit.
 .PARAMETER Integration
-Codex integration: standalone (default), none, or an explicit legacy broker/auto route.
+Codex integration: standalone (default), or none for configuration only.
 .PARAMETER SkipInstall
 Run with the existing virtual environment without installing or regenerating files.
 .PARAMETER NoStartMenuShortcut
@@ -32,7 +32,7 @@ param(
     [string]$Mode = 'headless',
     [string]$Workspace = '',
     [string]$FreeCADCmd = '',
-    [ValidateSet('standalone', 'broker', 'auto', 'none')]
+    [ValidateSet('standalone', 'none')]
     [string]$Integration = 'standalone',
     [switch]$InstallOnly,
     [switch]$SkipInstall,
@@ -48,7 +48,7 @@ Usage: Install-and-Run.cmd [options]
   -Mode headless|live   Backend to run (default: headless)
   -Workspace PATH      CAD workspace (default: models in this checkout)
   -FreeCADCmd PATH     Optional FreeCADCmd executable
-  -Integration ROUTE   standalone (default), none, broker, or legacy auto
+  -Integration ROUTE   standalone (default), or none
   -InstallOnly         Install, including the Codex plugin, then exit
   -SkipInstall         Start the existing installation without setup
   -NoStartMenuShortcut  Skip Start menu shortcut creation during setup

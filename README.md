@@ -10,7 +10,7 @@ The current checkout also includes saved design requirements with opt-in edit en
 
 The Python distribution and CLI retain the name `codex-freecad`, the import is `codex_freecad`, and the optional Codex plugin ID is `freecad-modeling` for compatibility. Their display name is **FreeCADMCPServer**.
 
-Development now includes an **experimental app-owned shared-framework host** pinned to `universal-codex-tools==0.14.0`, with MCP 2.3 throughout, a stable MCP front door and immutable backend publications. FreeCAD keeps its own standalone plugin; the Universal Tools plugin and broker are optional. Isolated protocol/package checks do not establish native workflow or Codex UI acceptance, and existing installed workflows are unchanged. See [framework development and acceptance gaps](docs/FRAMEWORK.md).
+Development now includes an **experimental app-owned shared-framework host** pinned to `universal-codex-tools==0.14.0`, with MCP 2.3 throughout, a stable MCP front door and immutable backend publications. FreeCAD owns its standalone plugin and direct endpoints. The shared library does not require a central broker plugin or service registration. Isolated protocol/package checks do not establish native workflow or Codex UI acceptance. See [framework development and acceptance gaps](docs/FRAMEWORK.md).
 
 ## Table of Contents
 
@@ -53,7 +53,7 @@ cd FreeCADMCPServer
 .\scripts\Setup.ps1
 ```
 
-Setup creates `.venv`, installs the package and development dependencies, generates installation-specific macros and configuration in ignored `.local/`, and installs FreeCAD's own Codex plugin. The default CAD workspace is ignored `models/`. Use `-Integration none` for configuration only, such as when using another MCP client or preparing an explicit broker registration. To use another workspace or FreeCADCmd executable:
+Setup creates `.venv`, installs the package and development dependencies, generates installation-specific macros and configuration in ignored `.local/`, and installs FreeCAD's own Codex plugin. The default CAD workspace is ignored `models/`. Use `-Integration none` to skip Codex plugin installation, such as when using another MCP client. To use another workspace or FreeCADCmd executable:
 
 ```powershell
 .\scripts\Setup.ps1 -Workspace 'C:\CAD\Models' -FreeCADCmd 'C:\Program Files\FreeCAD 1.0\bin\FreeCADCmd.exe'
@@ -73,14 +73,14 @@ Installation creates a **FreeCADMCPServer** shortcut in the current user's Start
 
 ### Connect an MCP client
 
-Setup installs `freecad-modeling@freecad-development`, independently of any Universal Tools installation. Start a new Codex chat after installation. To preview or repeat only the plugin installation after generating configuration:
+Setup installs `freecad-modeling@freecad-development`. Start a new Codex chat after installation. To preview or repeat only the plugin installation after generating configuration:
 
 ```powershell
 .\scripts\Install-CodexPlugin.ps1 -Preview
 .\scripts\Install-CodexPlugin.ps1
 ```
 
-The default is always FreeCAD's own standalone plugin. The optional legacy broker route requires `-Integration broker`; `-Integration auto` explicitly opts into the former Universal Tools detection policy. Setup still generates both options in `.local/`. Existing direct connections and conflicting broker registrations require an explicit migration step. See [broker setup and session behavior](docs/BROKER.md).
+The installation choices are `standalone` (default) and `none`. Existing direct FreeCAD MCP entries require an explicit migration step before plugin installation. See [standalone connections and session behavior](docs/CONNECTIONS.md).
 
 To install the standalone plugin manually, use the generated marketplace:
 
@@ -91,7 +91,7 @@ codex plugin add freecad-modeling@freecad-development
 
 The generated plugin points to this checkout's virtual environment. Regenerate configuration after moving the checkout. Plugin-browser installation and public plugin-directory publishing are unverified.
 
-For direct MCP registration without either plugin, first run setup with `-Integration none`, then run `.\scripts\Register-Codex.ps1`. This adds `freecad-live` and `freecad-headless` to the user Codex MCP configuration. Pass the same `-Workspace` used during setup, then start a new Codex chat. Choose one connection route to avoid duplicate tools.
+For direct MCP registration without a plugin, first run setup with `-Integration none`, then run `.\scripts\Register-Codex.ps1`. This adds `freecad-live` and `freecad-headless` to the user Codex MCP configuration. Pass the same `-Workspace` used during setup, then start a new Codex chat. Choose one connection route to avoid duplicate tools.
 
 ### Update extensions
 
@@ -150,7 +150,7 @@ For a complete BOM, thickness-study and drawing example, run `.venv\Scripts\pyth
 ## Documentation
 
 - [Experimental shared-framework host and backend publication](docs/FRAMEWORK.md)
-- [Standalone plugin and Universal Tools broker setup](docs/BROKER.md)
+- [Standalone plugin and direct MCP connections](docs/CONNECTIONS.md)
 - [Tools, modeling operations, assemblies and file behavior](docs/TOOLS.md)
 - [Examples and demonstrations](docs/EXAMPLES.md)
 - [Hole and fastener capabilities](docs/HOLES_FASTENERS.md)

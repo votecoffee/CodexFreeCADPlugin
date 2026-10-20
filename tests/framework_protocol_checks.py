@@ -367,7 +367,6 @@ async def exercise(args):
             "median_ms": {k: statistics.median(v) for k, v in measurements.items()},
             "limits": [
                 "fake provider, no native geometry or Codex UI acceptance",
-                "nested broker aggregation unassessed",
             ],
         }
         (args.root / "profile.json").write_text(json.dumps(record, indent=2), encoding="utf-8")

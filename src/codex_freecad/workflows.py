@@ -6,7 +6,7 @@ GUIDES = {
         "background worker. Acquire that service and retain its context_id. Inspect explicit document "
         "and object IDs, then group dependent edits atomically with the inspected expected_revision. "
         "Discover extension schemas before use. Save explicitly before release. This workflow uses "
-        "the app-owned host alone; the Universal Tools plugin is optional."
+        "FreeCAD's own app-owned host."
     ),
     "extensions": (
         "list_capabilities and describe_capability return the active native catalog revision. "

@@ -7,7 +7,6 @@ from pathlib import Path
 
 from . import __version__
 from .client import find_freecad_cmd
-from .integration import broker_services
 
 
 def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
@@ -142,13 +141,6 @@ def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
         + "\n",
         encoding="utf-8",
     )
-    broker = output / "broker"
-    broker.mkdir(parents=True, exist_ok=True)
-    broker_manifests = []
-    for name, service in broker_services(servers, workspace, extension_dirs).items():
-        path = broker / (name + ".service.json")
-        path.write_text(json.dumps(service, indent=2) + "\n", encoding="utf-8")
-        broker_manifests.append(str(path))
     config = []
     for name, server in servers.items():
         config += [
@@ -169,7 +161,6 @@ def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
         "freecad_workbench": str(workbench),
         "plugin": str(plugin),
         "marketplace": str(output),
-        "broker_manifests": broker_manifests,
         "codex_config": str(output / "codex-mcp.toml"),
     }
 

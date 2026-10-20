@@ -58,7 +58,11 @@ def test_candidate_keeps_standalone_plugin_and_has_no_installation_side_effects(
     server = config["mcpServers"]["freecad"]
     assert server["args"][1] == "freecad_mcp_host" and server["args"][-1] == "proxy"
     assert (plugin / "skills/freecad-modeling/SKILL.md").is_file()
-    assert "Universal Tools installation is optional" in definition["instructions"]
+    assert "own standalone connection" in definition["instructions"]
+    for backend in definition["backends"]:
+        service = backend["service"]
+        assert service["capability_catalog"]["tool"] == "list_host_capabilities"
+        assert "--broker-catalog" not in service["transport"]["args"]
 
 
 def test_source_changes_publish_new_immutable_closure_with_same_resource_ids(

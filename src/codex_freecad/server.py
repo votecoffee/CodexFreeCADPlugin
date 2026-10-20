@@ -18,7 +18,7 @@ WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world
 EDIT = ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_hint=False)
 
 
-def create_server(client, *, broker_extensions=None, framework_backend=False):
+def create_server(client, *, framework_backend=False, framework_extensions=()):
     @asynccontextmanager
     async def lifespan(server):
         try:
@@ -49,18 +49,16 @@ def create_server(client, *, broker_extensions=None, framework_backend=False):
 
             return describe_workflow(topic)
 
-    if broker_extensions is not None:
-
         @server.tool(annotations=READ)
-        def list_broker_capabilities() -> dict:
+        def list_host_capabilities() -> dict:
             """Read installed extension metadata without connecting to FreeCAD or loading code.
 
             This installation snapshot can differ from the active native generation. Describe
             each capability through the retained backend before using its native catalog revision.
             """
-            from .broker_catalog import installation_catalog
+            from .host_catalog import installation_catalog
 
-            return installation_catalog(broker_extensions)
+            return installation_catalog(framework_extensions)
 
     @server.tool(annotations=READ)
     def list_capabilities() -> dict:
@@ -357,15 +355,10 @@ def main():
         "--framework-backend", action="store_true", help="Expose app workflow guidance"
     )
     parser.add_argument(
-        "--broker-catalog",
-        action="store_true",
-        help="Expose installation-only capability metadata for Universal Tools",
-    )
-    parser.add_argument(
         "--extensions",
         action="append",
         type=Path,
-        help="Trusted installed extension directory; repeatable, headless only",
+        help="Trusted installed extension directory; repeatable, headless or app-host metadata",
     )
     args = parser.parse_args()
     client = (
@@ -373,12 +366,12 @@ def main():
         if args.mode == "headless"
         else LiveClient(args.state_file or args.workspace / ".codex-freecad-live.json")
     )
-    if args.mode == "live" and args.extensions and not args.broker_catalog:
+    if args.mode == "live" and args.extensions and not args.framework_backend:
         parser.error("Configure live extension directories in the generated FreeCAD startup macro")
     create_server(
         client,
-        broker_extensions=(args.extensions or []) if args.broker_catalog else None,
         framework_backend=args.framework_backend,
+        framework_extensions=args.extensions or [],
     ).run(transport="stdio")
 
 

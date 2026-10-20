@@ -1,4 +1,4 @@
-"""Installation metadata for broker discovery; never imports extension handlers or FreeCAD."""
+"""Installation metadata for app-host discovery; never imports handlers or FreeCAD."""
 
 import hashlib
 import json
@@ -31,7 +31,7 @@ def installation_catalog(extension_dirs=()):
     if len(result["capabilities"]) > 1000 or any(
         len(item["description"]) > 4096 for item in result["capabilities"]
     ):
-        raise ValueError("Installation catalog exceeds broker capability count/description limits")
+        raise ValueError("Installation catalog exceeds host capability count/description limits")
     if len(json.dumps(result, ensure_ascii=False).encode("utf-8")) > 512 * 1024:
-        raise ValueError("Installation catalog exceeds the broker's 512 KiB metadata limit")
+        raise ValueError("Installation catalog exceeds the host's 512 KiB metadata limit")
     return result

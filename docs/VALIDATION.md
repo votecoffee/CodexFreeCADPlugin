@@ -39,7 +39,7 @@ Coverage includes:
 
 Tests using UI lifecycle doubles check controller contracts. They do not establish Qt behavior, Coin event delivery or physical mouse picking.
 
-## Broker interoperability
+## App-owned framework host
 
 The experimental app-owned framework pins framework 0.14.0 and MCP 2.3 throughout. It does not require the Universal Tools plugin or a universal daemon. After installing the verified framework wheel and host package, include its disposable-provider protocol profile:
 
@@ -50,16 +50,7 @@ $env:FREECAD_FRAMEWORK_PYTHON = 'C:\Apps\FreeCADHost\python.exe'
 
 The framework case starts only an isolated app host and published SDK 2 workers with fixture providers below the original MCP handlers. It checks complete selected results/media, separate frontend ownership, model revision/Undo across deferred publication, same-session frontend schema stability, failed-candidate recovery, one recorded effect after a lost reply and a durable no-replay barrier across host restart. It records five warm direct/host inspection samples locally. Those samples do not establish native latency criteria, large-payload performance or Codex UI acceptance. See [framework package and lifecycle boundaries](FRAMEWORK.md). Without the environment variable this profile skips; no current installed route is changed.
 
-The host suite checks standalone/broker selection, disabled and broken plugin detection, installation preview, registration conflicts, explicit write allowlists, unchanged direct MCP schemas and metadata discovery without executing extension code.
-
-For an installed Universal Tools runtime (0.8 or later) and native FreeCADCmd, opt into the isolated broker test:
-
-```powershell
-$env:FREECAD_BROKER_PYTHON = 'C:\Apps\Broker\python.exe'
-.\.venv\Scripts\pytest.exe -q tests\test_broker_native.py
-```
-
-The test uses that interpreter with new temporary broker state, a free loopback port and a disposable CAD workspace. It does not use the normal broker state or install a Codex plugin. It checks metadata for both backends without starting FreeCADCmd, extension search, exclusive ownership, duplicate request rejection, native edits/revisions, Undo and save/reopen across retained sessions. Without the environment variable this case skips. Live GUI editing and Codex plugin-browser installation remain manual checks.
+The host suite checks standalone installation previews, preservation of existing direct configuration, rejection of removed installer/server options, exclusive app-owned backend definitions, exact write allowlists, unchanged direct MCP schemas and installation metadata discovery without executing extension code. Normal setup generates no broker manifests. Live GUI editing and Codex UI activation remain separate manual checks.
 
 ## Headless smoke checks
 

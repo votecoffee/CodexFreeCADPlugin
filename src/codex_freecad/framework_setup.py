@@ -9,14 +9,14 @@ import tempfile
 from pathlib import Path
 
 from . import __version__
-from .integration import broker_services
+from .host_config import backend_services
 
 INSTRUCTIONS = (
     "FreeCADMCPServer experimental app-owned host. Search and describe current FreeCAD tools. "
     "Acquire freecad-live or freecad-headless and retain that context. Read get_workflow overview. "
     "Inspect explicit documents before editing and preserve document/catalog revisions. Writes "
     "require unique request IDs. Do not replay an uncertain write or switch routes to bypass it. "
-    "Save before releasing headless contexts. Universal Tools installation is optional."
+    "Save before releasing headless contexts. Use this application's own standalone connection."
 )
 
 
@@ -139,12 +139,11 @@ def publish(
             args += ["--freecad-cmd", str(path)]
         servers["freecad-" + mode] = {"command": str(backend_python), "args": args}
     extensions = [str(deployment / "extensions" / str(i)) for i, _ in enumerate(extension_dirs)]
-    # broker_services adds installation catalog metadata and the same exact write policy.
     for name in servers:
         if name.endswith("headless"):
             for directory in extensions:
                 servers[name]["args"] += ["--extensions", directory]
-    services = broker_services(servers, workspace, extensions)
+    services = backend_services(servers, workspace, extensions)
     backends = []
     for service in services.values():
         revision = hashlib.sha256(

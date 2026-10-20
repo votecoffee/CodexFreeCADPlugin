@@ -1,0 +1,53 @@
+"""Application-owned backend definitions for the experimental FreeCAD host."""
+
+import hashlib
+import os
+
+WRITE_TOOLS = [
+    "reload_extensions",
+    "new_document",
+    "open_document",
+    "import_model",
+    "apply_operations",
+    "undo_document",
+    "save_document",
+    "export_model",
+    "set_view",
+    "capture_view",
+]
+
+
+def backend_services(servers, workspace, extension_dirs=()):
+    fingerprint = hashlib.sha256(os.path.normcase(str(workspace)).encode()).hexdigest()[:16]
+    result = {}
+    for name, server in servers.items():
+        args = list(server["args"])
+        if name == "freecad-live":
+            for directory in extension_dirs:
+                args += ["--extensions", directory]
+        result[name] = {
+            "schema_version": 1,
+            "id": name,
+            "display_name": "FreeCADMCPServer (" + name.removeprefix("freecad-") + ")",
+            "description": "Native FreeCAD modeling with persistent documents and Undo.",
+            "transport": {
+                "type": "stdio",
+                "command": server["command"],
+                "args": args,
+                "cwd": None,
+                "env_vars": [],
+            },
+            "enabled": True,
+            "allow_writes": True,
+            "allowed_write_tools": WRITE_TOOLS.copy(),
+            "session_mode": "exclusive",
+            "resource_id": name + "-" + fingerprint,
+            "timeout_seconds": 150.0,
+            "max_argument_bytes": 8 * 1024 * 1024,
+            "capability_catalog": {
+                "schema_version": 1,
+                "tool": "list_host_capabilities",
+                "arguments": {},
+            },
+        }
+    return result
