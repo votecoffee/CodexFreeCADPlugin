@@ -3,6 +3,8 @@
 import hashlib
 import os
 
+PROTOCOL_MODES = ("legacy", "auto", "2026-07-28")
+
 WRITE_TOOLS = [
     "reload_extensions",
     "new_document",
@@ -17,7 +19,7 @@ WRITE_TOOLS = [
 ]
 
 
-def backend_services(servers, workspace, extension_dirs=()):
+def backend_services(servers, workspace, extension_dirs=(), *, protocol_mode="legacy"):
     fingerprint = hashlib.sha256(os.path.normcase(str(workspace)).encode()).hexdigest()[:16]
     result = {}
     for name, server in servers.items():
@@ -50,4 +52,6 @@ def backend_services(servers, workspace, extension_dirs=()):
                 "arguments": {},
             },
         }
+        if protocol_mode != "legacy":
+            result[name]["protocol_mode"] = protocol_mode
     return result

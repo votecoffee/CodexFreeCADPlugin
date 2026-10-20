@@ -37,7 +37,7 @@ def test_framework_dependency_is_separate_from_sdk2_backend():
     backend = tomllib.loads((root / "pyproject.toml").read_text())
     host = tomllib.loads((root / "framework-host/pyproject.toml").read_text())
     assert backend["project"]["dependencies"] == ["mcp==2.3.0"]
-    assert host["project"]["dependencies"] == ["universal-codex-tools==0.14.0", "mcp==2.3.0"]
+    assert host["project"]["dependencies"] == ["universal-codex-tools==0.15.0", "mcp==2.3.0"]
     assert "mcp==2.3.0" in (root / "framework-host/requirements.lock").read_text()
 
 
@@ -63,6 +63,38 @@ def test_candidate_keeps_standalone_plugin_and_has_no_installation_side_effects(
         service = backend["service"]
         assert service["capability_catalog"]["tool"] == "list_host_capabilities"
         assert "--broker-catalog" not in service["transport"]["args"]
+        assert "protocol_mode" not in service  # Preserve the legacy framework default.
+        assert "watch_catalog" not in service and "discovery_cache_ttl_seconds" not in service
+
+
+@pytest.mark.parametrize("protocol_mode", ["auto", "2026-07-28"])
+def test_protocol_opt_in_binds_publication_but_preserves_resource_identity(tmp_path, protocol_mode):
+    first = candidate(tmp_path)
+    old = json.loads(Path(first["publication"]).read_bytes())
+    second = candidate(tmp_path, protocol_mode=protocol_mode)
+    new = json.loads(Path(second["publication"]).read_bytes())
+    assert first["deployment"] == second["deployment"]
+    assert second["protocol_mode"] == protocol_mode
+    for previous, updated in zip(old["backends"], new["backends"], strict=True):
+        assert previous["revision"] != updated["revision"]
+        assert previous["service"]["resource_id"] == updated["service"]["resource_id"]
+        assert updated["service"]["protocol_mode"] == protocol_mode
+        assert (
+            previous["service"]["allowed_write_tools"] == updated["service"]["allowed_write_tools"]
+        )
+
+
+def test_invalid_protocol_choice_preserves_publication_and_creates_no_new_files(tmp_path):
+    first = candidate(tmp_path)
+    publication = Path(first["publication"])
+    before = publication.read_bytes()
+    with pytest.raises(ValueError, match="protocol mode"):
+        candidate(tmp_path, protocol_mode="unsupported")
+    assert publication.read_bytes() == before
+    empty = tmp_path / "unused"
+    with pytest.raises(ValueError, match="protocol mode"):
+        publish(tmp_path / "models", empty, sys.executable, protocol_mode="unsupported")
+    assert not empty.exists() and not (tmp_path / "models").exists()
 
 
 def test_source_changes_publish_new_immutable_closure_with_same_resource_ids(

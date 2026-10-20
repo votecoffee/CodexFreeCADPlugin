@@ -33,9 +33,9 @@ def complete(result):
 
 
 @asynccontextmanager
-async def connected(command):
+async def connected(command, *, mode="legacy"):
     async with Client(
-        StdioServerParameters(command=command[0], args=command[1:]), mode="legacy"
+        StdioServerParameters(command=command[0], args=command[1:]), mode=mode
     ) as client:
         yield client
 
@@ -72,7 +72,12 @@ async def exercise(args):
             "from .fixture_provider import FixtureClient\nHeadlessClient = LiveClient = FixtureClient\n"
         )
     result = publish(
-        workspace, output, sys.executable, backend_python=args.backend_python, source_package=source
+        workspace,
+        output,
+        sys.executable,
+        backend_python=args.backend_python,
+        source_package=source,
+        protocol_mode=args.protocol_mode,
     )
     publication = Path(result["publication"])
     initial = json.loads(publication.read_bytes())
@@ -109,9 +114,16 @@ async def exercise(args):
             *backend["service"]["transport"]["args"],
         ]
         async with AsyncExitStack() as stack:
-            owner = await stack.enter_async_context(connected([*base, "proxy"]))
-            other = await stack.enter_async_context(connected([*base, "proxy"]))
-            direct = await stack.enter_async_context(connected(direct_command))
+            owner = await stack.enter_async_context(
+                connected([*base, "proxy"], mode=args.frontend_mode)
+            )
+            other = await stack.enter_async_context(
+                connected([*base, "proxy"], mode=args.frontend_mode)
+            )
+            # Modern SDK results add serverInfo metadata; compare the same protocol on both paths.
+            direct = await stack.enter_async_context(
+                connected(direct_command, mode=args.protocol_mode)
+            )
             baseline = (await owner.list_tools()).model_dump(mode="json", by_alias=True)
             assert len(baseline["tools"]) == 14
             status = data(await owner.call_tool("broker_status", {}))
@@ -120,6 +132,11 @@ async def exercise(args):
             context = data(
                 await owner.call_tool("acquire_service", {"service_id": "freecad-headless"})
             )["context_id"]
+            described = data(
+                await owner.call_tool("describe_service", {"service_id": "freecad-headless"})
+            )
+            negotiated = described["initialization"]["protocolVersion"]
+            assert negotiated == ("2025-11-25" if args.protocol_mode == "legacy" else "2026-07-28")
 
             async def call(name, arguments=None, *, request=None, frontend=owner):
                 description = data(
@@ -152,7 +169,10 @@ async def exercise(args):
             assert info["fixture"] and info["generation"] == 1
             assert (await call("freecad_status", frontend=other)).is_error
             guide = await call("get_workflow")
-            assert complete(guide) == complete(await direct.call_tool("get_workflow", {}))
+            direct_guide = await direct.call_tool("get_workflow", {})
+            comparison = {"hosted": complete(guide), "direct": complete(direct_guide)}
+            (args.root / "workflow-results.json").write_text(json.dumps(comparison, indent=2))
+            assert comparison["hosted"] == comparison["direct"], comparison
             created = await call("new_document", {"name": "Compare"}, request="create")
             direct_created = await direct.call_tool("new_document", {"name": "Compare"})
             assert complete(created) == complete(direct_created), (
@@ -205,6 +225,7 @@ async def exercise(args):
                 sys.executable,
                 backend_python=args.backend_python,
                 source_package=source,
+                protocol_mode=args.protocol_mode,
             )
             refresh = data(await owner.call_tool("refresh_services", {}))
             assert any(row["status"] == "deferred" for row in refresh["backend_publications"])
@@ -269,6 +290,7 @@ async def exercise(args):
                 sys.executable,
                 backend_python=args.backend_python,
                 source_package=source,
+                protocol_mode=args.protocol_mode,
             )
             selected = json.loads(publication.read_bytes())
             live_backend = next(
@@ -341,7 +363,7 @@ async def exercise(args):
         while probe(settings) is None:
             assert child.poll() is None and time.monotonic() < deadline
             await asyncio.sleep(0.05)
-        async with connected([*base, "proxy"]) as fresh:
+        async with connected([*base, "proxy"], mode=args.frontend_mode) as fresh:
             assert (
                 await fresh.call_tool("acquire_service", {"service_id": "freecad-headless"})
             ).is_error
@@ -358,6 +380,9 @@ async def exercise(args):
         record = {
             "framework": version("universal-codex-tools"),
             "framework_sdk": version("mcp"),
+            "backend_protocol_mode": args.protocol_mode,
+            "backend_negotiated_protocol": negotiated,
+            "frontend_protocol_mode": args.frontend_mode,
             "frontend_tools": 14,
             "native_dispatches": int(native_marker.exists()),
             "same_session_refresh": True,
@@ -381,6 +406,10 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--backend-python", required=True)
+    parser.add_argument(
+        "--protocol-mode", choices=["legacy", "auto", "2026-07-28"], default="legacy"
+    )
+    parser.add_argument("--frontend-mode", choices=["legacy", "2026-07-28"], default="legacy")
     args = parser.parse_args()
     asyncio.run(exercise(args))
 

@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 
 from . import __version__
-from .host_config import backend_services
+from .host_config import PROTOCOL_MODES, backend_services
 
 INSTRUCTIONS = (
     "FreeCADMCPServer experimental app-owned host. Search and describe current FreeCAD tools. "
@@ -58,8 +58,11 @@ def publish(
     freecad_cmd=None,
     extension_dirs=(),
     source_package=None,
+    protocol_mode="legacy",
 ):
     """Local admin publication only. This function never starts a host/native app or installs a plugin."""
+    if protocol_mode not in PROTOCOL_MODES:
+        raise ValueError("Unsupported backend protocol mode")
     workspace, output = Path(workspace).expanduser().resolve(), Path(output).expanduser().resolve()
     host_python = Path(host_python).expanduser().resolve()
     backend_python = Path(backend_python or sys.executable).expanduser().resolve()
@@ -143,7 +146,7 @@ def publish(
         if name.endswith("headless"):
             for directory in extensions:
                 servers[name]["args"] += ["--extensions", directory]
-    services = backend_services(servers, workspace, extensions)
+    services = backend_services(servers, workspace, extensions, protocol_mode=protocol_mode)
     backends = []
     for service in services.values():
         revision = hashlib.sha256(
@@ -220,7 +223,8 @@ def publish(
         "deployment": str(deployment),
         "state": str(state),
         "plugin": str(plugin),
-        "framework": "0.14.0",
+        "framework": "0.15.0",
+        "protocol_mode": protocol_mode,
         "content_revision": content_revision,
         "host_commands": {
             name: [str(host_python), *command, name] for name in ("init", "serve", "status", "stop")
@@ -242,6 +246,7 @@ def main():
     parser.add_argument("--backend-python", type=Path)
     parser.add_argument("--freecad-cmd", type=Path)
     parser.add_argument("--extensions", type=Path, action="append", default=[])
+    parser.add_argument("--protocol-mode", choices=PROTOCOL_MODES, default="legacy")
     args = parser.parse_args()
     try:
         print(
@@ -253,6 +258,7 @@ def main():
                     backend_python=args.backend_python,
                     freecad_cmd=args.freecad_cmd,
                     extension_dirs=args.extensions,
+                    protocol_mode=args.protocol_mode,
                 ),
                 indent=2,
             )

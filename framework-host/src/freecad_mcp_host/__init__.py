@@ -1,4 +1,4 @@
 """FreeCAD's experimental host; domain operations remain in the separate SDK 2 backend."""
 
 APPLICATION_ID = "freecad-mcp-server"
-FRAMEWORK_VERSION = "0.14.0"
+FRAMEWORK_VERSION = "0.15.0"

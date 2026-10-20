@@ -2,14 +2,14 @@
 
 The shared app framework is the primary development direction. FreeCAD owns its standalone Codex plugin, stable discovery/invocation interface, CAD backends and native validation. The framework is an implementation dependency of this app-owned host. It does not add a central plugin, broker registration or automatic route selection. Normal standalone setup does not activate this prototype.
 
-**Current baseline: framework 0.14.0 and MCP 2.3.0 throughout.** The framework uses `MCPServer`, typed pagination and snake_case Python fields with wire aliases. SDK 1.x compatibility is not required. This application's isolated profile uses the negotiated `2025-11-25` handshake; modern discovery/cache and multi-round-trip protocol workflows are not claimed. Framework support for SDK 2.2 does not establish this app's acceptance of a different version than its exact MCP 2.3 pin.
+**Current baseline: framework 0.15.0 and MCP 2.3.0 throughout.** The framework uses `MCPServer`, typed pagination and snake_case Python fields with wire aliases. SDK 1.x compatibility is not required. Legacy publications retain the negotiated `2025-11-25` handshake. Explicit `auto` and `2026-07-28` candidates are assessed with disposable providers, including modern frontend ownership through independent stdio proxies. Framework support for SDK 2.2 does not establish this app's acceptance of a different version than its exact MCP 2.3 pin.
 
 ## Packages and SDK boundary
 
 | Package | Environment | Pinned dependency |
 | --- | --- | --- |
 | `codex-freecad` | CAD MCP backend | `mcp==2.3.0` |
-| `freecad-mcp-host` | App-owned host | `universal-codex-tools==0.14.0`, `mcp==2.3.0` |
+| `freecad-mcp-host` | App-owned host | `universal-codex-tools==0.15.0`, `mcp==2.3.0` |
 | Native FreeCAD engine | FreeCAD's bundled Python | Native FreeCAD modules; no host MCP/Pydantic imports |
 
 The host imports `universal_tools.framework` from a normal exact package dependency. The framework pin and `framework-host/requirements.lock` are updated together from the MCP 2.3 baseline. Use normal pip installation with a verified wheel or an explicit editable framework checkout for coordinated development. No framework source is copied into this project, no Git submodule is used, and no public package feed or native .NET binding is assumed. A separate app-owned environment keeps deployment/rollback independent even though both host and backend now use MCP 2.3.
@@ -18,7 +18,7 @@ Create a separate environment and install the host with a verified framework whe
 
 ```powershell
 py -3.13 -m venv .local\framework-runtime
-.\.local\framework-runtime\Scripts\python.exe -m pip install C:\Packages\VerifiedWheels\universal_codex_tools-0.14.0-py3-none-any.whl -r framework-host\requirements.lock -e framework-host
+.\.local\framework-runtime\Scripts\python.exe -m pip install C:\Packages\VerifiedWheels\universal_codex_tools-0.15.0-py3-none-any.whl -r framework-host\requirements.lock -e framework-host
 .\.local\framework-runtime\Scripts\python.exe -m pip check
 ```
 
@@ -48,6 +48,12 @@ After normal backend setup, publish to a separate ignored candidate directory:
 ```
 
 This copies the application package and optional installed extension roots into an immutable deployment, writes a version-1 `application.json` and generates FreeCAD's own plugin/marketplace. It does not start a host or native engine, install a plugin, update an existing registration, change runtime pointers or open a CAD file. Existing direct setup remains available through `codex_freecad.setup`. Never reuse a universal broker state directory for this app host.
+
+`--protocol-mode legacy` is the default and leaves the publication's new protocol options unset. An explicit `--protocol-mode auto` negotiates modern discovery or a legacy handshake; `--protocol-mode 2026-07-28` requires modern discovery. These are local administrator publication choices, never model tool arguments. Changing this option binds a new backend revision while retaining its native resource identity. Quiesce/save and release an existing context before replacing its backend. Unsupported protocol values fail before writing a candidate.
+
+The stdio proxy generates its own internal frontend affinity identity. Caller `clientInfo`, model arguments and a shared identifier cannot authenticate independent chats. This remains affinity inside the host's authenticated local-user deployment; separate-user authentication requires an assessed application adapter. No model-facing ownership or approval-mode parameters are added.
+
+Other framework 0.15 features remain separate opt-ins: catalog watching, discovery caching, bounded HTTP SSE responses, approval continuations, tracing exporters and `SkillCatalog` resource snapshots. This publisher does not enable them. Invocation policy, current schema/effect checks, app revisions and uncertain-write barriers remain authoritative. SDK skill resources do not install native Codex skills. CAD approval-form behavior, these optional features and real host activation require their own acceptance.
 
 The output prints explicit host commands. For the default candidate:
 

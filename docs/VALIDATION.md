@@ -41,14 +41,14 @@ Tests using UI lifecycle doubles check controller contracts. They do not establi
 
 ## App-owned framework host
 
-The experimental app-owned framework pins framework 0.14.0 and MCP 2.3 throughout. It does not require the Universal Tools plugin or a universal daemon. After installing the verified framework wheel and host package, include its disposable-provider protocol profile:
+The experimental app-owned framework pins framework 0.15.0 and MCP 2.3 throughout. It does not require the Universal Tools plugin or a universal daemon. After installing the verified framework wheel and host package, include its disposable-provider protocol profiles:
 
 ```powershell
 $env:FREECAD_FRAMEWORK_PYTHON = 'C:\Apps\FreeCADHost\python.exe'
 .\.venv\Scripts\pytest.exe -q -m 'not native'
 ```
 
-The framework case starts only an isolated app host and published SDK 2 workers with fixture providers below the original MCP handlers. It checks complete selected results/media, separate frontend ownership, model revision/Undo across deferred publication, same-session frontend schema stability, failed-candidate recovery, one recorded effect after a lost reply and a durable no-replay barrier across host restart. It records five warm direct/host inspection samples locally. Those samples do not establish native latency criteria, large-payload performance or Codex UI acceptance. See [framework package and lifecycle boundaries](FRAMEWORK.md). Without the environment variable this profile skips; no current installed route is changed.
+The framework cases start only isolated app hosts and published SDK 2 workers with fixture providers below the original MCP handlers. The matrix covers legacy backends/frontends, auto-negotiated modern backends with modern frontends, and required-modern backends with legacy frontends. Each case checks the actual backend protocol, complete selected results/media, separate frontend ownership, model revision/Undo across deferred publication, same-session frontend schema stability, failed-candidate recovery, one recorded effect after a lost reply and a durable no-replay barrier across host restart. Direct and hosted references use the same backend protocol, retaining SDK metadata such as modern `serverInfo` rather than stripping it for comparison. Each records five warm direct/host inspection samples locally. Those samples do not establish native latency criteria, large-payload performance or Codex UI acceptance. See [framework package and lifecycle boundaries](FRAMEWORK.md). Without the environment variable these profiles skip; no current installed route is changed.
 
 The host suite checks standalone installation previews, preservation of existing direct configuration, rejection of removed installer/server options, exclusive app-owned backend definitions, exact write allowlists, unchanged direct MCP schemas and installation metadata discovery without executing extension code. Normal setup generates no broker manifests. Live GUI editing and Codex UI activation remain separate manual checks.
 

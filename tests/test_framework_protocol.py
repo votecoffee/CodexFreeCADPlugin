@@ -12,7 +12,13 @@ import codex_freecad
 
 
 @pytest.mark.framework
-def test_app_owned_framework_profile_with_disposable_provider(tmp_path):
+@pytest.mark.parametrize(
+    "protocol_mode,frontend_mode",
+    [("legacy", "legacy"), ("auto", "2026-07-28"), ("2026-07-28", "legacy")],
+)
+def test_app_owned_framework_profile_with_disposable_provider(
+    tmp_path, protocol_mode, frontend_mode
+):
     configured = os.environ.get("FREECAD_FRAMEWORK_PYTHON")
     if not configured:
         pytest.skip("Set FREECAD_FRAMEWORK_PYTHON to an isolated FreeCAD app-host environment")
@@ -25,6 +31,10 @@ def test_app_owned_framework_profile_with_disposable_provider(tmp_path):
         str(Path(codex_freecad.__file__).parent),
         "--backend-python",
         sys.executable,
+        "--protocol-mode",
+        protocol_mode,
+        "--frontend-mode",
+        frontend_mode,
     ]
     log = tmp_path / "profile.log"
     options = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
@@ -34,6 +44,11 @@ def test_app_owned_framework_profile_with_disposable_provider(tmp_path):
         )
     assert result.returncode == 0, log.read_text(encoding="utf-8", errors="replace")[-10000:]
     evidence = json.loads((tmp_path / "profile.json").read_bytes())
-    assert evidence["framework"] == "0.14.0" and evidence["frontend_tools"] == 14
+    assert evidence["framework"] == "0.15.0" and evidence["frontend_tools"] == 14
     assert evidence["framework_sdk"] == "2.3.0" and evidence["durable_recovery_barrier"]
     assert evidence["native_dispatches"] == 0 and evidence["same_session_refresh"]
+    assert evidence["backend_protocol_mode"] == protocol_mode
+    assert evidence["frontend_protocol_mode"] == frontend_mode
+    assert evidence["backend_negotiated_protocol"] == (
+        "2025-11-25" if protocol_mode == "legacy" else "2026-07-28"
+    )
