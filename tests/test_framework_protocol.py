@@ -70,7 +70,7 @@ def test_app_owned_framework_profile_with_disposable_provider(
         )
     assert result.returncode == 0, log.read_text(encoding="utf-8", errors="replace")[-10000:]
     evidence = json.loads((tmp_path / "profile.json").read_bytes())
-    assert evidence["framework"] == "0.16.0" and evidence["frontend_tools"] == 14
+    assert evidence["framework"] == "0.17.0" and evidence["frontend_tools"] == 14
     assert evidence["framework_sdk"] == "2.3.0" and evidence["durable_recovery_barrier"]
     assert evidence["native_dispatches"] == 0 and evidence["same_session_refresh"]
     assert evidence["structural_budget_rejections"] == ["depth", "nodes"]

@@ -84,6 +84,16 @@ def exercise(args):
             assert process.returncode == 0, error.decode(errors="replace")
         first = probe(settings)
         assert first
+        run([*base, "doctor"])
+        run([*base, "check-idle"])
+        publication = Path(result["publication"])
+        original = publication.read_bytes()
+        pending = json.loads(original)
+        pending["backends"][0]["revision"] = "f" * 64
+        publication.write_text(json.dumps(pending))
+        rejected = run([*base, "doctor"], success=False)
+        assert b"Live backend publication differs" in rejected.stderr
+        publication.write_bytes(original)
         run([*base, "start"])
         assert probe(settings) == first
         asyncio.run(connect([*base, "connect"]))

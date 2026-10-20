@@ -17,6 +17,7 @@ from universal_tools.models import BrokerError, atomic_json, load_settings
 from universal_tools.surface import RemoteBackend, create_surface
 
 from . import APPLICATION_ID, FRAMEWORK_VERSION
+from .maintenance import journal_status, require_idle
 
 
 def check_runtime():
@@ -71,6 +72,23 @@ async def status(state):
         return value
 
 
+def wait_stopped(state, *, deadline=None, allow_running=False):
+    """Port closure precedes framework cleanup; wait for the OS-owned state lock too."""
+    deadline = deadline or time.monotonic() + 35
+    while True:
+        try:
+            with InstanceLock(state / "broker.lock"):
+                return False
+        except BrokerError:
+            if allow_running and probe(load_settings(state)):
+                return True
+            if time.monotonic() >= deadline:
+                raise BrokerError(
+                    "FreeCAD host still owns its state; no replacement was started"
+                ) from None
+            time.sleep(0.1)
+
+
 def start(state, path, *, timeout=35):
     """Start only this app's server, preserving its ownership and recovery journals."""
     require_state(state, path)
@@ -87,6 +105,8 @@ def start(state, path, *, timeout=35):
             time.sleep(0.1)
     try:
         if probe(settings):
+            return asyncio.run(status(state))
+        if wait_stopped(state, deadline=deadline, allow_running=True):
             return asyncio.run(status(state))
         publication(path)
         with socket.socket() as sock:
@@ -124,19 +144,81 @@ def start(state, path, *, timeout=35):
         lock.__exit__()
 
 
+def doctor(state, path):
+    desired = publication(path)
+    require_state(state, path)
+    value = asyncio.run(status(state))
+    active = json.loads((state / "framework/active.json").read_bytes())
+    release = active["release_id"]
+    if (
+        not isinstance(release, str)
+        or len(release) != 64
+        or any(c not in "0123456789abcdef" for c in release)
+    ):
+        raise BrokerError("Invalid active application release")
+    selected = load_application(state / "framework/releases" / release / "definition.json")
+    desired = desired.model_copy(
+        update={"backends": sorted(desired.backends, key=lambda row: row.service.id)}
+    )
+    if selected != desired:
+        raise BrokerError("Live backend publication differs from the requested installation")
+    if (
+        value.get("version") != FRAMEWORK_VERSION
+        or {row["service_id"] for row in value["services"]}
+        != {row.service.id for row in desired.backends}
+        or any(service.get("status") != "available" for service in value["services"])
+    ):
+        raise BrokerError(
+            "Live host version or backend availability differs from this installation"
+        )
+    return {
+        "passed": True,
+        "application_id": APPLICATION_ID,
+        "framework": version("universal-codex-tools"),
+        "mcp": version("mcp"),
+        "app_host": version("freecad-mcp-host"),
+        "journals": journal_status(state),
+        "services": [
+            {"id": row["service_id"], "tools": row["tool_count"]} for row in value["services"]
+        ],
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--publication", type=Path, required=True)
     parser.add_argument(
         "command",
-        choices=["init", "serve", "start", "connect", "proxy", "status", "stop", "validate"],
+        choices=[
+            "init",
+            "serve",
+            "start",
+            "connect",
+            "proxy",
+            "status",
+            "stop",
+            "validate",
+            "doctor",
+            "check-idle",
+            "wait-stopped",
+        ],
     )
     parser.add_argument("--port", type=int, default=8891)
     args = parser.parse_args()
     state, path = args.state.expanduser().resolve(), args.publication.expanduser().resolve()
     try:
         check_runtime()
+        if args.command == "wait-stopped":
+            require_state(state, path)
+            wait_stopped(state)
+            print(json.dumps({"stopped": True, "state_lock_released": True}))
+            return
+        if args.command in {"doctor", "check-idle"}:
+            require_state(state, path)
+            result = doctor(state, path) if args.command == "doctor" else require_idle(state)
+            print(json.dumps(result))
+            return
         if args.command in {"status", "stop"}:
             require_state(state, path)
             print(

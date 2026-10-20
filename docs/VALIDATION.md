@@ -41,7 +41,7 @@ Tests using UI lifecycle doubles check controller contracts. They do not establi
 
 ## App-owned framework host
 
-The experimental app-owned framework pins framework 0.16.0 and MCP 2.3 throughout. It does not require the Universal Tools plugin or a universal daemon. After installing the verified framework wheel and host package, include its disposable-provider protocol profiles:
+The experimental app-owned framework pins framework 0.17.0 and MCP 2.3 throughout. It does not require the Universal Tools plugin or a universal daemon. After installing the verified framework wheel and host package, include its disposable-provider protocol profiles:
 
 ```powershell
 $env:FREECAD_FRAMEWORK_PYTHON = 'C:\Apps\FreeCADHost\python.exe'

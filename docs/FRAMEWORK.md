@@ -8,7 +8,7 @@ From a clean committed checkout, run normal setup, then select the framework hos
 
 ```powershell
 .\scripts\Setup.ps1
-.\scripts\Install-Framework.ps1 -FrameworkWheel C:\Packages\universal_codex_tools-0.16.0-py3-none-any.whl -FrameworkSha256 TRUSTED_SHA256
+.\scripts\Install-Framework.ps1 -FrameworkWheel C:\Packages\universal_codex_tools-0.17.0-py3-none-any.whl -FrameworkSha256 TRUSTED_SHA256
 ```
 
 The installer checks the supplied hash before installing anything, builds both application wheels, verifies source bytes and wheel RECORDs, and installs normal dependencies into a separate runtime in ignored `.local/framework/runtimes/`. It reads installed package bytes back against all three audited wheels. It initializes dedicated app state, starts only the FreeCAD host, backs up the previous local Codex config and FreeCAD plugin cache, and replaces `freecad-modeling@freecad-development`. Other plugins are not selected or removed. No CAD document or GUI is opened. Native/GUI and Codex UI acceptance remain separate from installation and transport discovery.
@@ -17,16 +17,18 @@ The installed plugin runs `freecad_mcp_host ... connect`. This command authentic
 
 An explicit selection marker makes subsequent `Setup.ps1`, `Install-CodexPlugin.ps1` and the root launcher retain this standalone connection. The root launcher exposes the shared host's live/headless discovery rather than selecting a private backend with `-Mode`. A damaged marker or missing runtime fails without reverting to direct tools. The Start menu shortcut uses the same selection. Normal setup reinstalls the selected plugin; it does not replace its immutable backend publication. A different workspace, native executable or extension set requires an explicit publication update.
 
-The framework installer preserves existing initialized state and refuses to overwrite a prior host installation. For backend updates, use the publication, save/release and `refresh_services` workflow below. A host/framework upgrade requires a separately prepared runtime and deliberate stop/reconnect; preserve the same state and journals. Retain backups under ignored `.local/framework/backups/`; do not restore the entire Codex config over unrelated later changes. Starting a new Codex chat loads the installed plugin; existing chats are not migrated by the installer.
+For a deliberate host/framework upgrade, quiesce other callers, save and release retained contexts, then repeat the installer with `-Upgrade` and the new trusted wheel/hash. It prepares and audits a separate runtime before stopping the old host. Read-only journal checks reject retained/lost contexts, orphan reservations and unresolved write receipts before shutdown and again afterward. It preserves the workspace, native executable, frozen external extensions, protocol choice, dedicated state and original receipts. It never acknowledges an uncertain outcome, retries native effects or switches to another connection. This is a maintenance operation; the idle check is not a distributed fence against other callers starting work during shutdown. Ordinary backend updates can still use publication, save/release and `refresh_services` below.
 
-**Current baseline: framework 0.16.0 and MCP 2.3.0 throughout.** The framework uses `MCPServer`, typed pagination and snake_case Python fields with wire aliases. SDK 1.x compatibility is not required. Legacy publications retain the negotiated `2025-11-25` handshake. Explicit `auto` and `2026-07-28` candidates are assessed with disposable providers, including modern frontend ownership through independent stdio proxies. Framework support for SDK 2.2 does not establish this app's acceptance of a different version than its exact MCP 2.3 pin.
+The new runtime must pass `doctor` before plugin replacement. Local admin commands `doctor` and `check-idle` use the same `--state` and `--publication` arguments; neither calls native CAD tools. Old runtimes, selection/publication/plugin files and stopped journal backups remain under ignored `.local/framework/backups/`. Failure preserves these for deliberate inspection rather than automatically restoring/replaying work. Do not restore the entire Codex config over unrelated later changes. A host runtime change requires frontend reconnection; existing native sessions are not migrated. Starting a new Codex chat loads the updated plugin configuration.
+
+**Current baseline: framework 0.17.0 and MCP 2.3.0 throughout.** The framework uses `MCPServer`, typed pagination and snake_case Python fields with wire aliases. SDK 1.x compatibility is not required. Legacy publications retain the negotiated `2025-11-25` handshake. Explicit `auto` and `2026-07-28` candidates are assessed with disposable providers, including modern frontend ownership through independent stdio proxies. Framework support for SDK 2.2 does not establish this app's acceptance of a different version than its exact MCP 2.3 pin.
 
 ## Packages and SDK boundary
 
 | Package | Environment | Pinned dependency |
 | --- | --- | --- |
 | `codex-freecad` | CAD MCP backend | `mcp==2.3.0` |
-| `freecad-mcp-host` | App-owned host | `universal-codex-tools==0.16.0`, `mcp==2.3.0` |
+| `freecad-mcp-host` | App-owned host | `universal-codex-tools==0.17.0`, `mcp==2.3.0` |
 | Native FreeCAD engine | FreeCAD's bundled Python | Native FreeCAD modules; no host MCP/Pydantic imports |
 
 The host imports `universal_tools.framework` from a normal exact package dependency. The framework pin and `framework-host/requirements.lock` are updated together from the MCP 2.3 baseline. Use normal pip installation with a verified wheel or an explicit editable framework checkout for coordinated development. No framework source is copied into this project, no Git submodule is used, and no public package feed or native .NET binding is assumed. A separate app-owned environment keeps deployment/rollback independent even though both host and backend now use MCP 2.3.
@@ -35,7 +37,7 @@ Create a separate environment and install the host with a verified framework whe
 
 ```powershell
 py -3.13 -m venv .local\framework-runtime
-.\.local\framework-runtime\Scripts\python.exe -m pip install C:\Packages\VerifiedWheels\universal_codex_tools-0.16.0-py3-none-any.whl -r framework-host\requirements.lock -e framework-host
+.\.local\framework-runtime\Scripts\python.exe -m pip install C:\Packages\VerifiedWheels\universal_codex_tools-0.17.0-py3-none-any.whl -r framework-host\requirements.lock -e framework-host
 .\.local\framework-runtime\Scripts\python.exe -m pip check
 ```
 
@@ -73,6 +75,8 @@ The stdio proxy generates its own internal frontend affinity identity. Caller `c
 Other framework 0.15 features remain separate opt-ins: catalog watching, discovery caching, bounded HTTP SSE responses, approval continuations, tracing exporters and `SkillCatalog` resource snapshots. This publisher does not enable them. Invocation policy, current schema/effect checks, app revisions and uncertain-write barriers remain authoritative. SDK skill resources do not install native Codex skills. CAD approval-form behavior, these optional features and real host activation require their own acceptance.
 
 Framework 0.16's `TaskExtension`, `TaskClient`, `SkillRegistry`, live `SkillCatalog` publication and extension lifecycle hooks are available in the dependency but are not selected by this app. CAD operations remain synchronous atomic operations. Durable CAD jobs would need their own native lifetime, target/revision authorization, receipt binding and ambiguous-outcome reconciliation before adapting them to Tasks; the generic fourteen-tool surface does not relay downstream tasks automatically. Remote skills do not authorize execution or install native Codex skills. FreeCAD retains its packaged native entrypoint and workflow reader.
+
+Framework 0.17 also supplies authorized task notifications, explicit protocol resource/prompt relays, MCP Apps composition, OAuth/DPoP profiles and optional Redis-backed native SDK replicas. These remain unselected here. FreeCAD has no durable CAD job adapter, remote credential/principal adapter, resource federation policy or assessed host iframe. Its retained native workers, journals and reservations require one owning process. Redis is not installed. The app keeps its local authenticated host, explicit backend ownership, stable standalone plugin and exact MCP 2.3 pin; upstream SDK 2.2 interoperability does not change that pin or establish native acceptance.
 
 App-host backend publications explicitly cap argument structure at depth 64 and 100,000 nodes, alongside the existing 8 MiB byte budget. The framework checks structure before schema validation, write claims or provider dispatch. Rejected batches are returned whole: no splitting, truncation, automatic retry or route fallback is performed. These input limits do not constrain native document size or establish geometry validity.
 

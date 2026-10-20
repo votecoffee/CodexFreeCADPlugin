@@ -14,6 +14,7 @@ param(
     [string]$FreeCADCmd = '',
     [string[]]$Extensions = @(),
     [ValidateRange(1024, 65535)][int]$Port = 8891,
+    [switch]$Upgrade,
     [switch]$NoStartMenuShortcut
 )
 $ErrorActionPreference = 'Stop'
@@ -31,8 +32,20 @@ if ($LASTEXITCODE -ne 0 -or $dirty) { throw 'Commit or set aside tracked changes
 $localOutput = Join-Path $projectRoot '.local'
 $output = Join-Path $localOutput 'framework'
 $marker = Join-Path $localOutput 'framework-installation.json'
-if ((Test-Path -LiteralPath $marker) -or (Test-Path -LiteralPath (Join-Path $output 'state\settings.json'))) {
-    throw 'Framework state already exists. Use Setup.ps1 to reinstall the selected plugin; use the documented publication/release/refresh workflow for backend updates. Existing state was preserved.'
+if ($Upgrade) {
+    $previousJson = & $pythonPath -m codex_freecad.installed_host --output $localOutput --upgrade-plan
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot validate the existing selected installation.' }
+    $previous = $previousJson | ConvertFrom-Json
+    if ($null -eq $previous) { throw 'Upgrade requires an existing explicitly selected framework installation.' }
+    if ($Workspace -or $FreeCADCmd -or $Extensions.Count -gt 0 -or $PSBoundParameters.ContainsKey('Port')) {
+        throw 'Upgrade preserves workspace, native executable, extensions and port; change these through a separate publication.'
+    }
+    $Workspace = $previous.workspace
+    $Port = (Get-Content -LiteralPath (Join-Path $output 'state\settings.json') -Raw | ConvertFrom-Json).port
+    $FreeCADCmd = $previous.freecad_cmd
+    $Extensions = @($previous.extension_dirs)
+} elseif ((Test-Path -LiteralPath $marker) -or (Test-Path -LiteralPath (Join-Path $output 'state\settings.json'))) {
+    throw 'Framework state already exists. Use -Upgrade for a deliberate idle-host runtime upgrade, or Setup.ps1 to reinstall its selected plugin.'
 }
 $marketplaceJson = & codex plugin marketplace list --json
 if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect Codex marketplaces before installation.' }
@@ -53,8 +66,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Backend wheel build failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Host wheel build failed.' }
 $backendWheel = @(Get-ChildItem -LiteralPath $packages -Filter 'codex_freecad-*.whl')[0].FullName
 $hostWheel = @(Get-ChildItem -LiteralPath $packages -Filter 'freecad_mcp_host-*.whl')[0].FullName
-& $pythonPath (Join-Path $PSScriptRoot 'verify_framework_wheels.py') --backend-wheel $backendWheel --host-wheel $hostWheel --framework-wheel $FrameworkWheel --framework-sha256 $FrameworkSha256.ToLowerInvariant()
+$auditJson = & $pythonPath (Join-Path $PSScriptRoot 'verify_framework_wheels.py') --backend-wheel $backendWheel --host-wheel $hostWheel --framework-wheel $FrameworkWheel --framework-sha256 $FrameworkSha256.ToLowerInvariant()
 if ($LASTEXITCODE -ne 0) { throw 'Wheel audit failed before installation.' }
+$wheelAudit = $auditJson | ConvertFrom-Json
+Write-Output $auditJson
 # Keep the exact trusted artifact with this application's own installation.
 $frameworkCopy = Join-Path $packages ([IO.Path]::GetFileName($FrameworkWheel))
 Copy-Item -LiteralPath $FrameworkWheel -Destination $frameworkCopy
@@ -67,20 +82,46 @@ if ($LASTEXITCODE -ne 0) { throw 'Host runtime installation failed; existing Cod
 if ($LASTEXITCODE -ne 0) { throw 'Host dependency check failed.' }
 & $pythonPath (Join-Path $PSScriptRoot 'verify_framework_wheels.py') --backend-wheel $backendWheel --host-wheel $hostWheel --framework-wheel $frameworkCopy --framework-sha256 $FrameworkSha256.ToLowerInvariant() --site-packages (Join-Path $runtime 'Lib\site-packages')
 if ($LASTEXITCODE -ne 0) { throw 'Installed package readback differs from audited wheels.' }
+$hostArgs = @('-m', 'freecad_mcp_host', '--state', (Join-Path $output 'state'), '--publication', (Join-Path $output 'application.json'))
+$backup = Join-Path $output "backups\$generation"
+$null = [IO.Directory]::CreateDirectory($backup)
+if ($Upgrade) {
+    & $hostPython @hostArgs check-idle
+    if ($LASTEXITCODE -ne 0) { throw 'Upgrade refused active or unresolved work; running host was preserved.' }
+    Copy-Item -LiteralPath $marker -Destination (Join-Path $backup 'framework-installation.json')
+    Copy-Item -LiteralPath (Join-Path $output 'application.json') -Destination (Join-Path $backup 'application.json')
+    Copy-Item -LiteralPath (Join-Path $output 'plugin') -Destination (Join-Path $backup 'generated-plugin') -Recurse
+    # The operator must quiesce other frontends. Recheck immediately before shutdown.
+    & $hostPython @hostArgs check-idle
+    if ($LASTEXITCODE -ne 0) { throw 'Work began during preparation. Upgrade stopped before host shutdown.' }
+    & $previous.python @hostArgs validate
+    if ($LASTEXITCODE -ne 0) { throw 'Existing runtime/publication validation failed before shutdown.' }
+    & $previous.python @hostArgs stop
+    if ($LASTEXITCODE -ne 0) { throw 'Previous host did not stop cleanly. No runtime selection was changed.' }
+    & $hostPython @hostArgs wait-stopped
+    if ($LASTEXITCODE -ne 0) { throw 'Previous host still owns its state. No replacement was started.' }
+    & $hostPython @hostArgs check-idle
+    if ($LASTEXITCODE -ne 0) { throw 'Shutdown left a recovery barrier. No publication, journal or runtime selection was replaced.' }
+    Get-ChildItem -LiteralPath (Join-Path $output 'state') -Filter '*.sqlite3' | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $backup $_.Name)
+    }
+}
 $publishArgs = @('-m', 'codex_freecad.framework_setup', '--workspace', $Workspace, '--output', $output, '--host-python', $hostPython, '--backend-python', $hostPython, '--installed')
+if ($Upgrade) {
+    $publishArgs += @('--protocol-mode', $previous.protocol_mode)
+}
 if ($FreeCADCmd) { $publishArgs += @('--freecad-cmd', $FreeCADCmd) }
 foreach ($directory in $Extensions) { $publishArgs += @('--extensions', $directory) }
 & $hostPython @publishArgs
 if ($LASTEXITCODE -ne 0) { throw 'Framework publication failed.' }
-$hostArgs = @('-m', 'freecad_mcp_host', '--state', (Join-Path $output 'state'), '--publication', (Join-Path $output 'application.json'))
 & $hostPython @hostArgs init --port $Port
 if ($LASTEXITCODE -ne 0) { throw 'Framework state initialization failed.' }
 & $hostPython @hostArgs start
 if ($LASTEXITCODE -ne 0) { throw 'App host startup failed; existing Codex plugin was preserved.' }
+& $hostPython @hostArgs doctor
+if ($LASTEXITCODE -ne 0) { throw 'New host failed its doctor checks. Prior runtime, state and backups were retained.' }
 # Use the same FreeCAD marketplace identity, replacing the direct plugin rather than duplicating it.
 $codexHomePath = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
-$backup = Join-Path $output "backups\$generation"
-$null = [IO.Directory]::CreateDirectory($backup)
 [IO.File]::WriteAllText((Join-Path $backup 'marketplaces.json'), ($marketplaceJson -join "`n"), (New-Object Text.UTF8Encoding($false)))
 $configPath = Join-Path $codexHomePath 'config.toml'
 if (Test-Path -LiteralPath $configPath) { Copy-Item -LiteralPath $configPath -Destination (Join-Path $backup 'config.toml') }
@@ -93,13 +134,13 @@ if ($marketplace.Count -eq 1 -and $marketplace[0].root -ne $output) {
 & (Join-Path $PSScriptRoot 'Install-CodexPlugin.ps1') -Output $output
 $record = @{
     schema_version = 1; application_id = 'freecad-mcp-server'; source_commit = $sourceCommit
-    framework = '0.16.0'; mcp = '2.3.0'; framework_sha256 = $FrameworkSha256.ToLowerInvariant()
+    framework = $wheelAudit.framework; mcp = $wheelAudit.mcp_requirement; framework_sha256 = $FrameworkSha256.ToLowerInvariant()
     output = $output; python = $hostPython; workspace = $Workspace
     packages = $packages
 }
 $pending = $marker + '.pending'
 [IO.File]::WriteAllText($pending, ($record | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding($false)))
-Move-Item -LiteralPath $pending -Destination $marker
+Move-Item -LiteralPath $pending -Destination $marker -Force
 if (-not $NoStartMenuShortcut) {
     & (Join-Path $PSScriptRoot 'Create-StartMenuShortcut.ps1') -Workspace $Workspace
 }

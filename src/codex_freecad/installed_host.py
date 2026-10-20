@@ -4,6 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
+from .host_config import PROTOCOL_MODES, backend_services
+
 
 def selected_host(output):
     output = Path(output).expanduser().resolve()
@@ -51,12 +53,57 @@ def selected_host(output):
         ) from exc
 
 
+def upgrade_plan(output):
+    selected = selected_host(output)
+    if selected is None:
+        raise ValueError("Upgrade requires an existing selected framework installation")
+    try:
+        definition = json.loads((Path(selected["output"]) / "application.json").read_bytes())
+        backends = {row["service"]["id"]: row["service"] for row in definition["backends"]}
+        if len(definition["backends"]) != 2 or set(backends) != {
+            "freecad-live",
+            "freecad-headless",
+        }:
+            raise ValueError("Unexpected backend selection")
+        modes = {service.get("protocol_mode", "legacy") for service in backends.values()}
+        if len(modes) != 1:
+            raise ValueError("Mixed backend protocol choices")
+        mode = modes.pop()
+        if mode not in PROTOCOL_MODES:
+            raise ValueError("Unsupported backend protocol choice")
+        servers = {
+            name: {"command": row["transport"]["command"], "args": row["transport"]["args"]}
+            for name, row in backends.items()
+        }
+        expected = backend_services(
+            servers, Path(selected["workspace"]).resolve(), protocol_mode=mode
+        )
+        if backends != expected:
+            raise ValueError("Custom backend policy/configuration requires a separate publication")
+        args = backends["freecad-headless"]["transport"]["args"]
+        extensions = [args[i + 1] for i, arg in enumerate(args) if arg == "--extensions"]
+        executable = args[args.index("--freecad-cmd") + 1] if "--freecad-cmd" in args else None
+        return {
+            **selected,
+            "protocol_mode": mode,
+            "extension_dirs": extensions,
+            "freecad_cmd": executable,
+        }
+    except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
+        raise ValueError("Cannot preserve this publication automatically: " + str(exc)) from exc
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--upgrade-plan", action="store_true")
     args = parser.parse_args()
     try:
-        print(json.dumps(selected_host(args.output)))
+        print(
+            json.dumps(
+                upgrade_plan(args.output) if args.upgrade_plan else selected_host(args.output)
+            )
+        )
     except ValueError as exc:
         parser.exit(1, str(exc) + "\n")
 
