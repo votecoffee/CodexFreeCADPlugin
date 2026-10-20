@@ -65,7 +65,7 @@ def wheels(tmp_path):
     host = wheel(
         tmp_path / "host.whl",
         "freecad-mcp-host",
-        "0.1.0",
+        config["project"]["version"],
         dependencies,
         source_members(ROOT / "framework-host/src/freecad_mcp_host", "freecad_mcp_host"),
     )
@@ -103,3 +103,34 @@ def test_changed_wheel_member_is_rejected_by_record(wheels):
             bundle.writestr(name, content)
     with pytest.raises(ValueError, match="RECORD validation"):
         checks.inspect_wheel(backend)
+
+
+def test_installed_package_readback_rejects_changed_bytes_and_extra_files(wheels):
+    root, backend, host, framework_version = wheels
+    framework = wheel(
+        root / "framework.whl",
+        "universal-codex-tools",
+        framework_version,
+        ["mcp==2.3.0"],
+        {"universal_tools/__init__.py": b"# framework fixture\n"},
+    )
+    site = root / "site-packages"
+    for package in (backend, host, framework):
+        _, members = checks.inspect_wheel(package)
+        for name, content in members.items():
+            if ".dist-info/" not in name:
+                target = site / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(content)
+    digest = hashlib.sha256(framework.read_bytes()).hexdigest()
+    assert checks.verify(backend, host, framework, digest, site_packages=site)[
+        "installed_bytes_verified"
+    ]
+    extra = site / "freecad_mcp_host/extra.py"
+    extra.write_text("# unexpected installed source")
+    with pytest.raises(ValueError, match="Installed package differs"):
+        checks.verify(backend, host, framework, digest, site_packages=site)
+    extra.unlink()
+    (site / "codex_freecad/server.py").write_text("# changed installed source")
+    with pytest.raises(ValueError, match="Installed package differs"):
+        checks.verify(backend, host, framework, digest, site_packages=site)

@@ -12,6 +12,8 @@ The Python distribution and CLI retain the name `codex-freecad`, the import is `
 
 Development now includes an **experimental app-owned shared-framework host** pinned to `universal-codex-tools==0.16.0`, with MCP 2.3 throughout, a stable MCP front door and immutable backend publications. FreeCAD owns its standalone plugin and direct endpoints. The shared library does not require a central broker plugin or service registration. Legacy protocol remains the default; candidate publications can explicitly opt into modern discovery. Isolated protocol/package checks do not establish native workflow or Codex UI acceptance. See [framework development and acceptance gaps](docs/FRAMEWORK.md).
 
+To explicitly install that host, run `scripts\Install-Framework.ps1` after normal setup with a trusted framework wheel and its SHA-256. It audits application wheels, installs a separate runtime and updates FreeCAD's existing standalone plugin. The plugin starts only FreeCAD's app-owned host on connection. Later setup/launcher runs preserve this selection; they do not switch connections automatically. See [framework installation](docs/FRAMEWORK.md#install-the-app-owned-host).
+
 ## Table of Contents
 
 - [Background](#background)

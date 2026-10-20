@@ -35,7 +35,7 @@ def inspect_wheel(path):
         }
 
 
-def verify(backend, host, framework, expected_framework_sha256):
+def verify(backend, host, framework, expected_framework_sha256, *, site_packages=None):
     root = Path(__file__).resolve().parents[1]
     digest = hashlib.sha256(Path(framework).read_bytes()).hexdigest()
     if digest != expected_framework_sha256:
@@ -78,6 +78,19 @@ def verify(backend, host, framework, expected_framework_sha256):
             )
         if any(name.startswith("universal_tools/") for name in members):
             raise ValueError("Application wheel must not vendor framework implementation")
+    if site_packages is not None:
+        site_packages = Path(site_packages).resolve()
+        for (_, members), package in zip(
+            values, ("codex_freecad", "freecad_mcp_host", "universal_tools"), strict=True
+        ):
+            expected = {k: v for k, v in members.items() if k.startswith(package + "/")}
+            actual = {
+                p.relative_to(site_packages).as_posix(): p.read_bytes()
+                for p in (site_packages / package).rglob("*")
+                if p.is_file() and "__pycache__" not in p.parts and p.suffix not in {".pyc", ".pyo"}
+            }
+            if actual != expected:
+                raise ValueError("Installed package differs from the audited wheel: " + package)
     return {
         "framework": expected_version,
         "framework_sha256": digest,
@@ -85,6 +98,7 @@ def verify(backend, host, framework, expected_framework_sha256):
         "host": values[1][0]["Version"],
         "mcp_requirement": "2.3.0",
         "source_and_record_verified": True,
+        "installed_bytes_verified": site_packages is not None,
     }
 
 
@@ -94,11 +108,16 @@ def main():
     parser.add_argument("--host-wheel", type=Path, required=True)
     parser.add_argument("--framework-wheel", type=Path, required=True)
     parser.add_argument("--framework-sha256", required=True)
+    parser.add_argument("--site-packages", type=Path)
     args = parser.parse_args()
     print(
         json.dumps(
             verify(
-                args.backend_wheel, args.host_wheel, args.framework_wheel, args.framework_sha256
+                args.backend_wheel,
+                args.host_wheel,
+                args.framework_wheel,
+                args.framework_sha256,
+                site_packages=args.site_packages,
             ),
             indent=2,
         )

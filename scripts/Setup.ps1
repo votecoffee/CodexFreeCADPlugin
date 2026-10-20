@@ -20,6 +20,15 @@ if (-not (Test-Path -LiteralPath $pythonPath)) {
     & py -3.13 -m venv (Join-Path $projectRoot '.venv')
     if ($LASTEXITCODE -ne 0) { throw 'Python 3.13 could not create the virtual environment.' }
 }
+# Validate the explicit selection before regenerating any installation files.
+if (Test-Path -LiteralPath (Join-Path $projectRoot '.local\framework-installation.json')) {
+    $selectionJson = & $pythonPath -m codex_freecad.installed_host --output (Join-Path $projectRoot '.local')
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot read the selected FreeCAD installation.' }
+    $selection = $selectionJson | ConvertFrom-Json
+    if ($Workspace -ne $selection.workspace -or $Extensions.Count -gt 0 -or $FreeCADCmd) {
+        throw 'Selected framework publication owns its workspace and extensions. Update it explicitly before changing setup options.'
+    }
+}
 & $pythonPath -m pip install -e "${projectRoot}[dev]"
 if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
 $setupArgs = @('-m', 'codex_freecad.setup', '--workspace', $Workspace, '--output', (Join-Path $projectRoot '.local'))

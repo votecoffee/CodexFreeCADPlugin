@@ -3,10 +3,15 @@
 import argparse
 import asyncio
 import json
+import socket
+import subprocess
+import sys
+import time
 from importlib.metadata import version
 from pathlib import Path
 
-from universal_tools.cli import initialize, stop
+from universal_tools.cli import initialize, probe, process_options, stop
+from universal_tools.daemon import InstanceLock
 from universal_tools.framework import load_application, serve_application
 from universal_tools.models import BrokerError, atomic_json, load_settings
 from universal_tools.surface import RemoteBackend, create_surface
@@ -60,14 +65,73 @@ async def status(state):
         payload = result.model_dump(mode="json", by_alias=True, exclude_none=True)
         if payload.get("isError"):
             raise BrokerError("FreeCAD host is unavailable; start its app-owned serve command")
-        return payload.get("structuredContent") or json.loads(payload["content"][0]["text"])
+        value = payload.get("structuredContent") or json.loads(payload["content"][0]["text"])
+        if value.get("application_id") != APPLICATION_ID:
+            raise BrokerError("Configured endpoint is not the FreeCAD application host")
+        return value
+
+
+def start(state, path, *, timeout=35):
+    """Start only this app's server, preserving its ownership and recovery journals."""
+    require_state(state, path)
+    settings = load_settings(state)
+    deadline = time.monotonic() + timeout
+    lock = InstanceLock(state / "freecad-startup.lock")
+    while True:
+        try:
+            lock.__enter__()
+            break
+        except BrokerError:
+            if time.monotonic() >= deadline:
+                raise BrokerError("Another client is still starting the FreeCAD host") from None
+            time.sleep(0.1)
+    try:
+        if probe(settings):
+            return asyncio.run(status(state))
+        publication(path)
+        with socket.socket() as sock:
+            try:
+                sock.bind((settings.host, settings.port))
+            except OSError:
+                raise BrokerError(
+                    "FreeCAD host port is occupied; existing process preserved"
+                ) from None
+        with (state / "freecad-host.log").open("ab") as log:
+            child = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "freecad_mcp_host",
+                    "--state",
+                    str(state),
+                    "--publication",
+                    str(path),
+                    "serve",
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=log,
+                stderr=log,
+                **process_options(),
+            )
+        while time.monotonic() < deadline:
+            if probe(settings):
+                return asyncio.run(status(state))
+            if child.poll() is not None:
+                raise BrokerError("FreeCAD host startup failed; inspect freecad-host.log")
+            time.sleep(0.1)
+        raise BrokerError("FreeCAD host startup timed out; inspect freecad-host.log")
+    finally:
+        lock.__exit__()
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--publication", type=Path, required=True)
-    parser.add_argument("command", choices=["init", "serve", "proxy", "status", "stop", "validate"])
+    parser.add_argument(
+        "command",
+        choices=["init", "serve", "start", "connect", "proxy", "status", "stop", "validate"],
+    )
     parser.add_argument("--port", type=int, default=8891)
     args = parser.parse_args()
     state, path = args.state.expanduser().resolve(), args.publication.expanduser().resolve()
@@ -78,6 +142,19 @@ def main():
             print(
                 json.dumps(asyncio.run(status(state)) if args.command == "status" else stop(state))
             )
+            return
+        if args.command in {"start", "connect"}:
+            value = start(state, path)
+            if args.command == "start":
+                print(json.dumps(value))
+                return
+            # Startup/status output must never contaminate the MCP stdio stream.
+            definition = publication(path)
+            create_surface(
+                RemoteBackend(load_settings(state)),
+                name=definition.display_name,
+                instructions=definition.instructions,
+            ).run(transport="stdio")
             return
         definition = publication(path)
         if args.command == "validate":

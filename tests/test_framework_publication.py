@@ -69,6 +69,17 @@ def test_candidate_keeps_standalone_plugin_and_has_no_installation_side_effects(
         assert service["max_argument_nodes"] == 100_000
 
 
+def test_explicit_installed_publication_replaces_own_marketplace_and_starts_only_app_host(tmp_path):
+    result = candidate(tmp_path, installed=True)
+    output = Path(result["plugin"]).parent
+    marketplace = json.loads((output / ".agents/plugins/marketplace.json").read_bytes())
+    assert marketplace["name"] == "freecad-development"
+    config = json.loads((Path(result["plugin"]) / ".mcp.json").read_bytes())
+    assert set(config["mcpServers"]) == {"freecad"}
+    assert config["mcpServers"]["freecad"]["args"][-1] == "connect"
+    assert not Path(result["state"]).exists()  # Generation alone never activates a host.
+
+
 @pytest.mark.parametrize("protocol_mode", ["auto", "2026-07-28"])
 def test_protocol_opt_in_binds_publication_but_preserves_resource_identity(tmp_path, protocol_mode):
     first = candidate(tmp_path)

@@ -1,6 +1,23 @@
 # Experimental app-owned framework host
 
-The shared app framework is the primary development direction. FreeCAD owns its standalone Codex plugin, stable discovery/invocation interface, CAD backends and native validation. The framework is an implementation dependency of this app-owned host. It does not add a central plugin, broker registration or automatic route selection. Normal standalone setup does not activate this prototype.
+The shared app framework is the primary development direction. FreeCAD owns its standalone Codex plugin, stable discovery/invocation interface, CAD backends and native validation. The framework is an implementation dependency of this app-owned host. It does not add a central plugin, broker registration or automatic route selection. Initial normal setup uses direct endpoints; framework installation is an explicit choice.
+
+## Install the app-owned host
+
+From a clean committed checkout, run normal setup, then select the framework host with a verified local artifact:
+
+```powershell
+.\scripts\Setup.ps1
+.\scripts\Install-Framework.ps1 -FrameworkWheel C:\Packages\universal_codex_tools-0.16.0-py3-none-any.whl -FrameworkSha256 TRUSTED_SHA256
+```
+
+The installer checks the supplied hash before installing anything, builds both application wheels, verifies source bytes and wheel RECORDs, and installs normal dependencies into a separate runtime in ignored `.local/framework/runtimes/`. It reads installed package bytes back against all three audited wheels. It initializes dedicated app state, starts only the FreeCAD host, backs up the previous local Codex config and FreeCAD plugin cache, and replaces `freecad-modeling@freecad-development`. Other plugins are not selected or removed. No CAD document or GUI is opened. Native/GUI and Codex UI acceptance remain separate from installation and transport discovery.
+
+The installed plugin runs `freecad_mcp_host ... connect`. This command authenticates to the app-owned host, checks its application identity, and starts the same app in the background if needed. Concurrent connections share one host using an OS-owned startup lock. Startup preserves ownership/recovery journals; occupied ports and mismatched state fail without fallback or terminating other processes. Plain `proxy` still requires an already running server for manually prepared candidates. Local admin commands include `start`, `status` and `stop` with the same `--state` and `--publication` arguments.
+
+An explicit selection marker makes subsequent `Setup.ps1`, `Install-CodexPlugin.ps1` and the root launcher retain this standalone connection. The root launcher exposes the shared host's live/headless discovery rather than selecting a private backend with `-Mode`. A damaged marker or missing runtime fails without reverting to direct tools. The Start menu shortcut uses the same selection. Normal setup reinstalls the selected plugin; it does not replace its immutable backend publication. A different workspace, native executable or extension set requires an explicit publication update.
+
+The framework installer preserves existing initialized state and refuses to overwrite a prior host installation. For backend updates, use the publication, save/release and `refresh_services` workflow below. A host/framework upgrade requires a separately prepared runtime and deliberate stop/reconnect; preserve the same state and journals. Retain backups under ignored `.local/framework/backups/`; do not restore the entire Codex config over unrelated later changes. Starting a new Codex chat loads the installed plugin; existing chats are not migrated by the installer.
 
 **Current baseline: framework 0.16.0 and MCP 2.3.0 throughout.** The framework uses `MCPServer`, typed pagination and snake_case Python fields with wire aliases. SDK 1.x compatibility is not required. Legacy publications retain the negotiated `2025-11-25` handshake. Explicit `auto` and `2026-07-28` candidates are assessed with disposable providers, including modern frontend ownership through independent stdio proxies. Framework support for SDK 2.2 does not establish this app's acceptance of a different version than its exact MCP 2.3 pin.
 
@@ -66,7 +83,7 @@ The output prints explicit host commands. For the default candidate:
 .\.local\framework-runtime\Scripts\python.exe -m freecad_mcp_host --state .local\framework-candidate\state --publication .local\framework-candidate\application.json serve
 ```
 
-The standalone plugin's stdio proxy connects to this authenticated loopback application host. Start the app host explicitly; the proxy never auto-starts a universal daemon. The original direct standalone plugin works independently of this candidate. Installing or selecting the experimental plugin is a separately authorized pilot; generating files does not activate them. Its native skill changes require a plugin update and Codex reload.
+The candidate plugin's plain stdio proxy connects to this authenticated loopback application host. Start a candidate host explicitly; it never starts a universal daemon. The original direct standalone plugin works independently of this candidate. Generating files does not activate them. The explicit installer above selects an app-owned `connect` command and the existing standalone marketplace identity. Native skill changes require a plugin update and Codex reload.
 
 ## Stable interface and publications
 

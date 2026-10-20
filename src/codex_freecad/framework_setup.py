@@ -59,6 +59,7 @@ def publish(
     extension_dirs=(),
     source_package=None,
     protocol_mode="legacy",
+    installed=False,
 ):
     """Local admin publication only. This function never starts a host/native app or installs a plugin."""
     if protocol_mode not in PROTOCOL_MODES:
@@ -195,7 +196,7 @@ def publish(
             "mcpServers": {
                 "freecad": {
                     "command": str(host_python),
-                    "args": [*command, "proxy"],
+                    "args": [*command, "connect" if installed else "proxy"],
                 }
             }
         },
@@ -206,7 +207,7 @@ def publish(
     atomic_json(
         output / ".agents/plugins/marketplace.json",
         {
-            "name": "freecad-framework-experimental",
+            "name": "freecad-development" if installed else "freecad-framework-experimental",
             "interface": {"displayName": "FreeCAD framework candidate"},
             "plugins": [
                 {
@@ -247,6 +248,11 @@ def main():
     parser.add_argument("--freecad-cmd", type=Path)
     parser.add_argument("--extensions", type=Path, action="append", default=[])
     parser.add_argument("--protocol-mode", choices=PROTOCOL_MODES, default="legacy")
+    parser.add_argument(
+        "--installed",
+        action="store_true",
+        help="Prepare the explicitly selected standalone installation with app-host startup",
+    )
     args = parser.parse_args()
     try:
         print(
@@ -259,6 +265,7 @@ def main():
                     freecad_cmd=args.freecad_cmd,
                     extension_dirs=args.extensions,
                     protocol_mode=args.protocol_mode,
+                    installed=args.installed,
                 ),
                 indent=2,
             )

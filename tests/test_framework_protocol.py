@@ -12,6 +12,32 @@ import codex_freecad
 
 
 @pytest.mark.framework
+def test_app_host_startup_and_reconnect_without_native_dispatch(tmp_path):
+    configured = os.environ.get("FREECAD_FRAMEWORK_PYTHON")
+    if not configured:
+        pytest.skip("Set FREECAD_FRAMEWORK_PYTHON to an isolated app-host runtime")
+    root = Path(__file__).parents[1]
+    result = subprocess.run(
+        [
+            str(Path(configured).resolve()),
+            str(root / "tests/host_lifecycle_checks.py"),
+            "--root",
+            str(tmp_path),
+            "--host-source",
+            str(root / "framework-host/src"),
+            "--backend-source",
+            str(Path(codex_freecad.__file__).parent),
+            "--backend-python",
+            sys.executable,
+        ],
+        capture_output=True,
+        timeout=150,
+    )
+    assert result.returncode == 0, result.stderr.decode(errors="replace")[-10000:]
+    assert json.loads((tmp_path / "lifecycle.json").read_bytes())["native_dispatches"] == 0
+
+
+@pytest.mark.framework
 @pytest.mark.parametrize(
     "protocol_mode,frontend_mode",
     [("legacy", "legacy"), ("auto", "2026-07-28"), ("2026-07-28", "legacy")],

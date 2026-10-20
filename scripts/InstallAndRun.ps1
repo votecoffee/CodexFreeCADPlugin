@@ -83,6 +83,17 @@ The server speaks MCP over stdio and waits for a client. Start the live bridge m
         throw 'Virtual environment missing. Run Install-and-Run.cmd without -SkipInstall.'
     }
     if ($InstallOnly) { exit 0 }
+    $selectionJson = & $pythonPath -m codex_freecad.installed_host --output (Join-Path $projectRoot '.local')
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot read the selected FreeCAD installation.' }
+    $selection = $selectionJson | ConvertFrom-Json
+    if ($null -ne $selection) {
+        if ($Workspace -ne $selection.workspace -or $FreeCADCmd) {
+            throw 'The selected framework publication owns its workspace/executable. Update the publication explicitly.'
+        }
+        [Console]::Error.WriteLine('Starting the selected app-owned FreeCAD host connection over stdio.')
+        & $selection.python -m freecad_mcp_host --state (Join-Path $selection.output 'state') --publication (Join-Path $selection.output 'application.json') connect
+        exit $LASTEXITCODE
+    }
     $serverArgs = @('-m', 'codex_freecad.server', '--mode', $Mode, '--workspace', $Workspace)
     if ($Mode -eq 'headless' -and $FreeCADCmd) {
         $serverArgs += @('--freecad-cmd', $FreeCADCmd)
