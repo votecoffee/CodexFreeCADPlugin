@@ -195,6 +195,37 @@ async def exercise(args):
             assert (await call("apply_operations", arguments, request="edit")).is_error
             assert (await call("apply_operations", arguments, request="stale")).is_error
             assert len(audit.read_text().splitlines()) == effects_before
+            # Structural limits precede native/provider dispatch, schema validation and write claims.
+            deep = {}
+            for _ in range(70):
+                deep = {"nested": deep}
+            calls_audit = workspace / "calls.jsonl"
+            calls_before = calls_audit.read_bytes()
+            for budget, extension_arguments in (
+                ("depth", deep),
+                ("nodes", {"items": [0] * 100_001}),
+            ):
+                oversized = {
+                    "document": "Compare",
+                    "expected_revision": "1",
+                    "operations": [
+                        {
+                            "op": "extension",
+                            "capability": "test.budget",
+                            "arguments": extension_arguments,
+                        }
+                    ],
+                }
+                rejected = await call("apply_operations", oversized, request="budget-" + budget)
+                assert rejected.is_error and "budget" in json.dumps(complete(rejected))
+                unclaimed = await owner.call_tool(
+                    "get_request_status", {"request_id": "fixture-budget-" + budget}
+                )
+                assert unclaimed.is_error and "unknown request_id" in json.dumps(
+                    complete(unclaimed)
+                )
+                assert calls_audit.read_bytes() == calls_before
+                assert len(audit.read_text().splitlines()) == effects_before
             image = await call("capture_view", {"document": "Compare"}, request="image")
             assert complete(image) == complete(
                 await direct.call_tool("capture_view", {"document": "Compare"})
@@ -387,6 +418,7 @@ async def exercise(args):
             "native_dispatches": int(native_marker.exists()),
             "same_session_refresh": True,
             "durable_recovery_barrier": True,
+            "structural_budget_rejections": ["depth", "nodes"],
             "samples": measurements,
             "measurement_scope": "Five warm direct calls versus host describe_tool plus call_read_tool; same clients",
             "median_ms": {k: statistics.median(v) for k, v in measurements.items()},

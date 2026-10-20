@@ -46,6 +46,8 @@ def backend_services(servers, workspace, extension_dirs=(), *, protocol_mode="le
             "resource_id": name + "-" + fingerprint,
             "timeout_seconds": 150.0,
             "max_argument_bytes": 8 * 1024 * 1024,
+            "max_argument_depth": 64,
+            "max_argument_nodes": 100_000,
             "capability_catalog": {
                 "schema_version": 1,
                 "tool": "list_host_capabilities",

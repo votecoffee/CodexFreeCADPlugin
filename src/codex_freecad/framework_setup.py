@@ -223,7 +223,7 @@ def publish(
         "deployment": str(deployment),
         "state": str(state),
         "plugin": str(plugin),
-        "framework": "0.15.0",
+        "framework": "0.16.0",
         "protocol_mode": protocol_mode,
         "content_revision": content_revision,
         "host_commands": {

@@ -37,7 +37,7 @@ def test_framework_dependency_is_separate_from_sdk2_backend():
     backend = tomllib.loads((root / "pyproject.toml").read_text())
     host = tomllib.loads((root / "framework-host/pyproject.toml").read_text())
     assert backend["project"]["dependencies"] == ["mcp==2.3.0"]
-    assert host["project"]["dependencies"] == ["universal-codex-tools==0.15.0", "mcp==2.3.0"]
+    assert host["project"]["dependencies"] == ["universal-codex-tools==0.16.0", "mcp==2.3.0"]
     assert "mcp==2.3.0" in (root / "framework-host/requirements.lock").read_text()
 
 
@@ -65,6 +65,8 @@ def test_candidate_keeps_standalone_plugin_and_has_no_installation_side_effects(
         assert "--broker-catalog" not in service["transport"]["args"]
         assert "protocol_mode" not in service  # Preserve the legacy framework default.
         assert "watch_catalog" not in service and "discovery_cache_ttl_seconds" not in service
+        assert service["max_argument_depth"] == 64
+        assert service["max_argument_nodes"] == 100_000
 
 
 @pytest.mark.parametrize("protocol_mode", ["auto", "2026-07-28"])

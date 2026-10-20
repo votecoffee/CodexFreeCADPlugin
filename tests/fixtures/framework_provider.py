@@ -34,6 +34,10 @@ class FixtureClient:
     def call(self, method, **params):
         from codex_freecad.engine import CadError
 
+        self.workspace.mkdir(parents=True, exist_ok=True)
+        with (self.workspace / "calls.jsonl").open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps({"method": method, "pid": os.getpid()}) + "\n")
+
         if method == "status":
             return {"pid": os.getpid(), "generation": GENERATION, "fixture": True}
         if method == "list_documents":

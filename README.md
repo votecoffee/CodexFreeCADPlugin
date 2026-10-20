@@ -10,7 +10,7 @@ The current checkout also includes saved design requirements with opt-in edit en
 
 The Python distribution and CLI retain the name `codex-freecad`, the import is `codex_freecad`, and the optional Codex plugin ID is `freecad-modeling` for compatibility. Their display name is **FreeCADMCPServer**.
 
-Development now includes an **experimental app-owned shared-framework host** pinned to `universal-codex-tools==0.15.0`, with MCP 2.3 throughout, a stable MCP front door and immutable backend publications. FreeCAD owns its standalone plugin and direct endpoints. The shared library does not require a central broker plugin or service registration. Legacy protocol remains the default; candidate publications can explicitly opt into modern discovery. Isolated protocol/package checks do not establish native workflow or Codex UI acceptance. See [framework development and acceptance gaps](docs/FRAMEWORK.md).
+Development now includes an **experimental app-owned shared-framework host** pinned to `universal-codex-tools==0.16.0`, with MCP 2.3 throughout, a stable MCP front door and immutable backend publications. FreeCAD owns its standalone plugin and direct endpoints. The shared library does not require a central broker plugin or service registration. Legacy protocol remains the default; candidate publications can explicitly opt into modern discovery. Isolated protocol/package checks do not establish native workflow or Codex UI acceptance. See [framework development and acceptance gaps](docs/FRAMEWORK.md).
 
 ## Table of Contents
 
