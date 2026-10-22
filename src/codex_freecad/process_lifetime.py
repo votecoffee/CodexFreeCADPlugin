@@ -242,7 +242,11 @@ def _own_job(api, limit):
 
 
 def _watch_disconnect(api, stop, pipe, parent, *, grace=10, terminate=os._exit):
-    """Observe the wire without consuming bytes, even after SDK fd diversion."""
+    """Observe the wire without consuming bytes, even after SDK fd diversion.
+
+    A synchronous PeekNamedPipe can block behind the SDK's ReadFile. The
+    independent parent-only guard must never share this thread or its handles.
+    """
     try:
         while not stop.wait(0.25):
             parent_gone = api.WaitForSingleObject(parent, 0) in {0, 0xFFFFFFFF}
@@ -260,6 +264,63 @@ def _watch_disconnect(api, stop, pipe, parent, *, grace=10, terminate=os._exit):
         api.CloseHandle(parent)
 
 
+def _watch_parent(api, stop, parent, *, grace=10, terminate=os._exit):
+    """Pin parent death independently of synchronous pipe I/O or inherited writers."""
+    try:
+        while not stop.wait(0.25):
+            if api.WaitForSingleObject(parent, 0) in {0, 0xFFFFFFFF}:
+                if not stop.wait(grace):
+                    terminate(1)
+                return
+    finally:
+        api.CloseHandle(parent)
+
+
+def _start_guards(
+    api, stopped, pipe, parent, *, grace=10, terminate=os._exit, thread_factory=threading.Thread
+):
+    """Take ownership of these handles, including partial thread-start failures."""
+    from ctypes import wintypes as w
+
+    parent_copy = w.HANDLE()
+    watchers = []
+    started = []
+    try:
+        owner = api.GetCurrentProcess()
+        if not api.DuplicateHandle(owner, parent, owner, ctypes.byref(parent_copy), 0, False, 2):
+            raise OSError("Cannot independently observe the FreeCAD frontend parent")
+        options = {"grace": grace, "terminate": terminate}
+        watchers = [
+            thread_factory(
+                target=_watch_parent,
+                args=(api, stopped, parent_copy.value),
+                kwargs=options,
+                daemon=True,
+            ),
+            thread_factory(
+                target=_watch_disconnect,
+                args=(api, stopped, pipe, parent),
+                kwargs=options,
+                daemon=True,
+            ),
+        ]
+        for watcher in watchers:
+            watcher.start()
+            started.append(watcher)
+        return watchers
+    except BaseException:
+        stopped.set()
+        for watcher in started:
+            watcher.join(timeout=1)
+        if not started and parent_copy.value:
+            api.CloseHandle(parent_copy.value)
+        if len(started) < 2:
+            if pipe:
+                api.CloseHandle(pipe)
+            api.CloseHandle(parent)
+        raise
+
+
 @contextmanager
 def process_lifetime(*, stdio=False, limit=32):
     """Windows descendants die with this owner; stdio EOF/parent exit is bounded.
@@ -274,7 +335,7 @@ def process_lifetime(*, stdio=False, limit=32):
     api = _kernel()
     if not _jobs:
         _own_job(api, limit)
-    stopped, watcher = threading.Event(), None
+    stopped, watchers = threading.Event(), []
     if stdio:
         from ctypes import wintypes as w
 
@@ -288,15 +349,10 @@ def process_lifetime(*, stdio=False, limit=32):
             if not api.DuplicateHandle(owner, wire, owner, ctypes.byref(pipe), 0, False, 2):
                 api.CloseHandle(parent)
                 raise OSError("Cannot observe the FreeCAD frontend input pipe")
-        watcher = threading.Thread(
-            target=_watch_disconnect,
-            args=(api, stopped, pipe.value, parent),
-            daemon=True,
-        )
-        watcher.start()
+        watchers = _start_guards(api, stopped, pipe.value, parent)
     try:
         yield
     finally:
         stopped.set()
-        if watcher is not None:
+        for watcher in watchers:
             watcher.join(timeout=1)

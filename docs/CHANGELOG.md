@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Prepared **26.1022.192757** after an actual offline owner-loss test exceeded its exit bound with an external writer retaining stdin. A parent-only watcher now owns a separate duplicate process handle and thread, independent of the potentially blocked synchronous pipe probe. Partial guard-start failures close untransferred handles. Source tests and harmless old/new blocked-reader fixtures retain the behavioral comparison; changed MCP bytes require fresh review before runtime validation.
+
 - Prepared **26.1022.184257** after the earlier offline canary observed an OS console-host child. The revised connection selects the paired real windowless interpreter, checks PE subsystem/architecture, refuses console/redirector serving and binds inherited UTF-8 pipes even when Python stream objects are missing. Harmless fixtures check Unicode stdin/stdout/stderr, real EOF and child absence. Prior runtime bytes and failed-canary evidence remain retained; the revised package requires fresh coordinator review before MCP execution.
 
 - Prepared **26.1022.180335**, a separate direct standalone offline profile with bounded FCStd ZIP/XML metadata reads and bundled schema references. Its generated connection uses the real Python interpreter with isolated startup, immutable runtime hashes, early one-process containment/EOF-parent guards, four frontend slots, retained root creation identities and cached manager reporting. Native/bridge/shared-host/external-extension/SCM/controller routes are unavailable; normal installations and other profiles are preserved. Pure/stub and harmless Python fixture checks remain separate from held MCP/manager/Codex canary acceptance.

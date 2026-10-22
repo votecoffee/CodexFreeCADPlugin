@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from ctypes import wintypes as w
+from pathlib import Path
 
 import pytest
 
@@ -274,3 +275,176 @@ def test_parent_death_ends_root_without_recovery_of_other_apps(tmp_path):
         time.sleep(0.05)
     assert ProcessSlots.occupied(tmp_path / "frontends", limit=4) == 0
     assert (tmp_path / "identity.json").exists()
+
+
+@pytest.mark.parametrize("implementation", ["legacy", "repaired"])
+def test_blocking_reader_and_external_writer_cannot_hide_parent_death(tmp_path, implementation):
+    """Real synchronous ReadFile plus retained writer; never an MCP server."""
+    if implementation == "legacy":
+        legacy = os.environ.get("FREECAD_LEGACY_OFFLINE_RUNTIME")
+        if not legacy:
+            pytest.skip("Optional exact retained old wheel runtime for faithful comparison")
+        paths = [
+            legacy,
+            str(Path(legacy) / "win32"),
+            str(Path(legacy) / "win32/lib"),
+            str(Path(legacy) / "Pythonwin"),
+        ]
+    else:
+        paths = sys.path
+    root_code = r"""
+import hashlib,json,os,sys,threading,time
+from pathlib import Path
+sys.path[:0]=json.loads(sys.argv[1])
+import pywin32_bootstrap
+from universal_tools.resources import ResourceLedger,durable_json
+from codex_freecad.offline_session import root_lifetime
+from codex_freecad import process_lifetime
+state=Path(sys.argv[2])
+with root_lifetime(state):
+    driver=ResourceLedger(state/'registry').driver
+    durable_json(state/'identity.json',driver.capture(os.getpid()))
+    def reader():
+        durable_json(state/'read-started.json',{'operation':'os.read(0,1)','reader_is_daemon':True,'helper_source':process_lifetime.__file__,'source_sha256':hashlib.sha256(Path(process_lifetime.__file__).read_bytes()).hexdigest()})
+        value=os.read(0,1)
+        durable_json(state/'read-returned.json',{'bytes':len(value)})
+    threading.Thread(target=reader,daemon=True).start()
+    while True:time.sleep(0.05)
+"""
+    holder_code = r"""
+import ctypes,json,sys,time
+from ctypes import wintypes as w
+from pathlib import Path
+sys.path[:0]=json.loads(sys.argv[1])
+import pywin32_bootstrap
+from universal_tools.resources import ResourceLedger,durable_json
+state=Path(sys.argv[2]); wire=int(sys.argv[3])
+api=ctypes.WinDLL('kernel32'); api.GetFileType.argtypes=[w.HANDLE]; api.GetFileType.restype=w.DWORD
+api.CloseHandle.argtypes=[w.HANDLE]
+assert api.GetFileType(wire)==3
+durable_json(state/'holder.json',{'identity':ResourceLedger(state/'registry').driver.capture(__import__('os').getpid()),'inherited_write_handle':wire,'file_type':3})
+deadline=time.monotonic()+35
+try:
+    while not (state/'stop-holder').exists() and time.monotonic()<deadline:
+        assert api.GetFileType(wire)==3
+        time.sleep(0.05)
+finally:api.CloseHandle(wire)
+"""
+    parent_code = r"""
+import json,msvcrt,os,subprocess,sys,time
+from pathlib import Path
+sys.path[:0]=json.loads(sys.argv[1])
+import pywin32_bootstrap
+from universal_tools.resources import ResourceLedger,durable_json
+state=Path(sys.argv[2]); source=json.loads(sys.argv[3]); driver=ResourceLedger(state/'registry').driver
+root=subprocess.Popen([sys.executable,'-I','-S','-B','-c',source['root'],sys.argv[1],str(state)],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=subprocess.CREATE_NO_WINDOW)
+root_identity=driver.capture_handle(int(root._handle),root.pid)
+deadline=time.monotonic()+8
+while not (state/'read-started.json').exists():
+    assert root.poll() is None and time.monotonic()<deadline
+    time.sleep(0.02)
+wire=msvcrt.get_osfhandle(root.stdin.fileno()); startup=subprocess.STARTUPINFO(); startup.lpAttributeList={'handle_list':[wire]}
+os.set_handle_inheritable(wire,True)
+try:holder=subprocess.Popen([sys.executable,'-I','-S','-B','-c',source['holder'],sys.argv[1],str(state),str(wire)],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,startupinfo=startup,close_fds=True,creationflags=subprocess.CREATE_NO_WINDOW)
+finally:os.set_handle_inheritable(wire,False)
+holder_identity=driver.capture_handle(int(holder._handle),holder.pid)
+while not (state/'holder.json').exists():
+    assert holder.poll() is None and time.monotonic()<deadline
+    time.sleep(0.02)
+durable_json(state/'ready.json',{'parent':driver.capture(os.getpid()),'root':root_identity,'holder':holder_identity,'root_handle':int(root._handle),'holder_handle':int(holder._handle),'scope':'harmless source helper comparison; no MCP/native/manager service'})
+while not (state/'lose-parent').exists():
+    assert time.monotonic()<deadline
+    time.sleep(0.02)
+time.sleep(0.7)
+os._exit(41)
+"""
+    parent = subprocess.Popen(
+        [
+            str(windowless_interpreter()),
+            "-I",
+            "-S",
+            "-B",
+            "-c",
+            parent_code,
+            json.dumps(paths),
+            str(tmp_path),
+            json.dumps({"root": root_code, "holder": holder_code}),
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    driver = ResourceLedger(tmp_path / "readback-registry").driver
+    parent_identity = driver.capture_handle(int(parent._handle), parent.pid)
+    root_handle = holder_handle = None
+    proof = {"implementation": implementation, "parent": parent_identity, "cleanup_started": False}
+    try:
+        deadline = time.monotonic() + 10
+        while not (tmp_path / "ready.json").exists():
+            assert parent.poll() is None and time.monotonic() < deadline
+            time.sleep(0.02)
+        ready = json.loads((tmp_path / "ready.json").read_bytes())
+        assert ready["parent"] == parent_identity
+        root_handle, holder_handle = driver.open(ready["root"]), driver.open(ready["holder"])
+        proof.update(ready)
+        (tmp_path / "lose-parent").write_text("Exit only this exact private source-fixture parent")
+        assert parent.wait(timeout=5) == 41
+        began = time.monotonic()
+        while root_handle.alive() and time.monotonic() - began < 15:
+            assert holder_handle.alive() and not (tmp_path / "read-returned.json").exists()
+            proof.update(
+                elapsed=time.monotonic() - began,
+                root_alive=True,
+                holder_alive=True,
+                reader_still_blocked=True,
+            )
+            (tmp_path / "blocked-read-proof.json").write_text(json.dumps(proof, indent=2))
+            time.sleep(0.05)
+        survived = root_handle.alive()
+        proof.update(
+            survived_15_seconds=survived,
+            root_self_exited_before_any_fixture_cleanup=not survived,
+            elapsed=time.monotonic() - began,
+            holder_alive_at_root_observation=holder_handle.alive(),
+        )
+        assert holder_handle.alive()
+        if implementation == "repaired":
+            assert not survived, "Independent parent guard failed with a real blocked pipe reader"
+            assert 9 <= proof["elapsed"] <= 15
+        else:
+            proof["legacy_reproduced_failure"] = survived
+        if not survived:
+            code = w.DWORD()
+            driver.kernel.GetExitCodeProcess.argtypes = [w.HANDLE, ctypes.POINTER(w.DWORD)]
+            assert driver.kernel.GetExitCodeProcess(root_handle.handle, ctypes.byref(code))
+            proof["root_exit_code"] = code.value
+            assert code.value == 1
+        (tmp_path / "blocked-read-proof.json").write_text(json.dumps(proof, indent=2))
+    finally:
+        proof["cleanup_started"] = True
+        if root_handle is not None and root_handle.alive():
+            root_handle.terminate()  # Exact private legacy fixture handle, after the observation bound.
+            assert root_handle.wait(5000)
+            proof["terminated_private_root_after_observation"] = True
+        (tmp_path / "stop-holder").write_text(
+            "Close only the positively identified external writer"
+        )
+        if holder_handle is not None and holder_handle.alive():
+            if not holder_handle.wait(5000):
+                holder_handle.terminate()
+                assert holder_handle.wait(5000)
+        if parent.poll() is None:
+            assert driver.capture_handle(int(parent._handle), parent.pid) == parent_identity
+            parent.kill()
+            parent.wait(timeout=5)
+        proof["root_after_cleanup"] = (
+            driver.state(proof["root"]) if "root" in proof else "not-created"
+        )
+        proof["holder_after_cleanup"] = (
+            driver.state(proof["holder"]) if "holder" in proof else "not-created"
+        )
+        (tmp_path / "blocked-read-proof.json").write_text(json.dumps(proof, indent=2))
+        for handle in (root_handle, holder_handle):
+            if handle is not None:
+                handle.close()

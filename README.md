@@ -4,7 +4,7 @@ Local MCP tools for live and headless FreeCAD modeling.
 
 Create, inspect and edit native FreeCAD models from an MCP client such as Codex, or from Python. Use an open FreeCAD window for visible editing or a persistent FreeCADCmd worker for background modeling. Both backends share the same modeling engine, validation and file protections. No OpenAI API key is required for MCP or direct Python use.
 
-Application version **26.1022.184257** is a source/package checkpoint using a fixed New York timestamp. Backend, host and standalone plugin share this identity; framework and protocol dependency versions remain independent. Runtime deployment and lifecycle acceptance remain pending. See [versioning](docs/VERSIONING.md) and the [changelog](docs/CHANGELOG.md).
+Application version **26.1022.192757** is a source/package checkpoint using a fixed New York timestamp. Backend, host and standalone plugin share this identity; framework and protocol dependency versions remain independent. Runtime deployment and lifecycle acceptance remain pending. See [versioning](docs/VERSIONING.md) and the [changelog](docs/CHANGELOG.md).
 
 Features include reloadable hole and fastener tools, parametric modeling, movable assemblies, saved joint couplings and interference checks.
 
