@@ -39,7 +39,7 @@ Create a separate environment and install the host with a verified framework whe
 
 ```powershell
 py -3.13 -m venv .local\framework-runtime
-.\.local\framework-runtime\Scripts\python.exe -m pip install C:\Packages\VerifiedWheels\universal_codex_tools-0.18.0-py3-none-any.whl -r framework-host\requirements.lock -e framework-host
+.\.local\framework-runtime\Scripts\python.exe -m pip install C:\Packages\VerifiedWheels\universal_codex_tools-0.18.0-py3-none-any.whl -r framework-host\requirements.lock -e . -e framework-host
 .\.local\framework-runtime\Scripts\python.exe -m pip check
 ```
 
@@ -74,9 +74,9 @@ This copies the application package and optional installed extension roots into 
 
 The stdio proxy generates its own internal frontend affinity identity. Caller `clientInfo`, model arguments and a shared identifier cannot authenticate independent chats. This remains affinity inside the host's authenticated local-user deployment; separate-user authentication requires an assessed application adapter. No model-facing ownership or approval-mode parameters are added.
 
-Other framework 0.15 features remain separate opt-ins: catalog watching, discovery caching, bounded HTTP SSE responses, approval continuations, tracing exporters and `SkillCatalog` resource snapshots. This publisher does not enable them. Invocation policy, current schema/effect checks, app revisions and uncertain-write barriers remain authoritative. SDK skill resources do not install native Codex skills. CAD approval-form behavior, these optional features and real host activation require their own acceptance.
+Add `--modern-discovery` only with an explicit `auto` or `2026-07-28` publication to select retained catalog watching and bounded, private discovery caching. The TTL is two seconds; absent hints disable SDK caching. Catalog notifications invalidate discovery, and invocation still rechecks current policy/schema. The normal installer preserves the selected profile, including legacy with watching/caching disabled. See [runtime feature acceptance and limitations](RUNTIME_FEATURES.md).
 
-Framework 0.16's `TaskExtension`, `TaskClient`, `SkillRegistry`, live `SkillCatalog` publication and extension lifecycle hooks are available in the dependency but are not selected by this app. CAD operations remain synchronous atomic operations. Durable CAD jobs would need their own native lifetime, target/revision authorization, receipt binding and ambiguous-outcome reconciliation before adapting them to Tasks; the generic fourteen-tool surface does not relay downstream tasks automatically. Remote skills do not authorize execution or install native Codex skills. FreeCAD retains its packaged native entrypoint and workflow reader.
+The host now composes a real `SkillCatalog` from the same guide snapshot used by `get_workflow`. Skills-over-MCP is available on its authenticated HTTP endpoint; the standalone stdio proxy uses ordinary guide tools and does not advertise a Skills relay. Native Codex skill imports remain static submission snapshots. Guide-only publication is explicit and does not execute extension code or change native state. Tasks, CAD artifact resources, advanced approval adapters, OAuth, Redis and MCP Apps remain unselected for the concrete reasons in the feature report. CAD operations remain synchronous atomic operations.
 
 Framework 0.17 also supplies authorized task notifications, explicit protocol resource/prompt relays, MCP Apps composition, OAuth/DPoP profiles and optional Redis-backed native SDK replicas. These remain unselected here. FreeCAD has no durable CAD job adapter, remote credential/principal adapter, resource federation policy or assessed host iframe. Its retained native workers, journals and reservations require one owning process. Redis is not installed. The app keeps its local authenticated host, explicit backend ownership, stable standalone plugin and exact MCP 2.3 pin; upstream SDK 2.2 interoperability does not change that pin or establish native acceptance.
 
@@ -93,7 +93,7 @@ The candidate plugin's plain stdio proxy connects to this authenticated loopback
 
 ## Stable interface and publications
 
-The app-owned MCP front door has the framework's fourteen tools. Its exclusive `freecad-live` and `freecad-headless` backends retain documents and Undo across dependent calls. Search and describe tools, acquire the selected backend, read its `get_workflow` guidance, then invoke the existing domain handlers through that retained context. The direct interface retains 24 tools. Framework backends add the read-only workflow reader and `list_host_capabilities`, an installation-only catalog that never imports extension handlers or contacts FreeCAD. Native operations and responses are not reimplemented in the framework host.
+The app-owned MCP front door has the framework's fourteen tools. Its exclusive `freecad-live` and `freecad-headless` backends retain documents and Undo across dependent calls. Search and describe tools, acquire the selected backend, read its `get_workflow` guidance, then invoke the existing domain handlers through that retained context. The direct interface has 25 tools. Direct and hosted backends share the read-only workflow reader. Framework backends add `list_host_capabilities`, an installation-only catalog that never imports extension handlers or contacts FreeCAD. Native operations and responses are not reimplemented in the framework host.
 
 Deployment revisions bind the complete captured application/extension file closure and backend configuration. The framework pins the launcher artifact; the launcher independently verifies the closure manifest, every captured file and the file set before importing the backend. Changed source creates a new deployment; existing deployments are never overwritten. Native FreeCAD, installed MCP dependencies and external native add-ons remain separate dependency boundaries, not covered by that code/resource hash.
 

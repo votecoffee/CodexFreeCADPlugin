@@ -123,6 +123,7 @@ def activate(
     protocol_mode="legacy",
     management_registry=None,
     source_package=None,
+    modern_discovery=False,
 ):
     """Local idle-host maintenance. Fence proxy auto-start across the complete handoff."""
     from codex_freecad.framework_setup import publish
@@ -179,6 +180,7 @@ def activate(
             protocol_mode=protocol_mode,
             installed=True,
             source_package=source_package,
+            modern_discovery=modern_discovery,
         )
         initialize_app(state, path, port)
         child = spawn_serve(state, path, management_registry)
@@ -241,6 +243,8 @@ def start(state, path, *, timeout=35, management_registry=None):
 
 
 def doctor(state, path):
+    from codex_freecad.runtime_features import feature_report
+
     desired = publication(path)
     require_state(state, path)
     value = asyncio.run(status(state))
@@ -273,6 +277,11 @@ def doctor(state, path):
         "framework": version("universal-codex-tools"),
         "mcp": version("mcp"),
         "app_host": version("freecad-mcp-host"),
+        "feature_report": feature_report(
+            protocol_mode=desired.backends[0].service.protocol_mode,
+            watch_catalog=desired.backends[0].service.watch_catalog,
+            discovery_cache_ttl_seconds=desired.backends[0].service.discovery_cache_ttl_seconds,
+        ),
         "journals": journal_status(state),
         "services": [
             {"id": row["service_id"], "tools": row["tool_count"]} for row in value["services"]
@@ -302,6 +311,7 @@ def main():
         ],
     )
     parser.add_argument("--port", type=int, default=8891)
+    parser.add_argument("--modern-discovery", action="store_true")
     parser.add_argument("--previous-python", type=Path)
     parser.add_argument("--workspace", type=Path)
     parser.add_argument("--backup", type=Path)
@@ -333,6 +343,7 @@ def main():
                         extension_dirs=args.extensions,
                         protocol_mode=args.protocol_mode,
                         management_registry=args.management_registry,
+                        modern_discovery=args.modern_discovery,
                     )
                 )
             )

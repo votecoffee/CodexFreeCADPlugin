@@ -12,6 +12,7 @@ from universal_tools.management import ManagedService
 from universal_tools.models import load_settings
 
 from . import APPLICATION_ID
+from .guidance import GuidanceCatalog
 from .management import PLUGIN_ID, ReportingBackend, StatusCache
 
 
@@ -22,7 +23,8 @@ def serve(state, publication, *, registry=None):
     )
     host.tray_status = cache = StatusCache(state, publication)
     host.backend = ReportingBackend(host)
-    server = host.create_server(port=settings.port)
+    guidance = GuidanceCatalog(publication)
+    server = host.create_server(port=settings.port, skills=guidance.catalog)
     base = server.streamable_http_app(**server.http_options)
 
     async def refresh():
@@ -44,6 +46,10 @@ def serve(state, publication, *, registry=None):
     async def watch():
         while True:
             await asyncio.sleep(2)
+            try:
+                await guidance.refresh(host)
+            except (ValueError, OSError):
+                cache.failed()
             await refresh()
 
     @asynccontextmanager

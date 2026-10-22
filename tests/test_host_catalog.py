@@ -75,15 +75,13 @@ def test_app_host_adds_readonly_metadata_and_keeps_direct_schemas():
     async def run():
         async with Client(create_server(NoNativeCalls())) as direct:
             baseline = (await direct.list_tools()).tools
-            assert len(baseline) == 24
+            assert len(baseline) == 25
         async with Client(create_server(NoNativeCalls(), framework_backend=True)) as host:
             tools = (await host.list_tools()).tools
             assert len(tools) == 26
-            assert [
-                t.model_dump()
-                for t in tools
-                if t.name not in {"list_host_capabilities", "get_workflow"}
-            ] == [t.model_dump() for t in baseline]
+            assert [t.model_dump() for t in tools if t.name not in {"list_host_capabilities"}] == [
+                t.model_dump() for t in baseline
+            ]
             provider = next(t for t in tools if t.name == "list_host_capabilities")
             assert provider.annotations.read_only_hint is True
             catalog = await host.call_tool("list_host_capabilities", {})

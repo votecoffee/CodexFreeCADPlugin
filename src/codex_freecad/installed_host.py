@@ -75,8 +75,15 @@ def upgrade_plan(output):
             name: {"command": row["transport"]["command"], "args": row["transport"]["args"]}
             for name, row in backends.items()
         }
+        modern_discovery = all(
+            row.get("watch_catalog") is True and row.get("discovery_cache_ttl_seconds") == 2
+            for row in backends.values()
+        )
         expected = backend_services(
-            servers, Path(selected["workspace"]).resolve(), protocol_mode=mode
+            servers,
+            Path(selected["workspace"]).resolve(),
+            protocol_mode=mode,
+            modern_discovery=modern_discovery,
         )
         if backends != expected:
             raise ValueError("Custom backend policy/configuration requires a separate publication")
@@ -88,6 +95,7 @@ def upgrade_plan(output):
             "protocol_mode": mode,
             "extension_dirs": extensions,
             "freecad_cmd": executable,
+            "modern_discovery": modern_discovery,
         }
     except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
         raise ValueError("Cannot preserve this publication automatically: " + str(exc)) from exc

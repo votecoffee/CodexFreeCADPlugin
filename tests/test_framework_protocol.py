@@ -12,6 +12,26 @@ import codex_freecad
 
 
 @pytest.mark.framework
+def test_guide_publication_survives_restart_and_cancelled_failed_candidate(tmp_path):
+    configured = os.environ.get("FREECAD_FRAMEWORK_PYTHON")
+    if not configured:
+        pytest.skip("Set FREECAD_FRAMEWORK_PYTHON to an isolated app-host runtime")
+    result = subprocess.run(
+        [
+            configured,
+            "-c",
+            "from pathlib import Path; import sys; "
+            "from guidance_checks import transaction_checks; transaction_checks(Path(sys.argv[1]))",
+            str(tmp_path),
+        ],
+        cwd=Path(__file__).parent,
+        capture_output=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr.decode(errors="replace")[-6000:]
+
+
+@pytest.mark.framework
 def test_management_reporting_and_synthetic_restart_contract(tmp_path):
     configured = os.environ.get("FREECAD_FRAMEWORK_PYTHON")
     if not configured:

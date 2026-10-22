@@ -21,7 +21,7 @@ codex-freecad-setup = "codex_freecad.setup:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-codex_freecad = ["extensions/*/*.json", "standalone_skill.md"]
+codex_freecad = ["extensions/*/*.json", "standalone_skill.md", "guidance/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

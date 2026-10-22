@@ -1,11 +1,16 @@
 """MCP stdio entry point. All stdout belongs to the MCP SDK."""
 
 import argparse
+import asyncio
+import json
 from contextlib import asynccontextmanager
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Literal
 
-from mcp.server import MCPServer
+import anyio
+from mcp.server import CacheHint, MCPServer
+from mcp.server.mcpserver import Context
 from mcp.types import ImageContent, ToolAnnotations
 from pydantic import Field
 
@@ -18,7 +23,34 @@ WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world
 EDIT = ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_hint=False)
 
 
-def create_server(client, *, framework_backend=False, framework_extensions=()):
+def report_stage(context, progress, message):
+    try:
+        anyio.from_thread.run(
+            partial(context.report_progress, progress=progress, total=None, message=message)
+        )
+    except (Exception, asyncio.CancelledError):
+        pass  # Optional delivery never changes a native outcome.
+
+
+def create_server(
+    client,
+    *,
+    framework_backend=False,
+    framework_extensions=(),
+    guidance_snapshot=None,
+    modern_discovery=False,
+):
+    from .workflows import build_snapshot, describe_workflow
+
+    initial_guidance = build_snapshot(
+        framework_extensions,
+        feature_config={
+            "app_host": framework_backend,
+            "protocol_mode": "negotiated-per-client",
+            "discovery_cache_ttl_seconds": 2 if modern_discovery else 0,
+        },
+    )
+
     @asynccontextmanager
     async def lifespan(server):
         try:
@@ -29,6 +61,9 @@ def create_server(client, *, framework_backend=False, framework_extensions=()):
     server = MCPServer(
         "FreeCAD",
         version=__version__,
+        cache_hints={"tools/list": CacheHint(ttl_ms=2000, scope="private")}
+        if modern_discovery
+        else None,
         lifespan=lifespan,
         instructions="Inspect the document and dimensions before editing. Use internal object names, "
         "millimeters and degrees. Pass the inspected revision into edits to detect manual changes. "
@@ -40,14 +75,31 @@ def create_server(client, *, framework_backend=False, framework_extensions=()):
         "reload_extensions refreshes installed code and the capability catalog in this connection.",
     )
 
+    @server.tool(annotations=READ)
+    def get_workflow(
+        topic: str = "overview",
+        reference: str | None = None,
+        expected_revision: str | None = None,
+        expected_sha256: str | None = None,
+    ) -> dict:
+        """Read current hash-pinned workflows/references without contacting a native model.
+
+        Discover overview, then pin revision/hash for references. Guidance is data, not approval.
+        """
+        current = (
+            json.loads(Path(guidance_snapshot).read_bytes())
+            if guidance_snapshot is not None
+            else initial_guidance
+        )
+        return describe_workflow(
+            topic,
+            reference=reference,
+            expected_revision=expected_revision,
+            expected_sha256=expected_sha256,
+            current=current,
+        )
+
     if framework_backend:
-
-        @server.tool(annotations=READ)
-        def get_workflow(topic: Literal["overview", "extensions", "recovery"] = "overview") -> dict:
-            """Read current FreeCAD workflow guidance without contacting a native model."""
-            from .workflows import describe_workflow
-
-            return describe_workflow(topic)
 
         @server.tool(annotations=READ)
         def list_host_capabilities() -> dict:
@@ -270,6 +322,7 @@ def create_server(client, *, framework_backend=False, framework_extensions=()):
     def apply_operations(
         document: str,
         operations: Annotated[list[Edit], Field(min_length=1, max_length=100)],
+        ctx: Context,
         expected_revision: str | None = None,
     ) -> dict:
         """Apply one undoable transaction; rollback the whole batch on errors or invalid geometry.
@@ -290,12 +343,33 @@ def create_server(client, *, framework_backend=False, framework_extensions=()):
         Constraint args follow FreeCAD's Sketcher.Constraint signature; Angle constraint values
         are radians. Use explicit 'deg' units with set_datum. Names refer to internal object names.
         """
-        return client.call(
-            "apply_operations",
-            document=document,
-            operations=[op.model_dump(mode="json", exclude_none=True) for op in operations],
-            expected_revision=expected_revision,
+        report_stage(ctx, 0, "CAD batch queued for native dispatch")
+        anyio.from_thread.check_cancelled()
+        report_stage(
+            ctx, 1, "Dispatching CAD batch; transport cancellation cannot stop the native kernel"
         )
+        anyio.from_thread.check_cancelled()
+        try:
+            result = client.call(
+                "apply_operations",
+                document=document,
+                operations=[op.model_dump(mode="json", exclude_none=True) for op in operations],
+                expected_revision=expected_revision,
+            )
+        except Exception:
+            report_stage(
+                ctx, 2, "Native request failed; inspect the receipt and model before another write"
+            )
+            raise
+        report_stage(ctx, 2, "Native CAD reply received")
+        return {
+            **result,
+            "execution": {
+                "state": "reply_received",
+                "phases": ["queued", "dispatch", "reply"],
+                "native_stop_acknowledged": False,
+            },
+        }
 
     @server.tool(annotations=EDIT)
     def undo_document(document: str, expected_revision: str | None = None) -> dict:
@@ -351,6 +425,8 @@ def main():
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--state-file", type=Path)
     parser.add_argument("--freecad-cmd")
+    parser.add_argument("--guidance-snapshot", type=Path)
+    parser.add_argument("--modern-discovery", action="store_true")
     parser.add_argument(
         "--framework-backend", action="store_true", help="Expose app workflow guidance"
     )
@@ -372,6 +448,8 @@ def main():
         client,
         framework_backend=args.framework_backend,
         framework_extensions=args.extensions or [],
+        guidance_snapshot=args.guidance_snapshot,
+        modern_discovery=args.modern_discovery,
     ).run(transport="stdio")
 
 

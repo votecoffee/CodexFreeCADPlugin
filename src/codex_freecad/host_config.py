@@ -19,7 +19,11 @@ WRITE_TOOLS = [
 ]
 
 
-def backend_services(servers, workspace, extension_dirs=(), *, protocol_mode="legacy"):
+def backend_services(
+    servers, workspace, extension_dirs=(), *, protocol_mode="legacy", modern_discovery=False
+):
+    if modern_discovery and protocol_mode == "legacy":
+        raise ValueError("Modern discovery requires explicit auto/modern protocol")
     fingerprint = hashlib.sha256(os.path.normcase(str(workspace)).encode()).hexdigest()[:16]
     result = {}
     for name, server in servers.items():
@@ -56,4 +60,6 @@ def backend_services(servers, workspace, extension_dirs=(), *, protocol_mode="le
         }
         if protocol_mode != "legacy":
             result[name]["protocol_mode"] = protocol_mode
+        if modern_discovery:
+            result[name].update(watch_catalog=True, discovery_cache_ttl_seconds=2)
     return result

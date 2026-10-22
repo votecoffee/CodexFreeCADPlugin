@@ -71,15 +71,33 @@ def test_broken_selection_never_falls_back_to_direct_connection(tmp_path, value)
         selected_host(tmp_path)
 
 
-@pytest.mark.parametrize("mode", ["legacy", "auto", "2026-07-28"])
-def test_upgrade_preserves_protocol_workspace_and_refuses_changed_policy(tmp_path, mode):
+@pytest.mark.parametrize(
+    "mode,modern_discovery",
+    [
+        ("legacy", False),
+        ("auto", False),
+        ("2026-07-28", False),
+        ("auto", True),
+        ("2026-07-28", True),
+    ],
+)
+def test_upgrade_preserves_protocol_workspace_and_refuses_changed_policy(
+    tmp_path, mode, modern_discovery
+):
     output = tmp_path / "local"
     root = output / "framework"
     python = root / "runtimes/current/python.exe"
     python.parent.mkdir(parents=True)
     python.write_bytes(b"fixture")
     workspace = tmp_path / "CAD"
-    publish(workspace, root, python, installed=True, protocol_mode=mode)
+    publish(
+        workspace,
+        root,
+        python,
+        installed=True,
+        protocol_mode=mode,
+        modern_discovery=modern_discovery,
+    )
     marker = output / "framework-installation.json"
     marker.write_text(
         json.dumps(
@@ -94,6 +112,7 @@ def test_upgrade_preserves_protocol_workspace_and_refuses_changed_policy(tmp_pat
     )
     result = upgrade_plan(output)
     assert result["protocol_mode"] == mode and result["workspace"] == str(workspace)
+    assert result["modern_discovery"] is modern_discovery
     assert result["extension_dirs"] == [] and result["freecad_cmd"] is None
     publication = root / "application.json"
     definition = json.loads(publication.read_bytes())

@@ -110,6 +110,7 @@ if ($FreeCADCmd) { $publishArgs += @('--freecad-cmd', $FreeCADCmd) }
 foreach ($directory in $Extensions) { $publishArgs += @('--extensions', $directory) }
 if ($Upgrade) {
     $activateArgs = @('activate', '--previous-python', $previous.python, '--workspace', $Workspace, '--backup', $backup, '--port', $Port, '--protocol-mode', $previous.protocol_mode)
+    if ($previous.modern_discovery) { $activateArgs += '--modern-discovery' }
     if ($FreeCADCmd) { $activateArgs += @('--freecad-cmd', $FreeCADCmd) }
     foreach ($directory in $Extensions) { $activateArgs += @('--extensions', $directory) }
     & $hostPython @hostArgs @activateArgs

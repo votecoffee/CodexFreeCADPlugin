@@ -71,6 +71,22 @@ async def exercise(args):
             "HeadlessClient._start = LiveClient.call = _forbidden_native\n"
             "from .fixture_provider import FixtureClient\nHeadlessClient = LiveClient = FixtureClient\n"
         )
+    modern_discovery = args.protocol_mode != "legacy"
+    if modern_discovery:
+        path = source / "server.py"
+        path.write_text(
+            path.read_text().replace(
+                "    return server\n",
+                "    @server.tool(annotations=READ)\n"
+                "    async def fixture_catalog_publish(ctx: Context) -> dict:\n"
+                "        @server.tool(annotations=READ)\n"
+                "        def fixture_catalog_added() -> dict:\n"
+                "            return {'fixture': True}\n"
+                "        await ctx.notify_tools_changed()\n"
+                "        return {'published': True}\n\n    return server\n",
+            ),
+            encoding="utf-8",
+        )
     result = publish(
         workspace,
         output,
@@ -78,6 +94,7 @@ async def exercise(args):
         backend_python=args.backend_python,
         source_package=source,
         protocol_mode=args.protocol_mode,
+        modern_discovery=modern_discovery,
     )
     publication = Path(result["publication"])
     initial = json.loads(publication.read_bytes())
@@ -192,6 +209,15 @@ async def exercise(args):
             assert complete(edited) == complete(
                 await direct.call_tool("apply_operations", arguments)
             )
+            # Guide publication changes neither model state, worker lifetime nor Undo history.
+            from guidance_checks import exercise_guidance
+
+            before_guides = data(await call("inspect_document", {"document": "Compare"}))
+            await exercise_guidance(
+                args.root, publication, settings, call, data, modern_discovery=modern_discovery
+            )
+            assert data(await call("freecad_status"))["pid"] == info["pid"]
+            assert data(await call("inspect_document", {"document": "Compare"})) == before_guides
             audit = workspace / "effects.jsonl"
             effects_before = len(audit.read_text().splitlines())
             assert (await call("apply_operations", arguments, request="edit")).is_error
@@ -259,6 +285,7 @@ async def exercise(args):
                 backend_python=args.backend_python,
                 source_package=source,
                 protocol_mode=args.protocol_mode,
+                modern_discovery=modern_discovery,
             )
             refresh = data(await owner.call_tool("refresh_services", {}))
             assert any(row["status"] == "deferred" for row in refresh["backend_publications"])
@@ -324,6 +351,7 @@ async def exercise(args):
                 backend_python=args.backend_python,
                 source_package=source,
                 protocol_mode=args.protocol_mode,
+                modern_discovery=modern_discovery,
             )
             selected = json.loads(publication.read_bytes())
             live_backend = next(
@@ -421,6 +449,7 @@ async def exercise(args):
             "same_session_refresh": True,
             "durable_recovery_barrier": True,
             "structural_budget_rejections": ["depth", "nodes"],
+            "retained_catalog_notification": modern_discovery,
             "samples": measurements,
             "measurement_scope": "Five warm direct calls versus host describe_tool plus call_read_tool; same clients",
             "median_ms": {k: statistics.median(v) for k, v in measurements.items()},

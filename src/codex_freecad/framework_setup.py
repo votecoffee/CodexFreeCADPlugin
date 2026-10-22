@@ -60,10 +60,13 @@ def publish(
     source_package=None,
     protocol_mode="legacy",
     installed=False,
+    modern_discovery=False,
 ):
     """Local admin publication only. This function never starts a host/native app or installs a plugin."""
     if protocol_mode not in PROTOCOL_MODES:
         raise ValueError("Unsupported backend protocol mode")
+    if modern_discovery and protocol_mode == "legacy":
+        raise ValueError("Modern discovery requires explicit auto/modern protocol")
     workspace, output = Path(workspace).expanduser().resolve(), Path(output).expanduser().resolve()
     host_python = Path(host_python).expanduser().resolve()
     backend_python = Path(backend_python or sys.executable).expanduser().resolve()
@@ -135,6 +138,8 @@ def publish(
             "--workspace",
             str(workspace),
             "--framework-backend",
+            "--guidance-snapshot",
+            str(output / "guidance/active.json"),
         ]
         if mode == "headless" and freecad_cmd:
             path = Path(freecad_cmd).expanduser().resolve()
@@ -148,6 +153,12 @@ def publish(
             for directory in extensions:
                 servers[name]["args"] += ["--extensions", directory]
     services = backend_services(servers, workspace, extensions, protocol_mode=protocol_mode)
+    if modern_discovery:
+        for server in servers.values():
+            server["args"].append("--modern-discovery")
+        services = backend_services(
+            servers, workspace, extensions, protocol_mode=protocol_mode, modern_discovery=True
+        )
     backends = []
     for service in services.values():
         revision = hashlib.sha256(
@@ -248,6 +259,7 @@ def main():
     parser.add_argument("--freecad-cmd", type=Path)
     parser.add_argument("--extensions", type=Path, action="append", default=[])
     parser.add_argument("--protocol-mode", choices=PROTOCOL_MODES, default="legacy")
+    parser.add_argument("--modern-discovery", action="store_true")
     parser.add_argument(
         "--installed",
         action="store_true",
@@ -266,6 +278,7 @@ def main():
                     extension_dirs=args.extensions,
                     protocol_mode=args.protocol_mode,
                     installed=args.installed,
+                    modern_discovery=args.modern_discovery,
                 ),
                 indent=2,
             )

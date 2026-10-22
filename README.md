@@ -12,6 +12,8 @@ The Python distribution and CLI retain the name `codex-freecad`, the import is `
 
 Development now includes an **experimental app-owned shared-framework host** pinned to `universal-codex-tools==0.18.0`, with MCP 2.3 throughout, a stable MCP front door and immutable backend publications. FreeCAD owns its standalone plugin and direct endpoints. The shared library does not require a central broker plugin or service registration. Legacy protocol remains the default; candidate publications can explicitly opt into modern discovery. Isolated protocol/package checks do not establish native workflow or Codex UI acceptance. See [framework development and acceptance gaps](docs/FRAMEWORK.md).
 
+The app-owned host serves hash-pinned workflow guides through ordinary tools and Skills-over-MCP on its authenticated HTTP endpoint. Guide-only publications can update connected clients without replacing CAD workers. CAD batches report dispatch/reply progress; cancelling a request cannot establish that FreeCAD stopped. See [runtime guides and feature boundaries](docs/RUNTIME_FEATURES.md).
+
 To explicitly install that host, run `scripts\Install-Framework.ps1` after normal setup with a trusted framework wheel and its SHA-256. It audits application wheels, installs a separate runtime and updates FreeCAD's existing standalone plugin. The plugin starts only FreeCAD's app-owned host on connection. Later setup/launcher runs preserve this selection; they do not switch connections automatically. See [framework installation](docs/FRAMEWORK.md#install-the-app-owned-host).
 
 The app-owned host reports cached status and component versions to the optional Windows MCP Service Manager. Tray restart remains disabled until an app-owned supervisor can protect every chat's native state. FreeCAD setup does not install another manager. See [tray service reporting](docs/SERVICE_MANAGEMENT.md).
@@ -30,7 +32,7 @@ The app-owned host reports cached status and component versions to the optional 
 
 ## Background
 
-FreeCADMCPServer exposes 24 fixed MCP tools and 44 structured operation kinds, with additional CAD capabilities discovered through an extension catalog. Native features, dimensions and dependencies remain editable after saving and reopening FCStd files.
+FreeCADMCPServer exposes 25 fixed MCP tools and 44 structured operation kinds, with additional CAD capabilities discovered through an extension catalog. Native features, dimensions and dependencies remain editable after saving and reopening FCStd files.
 
 Supported workflows include sketches, pads and pockets, revolutions, patterns, sweeps and helices, lofts, mirrors, expressions, STEP/BREP/STL import, edge finishing, holes, simplified fasteners and assemblies with fixed, revolute and slider joints. The live backend also provides selection, viewport images and a native **Codex CAD** dock with parameter controls, playback and viewport dragging.
 

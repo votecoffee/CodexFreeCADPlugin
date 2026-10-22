@@ -110,6 +110,13 @@ def test_invalid_protocol_choice_preserves_publication_and_creates_no_new_files(
     assert not empty.exists() and not (tmp_path / "models").exists()
 
 
+def test_legacy_rejects_modern_watch_opt_in_before_writing(tmp_path):
+    empty = tmp_path / "invalid"
+    with pytest.raises(ValueError, match="explicit auto/modern"):
+        publish(tmp_path / "models", empty, sys.executable, modern_discovery=True)
+    assert not empty.exists()
+
+
 def test_source_changes_publish_new_immutable_closure_with_same_resource_ids(
     tmp_path, source_package
 ):
