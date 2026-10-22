@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Prepared **26.1022.180335**, a separate direct standalone offline profile with bounded FCStd ZIP/XML metadata reads and bundled schema references. Its generated connection uses the real Python interpreter with isolated startup, immutable runtime hashes, early one-process containment/EOF-parent guards, four frontend slots, retained root creation identities and cached manager reporting. Native/bridge/shared-host/external-extension/SCM/controller routes are unavailable; normal installations and other profiles are preserved. Pure/stub and harmless Python fixture checks remain separate from held MCP/manager/Codex canary acceptance.
+
 - Stamped application checkpoint **26.1022.173620** in America/New_York across backend, host, standalone plugin, native skill metadata and generated installation records. Added canonical numeric package identities, semantic comparisons, side-effect-free CLI version output and wheel/manifest consistency checks. Framework 0.20.0 and MCP 2.3.0 pins remain independent. Historical receipts/artifacts are retained; this source/package checkpoint does not establish runtime or Codex-loader acceptance.
 
 - Aligned source with the reviewed framework 0.20.0 resource API while retaining MCP 2.3 and FreeCAD's own plugin. Native reservations/bindings precede execution; GUI attachments and shared frontend references are report-only. Native barriers and process-exit attestations remain distinct from CAD write recovery. Source/package/stub and harmless non-MCP process evidence do not establish native/MCP acceptance. SDK launcher registration and shared shutdown remain deployment blockers; no installation or live registry migration is implied.

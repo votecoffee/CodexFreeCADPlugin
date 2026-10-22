@@ -38,12 +38,15 @@ def stamp(root, instant):
         if count != 1:
             raise ValueError("Project version is missing")
         changes[path] = text.encode()
-    skill = root / "src/codex_freecad/standalone_skill.md"
-    text = skill.read_text(encoding="utf-8")
-    header, body = text[4:].split("\n---\n", 1)
-    header = header.split("\nmetadata:\n", 1)[0]
-    header += f'\nmetadata:\n  version: "{release["package_version"]}"\n  display_version: "{release["display_version"]}"'
-    changes[skill] = ("---\n" + header + "\n---\n" + body).encode()
+    for name in ("standalone_skill.md", "standalone_offline_skill.md"):
+        skill = root / "src/codex_freecad" / name
+        if name == "standalone_offline_skill.md" and not skill.exists():
+            continue  # Historical source snapshots predate this optional profile.
+        text = skill.read_text(encoding="utf-8")
+        header, body = text[4:].split("\n---\n", 1)
+        header = header.split("\nmetadata:\n", 1)[0]
+        header += f'\nmetadata:\n  version: "{release["package_version"]}"\n  display_version: "{release["display_version"]}"'
+        changes[skill] = ("---\n" + header + "\n---\n" + body).encode()
     # Validate every target before replacing any file. This is an explicit source edit,
     # not a build hook; Git provides review/recovery for the complete checkpoint.
     for path, content in changes.items():

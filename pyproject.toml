@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codex-freecad"
-version = "26.1022.173620"
+version = "26.1022.180335"
 description = "Local MCP tools for live and headless FreeCAD modeling."
 requires-python = ">=3.11"
 dependencies = ["mcp==2.3.0"]
@@ -22,7 +22,7 @@ codex-freecad-setup = "codex_freecad.setup:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-codex_freecad = ["extensions/*/*.json", "standalone_skill.md", "guidance/*.md", "release.json"]
+codex_freecad = ["extensions/*/*.json", "standalone_skill.md", "standalone_offline_skill.md", "guidance/*.md", "release.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

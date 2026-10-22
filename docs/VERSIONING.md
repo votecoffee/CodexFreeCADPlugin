@@ -1,6 +1,6 @@
 # Application versioning
 
-Every application checkpoint uses one fixed **YY.MMDD.HHmmss** timestamp in **America/New_York**. The current display identity is **26.1022.173620**, chosen at `2026-10-22T21:36:20Z` (`2026-10-22T17:36:20-04:00`). Both application packages carry identical checked-in `release.json` manifests. Builds and application startup read these files; they never calculate a new version from the current clock.
+Every application checkpoint uses one fixed **YY.MMDD.HHmmss** timestamp in **America/New_York**. The current display identity is **26.1022.180335**, chosen at `2026-10-22T22:03:35Z` (`2026-10-22T18:03:35-04:00`). Both application packages carry identical checked-in `release.json` manifests. Builds and application startup read these files; they never calculate a new version from the current clock.
 
 The backend, app-owned host, MCP `serverInfo`, native status, generated plugin, native skill metadata, installer selection records and manager reporting use that checkpoint. CLI commands `codex-freecad --version` and `freecad-mcp-host --version` exit before client creation, runtime verification or service startup.
 
@@ -10,9 +10,9 @@ The fully padded display form is retained for humans. Python package metadata, w
 
 | Surface | Current checkpoint | Leading-zero example |
 | --- | --- | --- |
-| Human display, CLI, MCP serverInfo | `26.1022.173620` | `26.0101.000001` |
-| PEP 440 / numeric SemVer package identity | `26.1022.173620` | `26.101.1` |
-| Four-part assembly/file mapping | `26.1022.1736.20` | `26.101.0.1` |
+| Human display, CLI, MCP serverInfo | `26.1022.180335` | `26.0101.000001` |
+| PEP 440 / numeric SemVer package identity | `26.1022.180335` | `26.101.1` |
+| Four-part assembly/file mapping | `26.1022.1803.35` | `26.101.0.1` |
 
 This Python application has no .NET binaries. The four-part compatibility mapping is `YY.MMDD.HHmm.ss`, with numeric components below 65535; helper tests do not establish assembly loading or .NET runtime acceptance. A .NET consumer should retain the full display identity in product/informational metadata.
 
@@ -23,7 +23,7 @@ Framework `universal-codex-tools==0.20.0` and MCP `2.3.0` are independently revi
 With development dependencies installed, supply one chosen UTC instant:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\stamp_version.py --utc 2026-10-22T21:36:20Z
+.\.venv\Scripts\python.exe scripts\stamp_version.py --utc 2026-10-22T22:03:35Z
 ```
 
 The command validates all targets before writing both manifests, both static project versions and skill metadata. It is a developer source edit, never a build hook. Review and commit the complete change. Repeating the same instant is idempotent. Windows development uses `tzdata` for the IANA timezone database; reading the fixed manifest requires only the standard library and no timezone lookup.

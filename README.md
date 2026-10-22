@@ -4,9 +4,11 @@ Local MCP tools for live and headless FreeCAD modeling.
 
 Create, inspect and edit native FreeCAD models from an MCP client such as Codex, or from Python. Use an open FreeCAD window for visible editing or a persistent FreeCADCmd worker for background modeling. Both backends share the same modeling engine, validation and file protections. No OpenAI API key is required for MCP or direct Python use.
 
-Application version **26.1022.173620** is a source/package checkpoint using a fixed New York timestamp. Backend, host and standalone plugin share this identity; framework and protocol dependency versions remain independent. Runtime deployment and lifecycle acceptance remain pending. See [versioning](docs/VERSIONING.md) and the [changelog](docs/CHANGELOG.md).
+Application version **26.1022.180335** is a source/package checkpoint using a fixed New York timestamp. Backend, host and standalone plugin share this identity; framework and protocol dependency versions remain independent. Runtime deployment and lifecycle acceptance remain pending. See [versioning](docs/VERSIONING.md) and the [changelog](docs/CHANGELOG.md).
 
 Features include reloadable hole and fastener tools, parametric modeling, movable assemblies, saved joint couplings and interference checks.
+
+A separate **standalone offline candidate** provides read-only FCStd ZIP/XML inspection, source hashes and bundled capability-schema references. It has no native, live-bridge, external-extension or shared-host route. Candidate generation preserves installed selections; source checks do not release its runtime. See [offline profile and acceptance](docs/OFFLINE.md).
 
 The current checkout also includes saved design requirements with opt-in edit enforcement, a source-aware bill of materials, refreshable native spreadsheets, source-preserving parameter sweeps, numeric change previews with added/removed material reports, saved configuration snapshots and dimensioned TechDraw sheets with headless SVG rendering. See [engineering extensions](docs/ENGINEERING.md).
 
