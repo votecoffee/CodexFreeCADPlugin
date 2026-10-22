@@ -26,7 +26,16 @@ def test_stdio_mcp_discovery_validation_and_native_edit(tmp_path):
     async def run():
         parameters = StdioServerParameters(
             command=sys.executable,
-            args=["-m", "codex_freecad.server", "--mode", "headless", "--workspace", str(tmp_path)],
+            args=[
+                "-m",
+                "codex_freecad.server",
+                "--mode",
+                "headless",
+                "--workspace",
+                str(tmp_path),
+                "--resource-registry",
+                str(tmp_path / "management-registry"),
+            ],
         )
         async with Client(parameters, read_timeout_seconds=45) as client:
             tools = (await client.list_tools()).tools
