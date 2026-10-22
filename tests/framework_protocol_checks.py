@@ -157,7 +157,7 @@ async def exercise(args):
             negotiated = described["initialization"]["protocolVersion"]
             assert negotiated == ("2025-11-25" if args.protocol_mode == "legacy" else "2026-07-28")
 
-            async def call(name, arguments=None, *, request=None, frontend=owner):
+            async def call(name, arguments=None, *, request=None, frontend=owner, progress=None):
                 description = data(
                     await frontend.call_tool(
                         "describe_tool", {"tool_id": "freecad-headless/" + name}
@@ -172,7 +172,9 @@ async def exercise(args):
                 if request:
                     payload["request_id"] = "fixture-" + request
                 return await frontend.call_tool(
-                    "call_write_tool" if request else "call_read_tool", payload
+                    "call_write_tool" if request else "call_read_tool",
+                    payload,
+                    progress_callback=progress,
                 )
 
             for tool in (await direct.list_tools()).tools:
@@ -205,7 +207,16 @@ async def exercise(args):
                     {"op": "create_box", "name": "Box", "length": 2, "width": 3, "height": 4}
                 ],
             }
-            edited = await call("apply_operations", arguments, request="edit")
+            progress_stages = []
+
+            async def observe_progress(value, total, message):
+                progress_stages.append({"progress": value, "total": total, "message": message})
+
+            edited = await call(
+                "apply_operations", arguments, request="edit", progress=observe_progress
+            )
+            assert progress_stages and all(p["total"] is None for p in progress_stages)
+            assert all(p["progress"] in (0, 1, 2) for p in progress_stages)
             assert complete(edited) == complete(
                 await direct.call_tool("apply_operations", arguments)
             )
@@ -450,6 +461,7 @@ async def exercise(args):
             "durable_recovery_barrier": True,
             "structural_budget_rejections": ["depth", "nodes"],
             "retained_catalog_notification": modern_discovery,
+            "cad_progress": progress_stages,
             "samples": measurements,
             "measurement_scope": "Five warm direct calls versus host describe_tool plus call_read_tool; same clients",
             "median_ms": {k: statistics.median(v) for k, v in measurements.items()},
