@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed atomic installer metadata updates under Windows PowerShell 5.1 by supplying an explicit backup path to .NET file replacement; previous metadata is retained locally.
+
 - Added a stable bootstrap skill and canonical hash-pinned runtime guides shared by ordinary tools and an app-owned HTTP Skills catalog. Explicit guide-only publication supports connected-client add/update/remove with stale-reference rejection and failed-candidate preservation, without replacing CAD workers. Native Codex skill importing remains a static snapshot.
 - Added CAD batch dispatch/reply progress with structured fallback and honest cancellation boundaries. Added explicit modern/auto catalog watching and private bounded discovery caching while preserving installed legacy selections. A discoverable feature/doctor report identifies the concrete blockers for native cancellation, durable CAD Tasks, artifact resources and tray restart.
 

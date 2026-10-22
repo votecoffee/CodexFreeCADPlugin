@@ -90,7 +90,9 @@ $availability = @{schema_version = 1; versions = @{
 $availabilityPath = Join-Path $output 'available-versions.json'
 $availabilityPending = $availabilityPath + '.' + $generation + '.pending'
 [IO.File]::WriteAllText($availabilityPending, ($availability | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
-if (Test-Path -LiteralPath $availabilityPath) { [IO.File]::Replace($availabilityPending, $availabilityPath, $null) }
+if (Test-Path -LiteralPath $availabilityPath) {
+    [IO.File]::Replace($availabilityPending, $availabilityPath, ($availabilityPath + '.' + $generation + '.previous'))
+}
 else { [IO.File]::Move($availabilityPending, $availabilityPath) }
 $hostArgs = @('-m', 'freecad_mcp_host', '--state', (Join-Path $output 'state'), '--publication', (Join-Path $output 'application.json'))
 $backup = Join-Path $output "backups\$generation"

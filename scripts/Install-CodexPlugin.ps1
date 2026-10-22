@@ -43,6 +43,8 @@ if (-not $Preview -and $Integration -eq 'standalone' -and (Test-Path -LiteralPat
     $metadataPath = Join-Path $Output 'installed-plugin.json'
     $metadataPending = $metadataPath + '.' + [Guid]::NewGuid().ToString('N') + '.pending'
     [IO.File]::WriteAllText($metadataPending, ($record | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
-    if (Test-Path -LiteralPath $metadataPath) { [IO.File]::Replace($metadataPending, $metadataPath, $null) }
+    if (Test-Path -LiteralPath $metadataPath) {
+        [IO.File]::Replace($metadataPending, $metadataPath, ($metadataPath + '.' + [Guid]::NewGuid().ToString('N') + '.previous'))
+    }
     else { [IO.File]::Move($metadataPending, $metadataPath) }
 }
