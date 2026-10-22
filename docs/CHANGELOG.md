@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Prepared source-only process lifetime hardening: connection commands no longer auto-start hosts; frontend slots are bounded and Windows jobs/EOF-parent guards bind descendants to owners. Runtime/shutdown validation and deployment remain pending. Journals and external GUI sessions are preserved; tray restart stays disabled.
+- Prepared exclusive native-worker ownership with suspended launch, retained handles/creation identity, child-job teardown and bounded reader cleanup. Added read-only ownership/status reporting and explicit external-GUI classification. Durable resource recovery and shared last-owner cleanup await the common ledger API and assessed fencing; no older dependency is claimed to provide them.
+
 - Fixed atomic installer metadata updates under Windows PowerShell 5.1 by supplying an explicit backup path to .NET file replacement; previous metadata is retained locally.
 
 - Added a stable bootstrap skill and canonical hash-pinned runtime guides shared by ordinary tools and an app-owned HTTP Skills catalog. Explicit guide-only publication supports connected-client add/update/remove with stale-reference rejection and failed-candidate preservation, without replacing CAD workers. Native Codex skill importing remains a static snapshot.

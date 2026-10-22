@@ -1,5 +1,6 @@
 """Cached tray reporting for the owning host; no native inspection or restart effects."""
 
+import copy
 import json
 import threading
 import time
@@ -7,6 +8,7 @@ from contextlib import contextmanager
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
+from mcp.types import TextContent
 from universal_tools import __version__ as framework_running
 from universal_tools.framework import ApplicationBackend
 from universal_tools.management import ComponentVersion, ManagedStatus, RestartResult
@@ -67,11 +69,19 @@ class StatusCache:
         self.stamp = clock()
         self.journals = None
         self.versions = {}
+        self.resources = {"state": "unassessed", "durable_ledger": "awaiting-shared-api"}
         self.running = {name: installed_version(package) for name, package in COMPONENTS.items()}
         self.running.update(framework=framework_running, host=host_running)
 
     def collect(self):
         """Producer-only file reads. The HTTP status callback never calls this method."""
+        from codex_freecad.process_lifetime import ProcessSlots, process_tree_snapshot
+
+        resources = process_tree_snapshot()
+        resources["sampled_frontends"] = ProcessSlots.occupied(self.state / "frontends")
+        resources["frontend_limit"] = 8
+        with self.lock:
+            self.resources = resources
         available = local_json(self.output / "available-versions.json").get("versions", {})
         plugin = local_json(self.output / "installed-plugin.json")
         versions = {}
@@ -111,6 +121,10 @@ class StatusCache:
         with self.lock:
             self.stopped = True
 
+    def resource_snapshot(self):
+        with self.lock:
+            return copy.deepcopy(self.resources)
+
     @contextmanager
     def operation(self):
         with self.lock:
@@ -143,6 +157,10 @@ class StatusCache:
                     else "busy"
                 )
                 message = "Retained CAD contexts or unresolved effects require app-owned review."
+            message += (
+                f" Frontends {self.resources.get('sampled_frontends', 'unknown')}/8; "
+                "attached GUIs are external. Durable resource recovery pending."
+            )
             return ManagedStatus(
                 state=state,
                 message=message,
@@ -161,6 +179,20 @@ class ReportingBackend(ApplicationBackend):
     """Count CAD-facing calls while preserving the framework's routing and ownership."""
 
     async def invoke(self, name, arguments, *, relay=None):
+        if name == "broker_status":
+            result = await super().invoke(name, arguments, relay=relay)
+            if result.is_error or result.structured_content is None:
+                return result
+            value = {
+                **result.structured_content,
+                "resource_ownership": self.host.tray_status.resource_snapshot(),
+            }
+            return result.model_copy(
+                update={
+                    "structured_content": value,
+                    "content": [TextContent(type="text", text=json.dumps(value))],
+                }
+            )
         if name in {
             "call_read_tool",
             "call_write_tool",

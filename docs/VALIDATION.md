@@ -22,6 +22,8 @@ New-Item -ItemType Directory -Force work\validation | Out-Null
 
 For host-only checks, use `.venv\Scripts\pytest.exe -q -m 'not native'`. Native tests skip if FreeCADCmd is unavailable; a host-only pass is not native geometry validation. Check the summary for failures, errors and skipped cases.
 
+The source-only lifecycle subset is `.venv\Scripts\pytest.exe -q tests/test_process_lifetime.py tests/test_owned_process.py`. It uses file locks and stub APIs without launching MCP servers or native applications. It checks admission limits, handle/creation-identity sequencing, startup refusal, bounded reader cleanup and detach-only attachments. It does not establish Job Object behavior or child-process cleanup on Windows. Lifecycle deployment also requires isolated process-tree/EOF/owner-death, shared-lease and native attach-preservation acceptance plus the published common durable-ledger integration; see [current lifecycle status](SERVICE_MANAGEMENT.md#process-lifetime-hardening).
+
 Coverage includes:
 
 - Workspace confinement, explicit overwrites/backups, typed schemas, revision guards, setup generation and API schema conversion.

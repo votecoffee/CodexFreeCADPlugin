@@ -7,6 +7,14 @@ def feature_report(
     return {
         "schema_version": 1,
         "features": {
+            "durable_resource_ownership": {
+                "state": "blocked",
+                "detail": "Awaiting the published shared ownership-ledger API. App-local jobs/handles are not durable recovery evidence. Shared last-owner cleanup and crash reconciliation are not accepted.",
+            },
+            "process_lifetime": {
+                "state": "unassessed",
+                "detail": "Source-only hardening: explicit host startup, eight frontend slots, Windows job ownership and EOF/parent-exit guards. Runtime process-tree/shutdown acceptance is pending.",
+            },
             "runtime_guidance": {
                 "state": "enabled-and-tested",
                 "detail": "Hash-pinned get_workflow and references; data is not write approval.",

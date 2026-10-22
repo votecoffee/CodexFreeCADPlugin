@@ -143,7 +143,11 @@ def exercise(args):
         original_marker = (state / "freecad-host.json").read_bytes()
         run([*base, "stop"])
         assert probe(settings) is None
-        # The plugin command starts only the same app after reboot/explicit stop.
+        # A stopped host stays stopped when a plugin frontend is opened.
+        rejected = run([*base, "connect"], success=False)
+        assert b"start it explicitly" in rejected.stderr
+        assert probe(settings) is None
+        run([*base, "start"])
         asyncio.run(connect([*base, "connect"]))
         assert probe(settings) != first
         assert (state / "freecad-host.json").read_bytes() == original_marker

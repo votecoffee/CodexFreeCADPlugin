@@ -7,6 +7,7 @@ import queue
 import shutil
 import subprocess
 import threading
+import time
 import uuid
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -50,6 +51,8 @@ class HeadlessClient:
         self.responses = queue.Queue()
         self.diagnostics = []
         self.failed = False
+        self.readers = []
+        self.last_resource = None
         atexit.register(self.close)
 
     def _read(self, stream, replies, response_queue):
@@ -98,7 +101,9 @@ class HeadlessClient:
             env["CODEX_FREECAD_EXTENSION_PATHS"] = json.dumps(
                 [str(Path(p).expanduser().resolve()) for p in self.extension_dirs]
             )
-        self.process = subprocess.Popen(
+        from .owned_process import spawn_owned
+
+        self.process = spawn_owned(
             [
                 executable,
                 "-u",
@@ -118,14 +123,16 @@ class HeadlessClient:
             env=env,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
-        for stream, replies in ((self.process.stdout, True), (self.process.stderr, False)):
-            threading.Thread(
-                target=self._read, args=(stream, replies, self.responses), daemon=True
-            ).start()
         try:
+            for stream, replies in ((self.process.stdout, True), (self.process.stderr, False)):
+                reader = threading.Thread(
+                    target=self._read, args=(stream, replies, self.responses), daemon=True
+                )
+                self.readers.append((reader, stream))
+                reader.start()
             if not self._receive().get("ready"):
                 raise CadError("Unexpected FreeCAD startup response")
-        except Exception:
+        except BaseException:
             self.close()
             raise
 
@@ -150,20 +157,59 @@ class HeadlessClient:
     def close(self):
         process = self.process
         if process is not None:
-            if process.poll() is None:
-                try:
-                    process.stdin.write('{"method":"shutdown"}\n')
-                    process.stdin.flush()
-                    process.stdin.close()
-                    process.wait(timeout=3)
-                except (OSError, ValueError, subprocess.TimeoutExpired):
-                    process.terminate()
+            try:
+                if process.poll() is None:
                     try:
+                        process.stdin.write('{"method":"shutdown"}\n')
+                        process.stdin.flush()
+                        process.stdin.close()
                         process.wait(timeout=3)
-                    except subprocess.TimeoutExpired:
-                        process.kill()
-                        process.wait(timeout=3)
-            self.process = None
+                    except (OSError, ValueError, subprocess.TimeoutExpired):
+                        process.terminate()
+                        try:
+                            process.wait(timeout=3)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                            process.wait(timeout=3)
+            finally:
+                process.close_owned_tree()
+                deadline = time.monotonic() + 2
+                for reader, _ in self.readers:
+                    if getattr(reader, "ident", "stub") is None:
+                        continue
+                    reader.join(timeout=max(0, deadline - time.monotonic()))
+                alive = {stream for reader, stream in self.readers if reader.is_alive()}
+                self.last_resource = {
+                    **process.identity,
+                    "reader_cleanup": "pending" if alive else "closed",
+                }
+                for stream in (process.stdin, process.stdout, process.stderr):
+                    if stream in alive:
+                        continue  # TextIO.close can block behind a stuck readline lock.
+                    try:
+                        stream.close()
+                    except (OSError, ValueError):
+                        pass
+                if alive:
+                    self.failed = True  # Retain handles/evidence; never spawn another worker here.
+                else:
+                    self.process, self.readers = None, []
+
+    def resource_status(self):
+        result = (
+            dict(self.process.identity)
+            if self.process is not None
+            else self.last_resource
+            or {
+                "ownership": "exclusive-launched",
+                "state": "not-running",
+                "native_dirty_state": "not-inspected",
+            }
+        )
+        if self.process is not None and self.last_resource is not None:
+            if self.last_resource.get("resource_id") == result.get("resource_id"):
+                result.update(reader_cleanup=self.last_resource.get("reader_cleanup"))
+        return {**result, "session_disabled": self.failed}
 
     def __enter__(self):
         return self
@@ -218,3 +264,11 @@ class LiveClient:
 
     def close(self):
         pass
+
+    def resource_status(self):
+        return {
+            "ownership": "attached-user-owned",
+            "cleanup": "detach-only",
+            "terminate_allowed": False,
+            "native_dirty_state": "not-inspected",
+        }

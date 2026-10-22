@@ -283,6 +283,7 @@ def doctor(state, path):
             discovery_cache_ttl_seconds=desired.backends[0].service.discovery_cache_ttl_seconds,
         ),
         "journals": journal_status(state),
+        "resource_ownership": value.get("resource_ownership", {"state": "unassessed"}),
         "services": [
             {"id": row["service_id"], "tools": row["tool_count"]} for row in value["services"]
         ],
@@ -290,6 +291,8 @@ def doctor(state, path):
 
 
 def main():
+    from codex_freecad.process_lifetime import ProcessSlots, process_lifetime, run_stdio
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--publication", type=Path, required=True)
@@ -364,18 +367,26 @@ def main():
                 json.dumps(asyncio.run(status(state)) if args.command == "status" else stop(state))
             )
             return
-        if args.command in {"start", "connect"}:
+        if args.command == "start":
             value = start(state, path, management_registry=args.management_registry)
-            if args.command == "start":
-                print(json.dumps(value))
-                return
-            # Startup/status output must never contaminate the MCP stdio stream.
+            print(json.dumps(value))
+            return
+        if args.command == "connect":
+            require_state(state, path)
+            if probe(load_settings(state)) is None:
+                raise BrokerError(
+                    "FreeCAD host is stopped; an administrator must start it explicitly"
+                )
+            asyncio.run(status(state))  # Verify identity without starting any replacement.
             definition = publication(path)
-            create_surface(
-                RemoteBackend(load_settings(state)),
-                name=definition.display_name,
-                instructions=definition.instructions,
-            ).run(transport="stdio")
+            with ProcessSlots(state / "frontends"), process_lifetime(stdio=True, limit=8):
+                run_stdio(
+                    create_surface(
+                        RemoteBackend(load_settings(state)),
+                        name=definition.display_name,
+                        instructions=definition.instructions,
+                    )
+                )
             return
         definition = publication(path)
         if args.command == "validate":
@@ -386,15 +397,19 @@ def main():
         else:
             require_state(state, path)
             if args.command == "serve":
-                serve(state, path, registry=args.management_registry)
+                with process_lifetime():
+                    serve(state, path, registry=args.management_registry)
             elif args.command == "proxy":
                 # The app host must already be running. Never auto-start a universal daemon.
-                create_surface(
-                    RemoteBackend(load_settings(state)),
-                    name=definition.display_name,
-                    instructions=definition.instructions,
-                ).run(transport="stdio")
-    except (BrokerError, OSError, ValueError, subprocess.CalledProcessError) as exc:
+                with ProcessSlots(state / "frontends"), process_lifetime(stdio=True, limit=8):
+                    run_stdio(
+                        create_surface(
+                            RemoteBackend(load_settings(state)),
+                            name=definition.display_name,
+                            instructions=definition.instructions,
+                        )
+                    )
+    except (BrokerError, OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
         parser.exit(1, "FreeCAD framework host: " + str(exc) + "\n")
 
 

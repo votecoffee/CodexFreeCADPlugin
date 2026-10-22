@@ -3,7 +3,7 @@
 import argparse
 import asyncio
 import json
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from functools import partial
 from pathlib import Path
 from typing import Annotated, Literal
@@ -156,7 +156,10 @@ def create_server(
     @server.tool(annotations=READ)
     def freecad_status() -> dict:
         """Check FreeCAD version, backend, workspace, documents and supported operations."""
-        return client.call("status")
+        result = client.call("status")
+        if hasattr(client, "resource_status"):
+            result = {**result, "resource_ownership": client.resource_status()}
+        return result
 
     @server.tool(annotations=READ)
     def list_documents() -> list[dict]:
@@ -444,13 +447,23 @@ def main():
     )
     if args.mode == "live" and args.extensions and not args.framework_backend:
         parser.error("Configure live extension directories in the generated FreeCAD startup macro")
-    create_server(
-        client,
-        framework_backend=args.framework_backend,
-        framework_extensions=args.extensions or [],
-        guidance_snapshot=args.guidance_snapshot,
-        modern_discovery=args.modern_discovery,
-    ).run(transport="stdio")
+    from .process_lifetime import ProcessSlots, process_lifetime, run_stdio
+
+    slots = (
+        nullcontext()
+        if args.framework_backend
+        else ProcessSlots(args.workspace / ".runtime/frontends")
+    )
+    with slots, process_lifetime(stdio=True, limit=8):
+        run_stdio(
+            create_server(
+                client,
+                framework_backend=args.framework_backend,
+                framework_extensions=args.extensions or [],
+                guidance_snapshot=args.guidance_snapshot,
+                modern_discovery=args.modern_discovery,
+            )
+        )
 
 
 if __name__ == "__main__":

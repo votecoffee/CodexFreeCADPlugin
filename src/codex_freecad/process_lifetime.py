@@ -1,0 +1,295 @@
+"""App-owned process limits. No native CAD, MCP calls or background startup here."""
+
+import ctypes
+import os
+import sys
+import threading
+import traceback
+from contextlib import contextmanager
+from pathlib import Path
+
+_jobs = []  # Non-inheritable handles deliberately live until process exit.
+
+
+def run_stdio(server, *, exit_process=os._exit):
+    """CLI boundary: exit after SDK cleanup, even if an orphan reader thread remains.
+
+    The OS closes slot/job handles. This function must not be used by in-process
+    clients or libraries; it owns this entire adapter process.
+    """
+    result = 0
+    try:
+        server.run(transport="stdio")
+    except BaseException:
+        result = 1
+        traceback.print_exc(file=sys.stderr)
+    finally:
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.flush()
+            except (OSError, ValueError):
+                pass
+        exit_process(result)
+
+
+class ProcessSlots:
+    """Bound live frontends with OS-owned locks; process death releases a slot."""
+
+    def __init__(self, directory, limit=8):
+        if type(limit) is not int or not 1 <= limit <= 32:
+            raise ValueError("Invalid process slot limit")
+        self.directory, self.limit = Path(directory), limit
+        self.stream = None
+
+    def __enter__(self):
+        if self.stream is not None:
+            raise RuntimeError("Frontend lease is already held")
+        self.directory.mkdir(parents=True, exist_ok=True)
+        for index in range(self.limit):
+            stream = (self.directory / f"frontend-{index}.lock").open("a+b")
+            try:
+                if stream.seek(0, 2) == 0:
+                    stream.write(b"\0")
+                    stream.flush()
+                stream.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                self.stream = stream
+                return self
+            except OSError:
+                stream.close()
+        raise RuntimeError(
+            "FreeCAD frontend limit reached; close unused connections before retrying"
+        )
+
+    def __exit__(self, *_):
+        if self.stream is not None:
+            self.stream.close()
+            self.stream = None
+
+    @staticmethod
+    def occupied(directory, limit=8):
+        """Sample only our bounded lock files; never launch or terminate anything."""
+        if type(limit) is not int or not 1 <= limit <= 32:
+            raise ValueError("Invalid process slot limit")
+        count = 0
+        for index in range(limit):
+            path = Path(directory) / f"frontend-{index}.lock"
+            if not path.exists():
+                continue
+            try:
+                with path.open("r+b") as stream:
+                    if os.name == "nt":
+                        import msvcrt
+
+                        msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                    else:
+                        import fcntl
+
+                        fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                count += 1  # An unavailable slot is never counted as free.
+        return count
+
+
+def process_tree_snapshot():
+    """Read members of our retained job, verifying membership and creation identity."""
+    result = {
+        "state": "unassessed",
+        "owned_processes": [],
+        "maximum_processes": 32,
+        "attached_gui_policy": "external-detach-only",
+        "durable_ledger": "awaiting-shared-api",
+        "shared_last_owner_cleanup": "blocked-awaiting-durable-ledger-and-drain-fence",
+    }
+    if os.name != "nt" or not _jobs:
+        return result
+    from ctypes import wintypes as w
+
+    from .owned_process import _creation_time
+
+    class Members(ctypes.Structure):
+        _fields_ = [("assigned", w.DWORD), ("count", w.DWORD), ("ids", ctypes.c_size_t * 32)]
+
+    api = _kernel()
+    api.QueryInformationJobObject.argtypes = [
+        w.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        w.DWORD,
+        ctypes.c_void_p,
+    ]
+    api.QueryInformationJobObject.restype = w.BOOL
+    api.IsProcessInJob.argtypes, api.IsProcessInJob.restype = (
+        [w.HANDLE, w.HANDLE, ctypes.POINTER(w.BOOL)],
+        w.BOOL,
+    )
+    members = Members()
+    if not api.QueryInformationJobObject(
+        _jobs[0], 3, ctypes.byref(members), ctypes.sizeof(members), None
+    ):
+        raise OSError("Cannot inspect our retained process job")
+    if members.count > 32:
+        raise OSError("Owned process inventory exceeded its bound")
+    for pid in members.ids[: members.count]:
+        process = api.OpenProcess(0x101000, False, pid)
+        if not process:
+            continue
+        try:
+            ours = w.BOOL()
+            if not api.IsProcessInJob(process, _jobs[0], ctypes.byref(ours)):
+                raise OSError("Cannot verify process ownership")
+            if ours.value:
+                result["owned_processes"].append(
+                    {
+                        "pid": pid,
+                        "creation_filetime": _creation_time(api, process),
+                        "ownership": "owned-process-tree",
+                    }
+                )
+        finally:
+            api.CloseHandle(process)
+    result["state"] = "sampled-job-membership"
+    return result
+
+
+def _kernel():
+    from ctypes import wintypes as w
+
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    signatures = {
+        "CreateJobObjectW": ([ctypes.c_void_p, w.LPCWSTR], w.HANDLE),
+        "SetInformationJobObject": ([w.HANDLE, ctypes.c_int, ctypes.c_void_p, w.DWORD], w.BOOL),
+        "AssignProcessToJobObject": ([w.HANDLE, w.HANDLE], w.BOOL),
+        "GetCurrentProcess": ([], w.HANDLE),
+        "GetStdHandle": ([w.DWORD], w.HANDLE),
+        "GetFileType": ([w.HANDLE], w.DWORD),
+        "OpenProcess": ([w.DWORD, w.BOOL, w.DWORD], w.HANDLE),
+        "WaitForSingleObject": ([w.HANDLE, w.DWORD], w.DWORD),
+        "DuplicateHandle": (
+            [w.HANDLE, w.HANDLE, w.HANDLE, ctypes.POINTER(w.HANDLE), w.DWORD, w.BOOL, w.DWORD],
+            w.BOOL,
+        ),
+        "PeekNamedPipe": (
+            [w.HANDLE, ctypes.c_void_p, w.DWORD, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p],
+            w.BOOL,
+        ),
+        "CloseHandle": ([w.HANDLE], w.BOOL),
+    }
+    for name, (args, result) in signatures.items():
+        function = getattr(api, name)
+        function.argtypes, function.restype = args, result
+    return api
+
+
+def _make_job(api, limit):
+    from ctypes import wintypes as w
+
+    class Basic(ctypes.Structure):
+        _fields_ = [
+            ("process_time", ctypes.c_longlong),
+            ("job_time", ctypes.c_longlong),
+            ("flags", w.DWORD),
+            ("min_working_set", ctypes.c_size_t),
+            ("max_working_set", ctypes.c_size_t),
+            ("active_processes", w.DWORD),
+            ("affinity", ctypes.c_size_t),
+            ("priority", w.DWORD),
+            ("scheduling", w.DWORD),
+        ]
+
+    class Extended(ctypes.Structure):
+        _fields_ = [
+            ("basic", Basic),
+            ("io_counters", ctypes.c_ulonglong * 6),
+            ("process_memory", ctypes.c_size_t),
+            ("job_memory", ctypes.c_size_t),
+            ("peak_process_memory", ctypes.c_size_t),
+            ("peak_job_memory", ctypes.c_size_t),
+        ]
+
+    job = api.CreateJobObjectW(None, None)
+    if not job:
+        raise OSError("Cannot create FreeCAD process ownership job")
+    info = Extended()
+    info.basic.flags = 0x2000 | 0x8  # KILL_ON_JOB_CLOSE | ACTIVE_PROCESS
+    info.basic.active_processes = limit
+    if not api.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):
+        api.CloseHandle(job)
+        raise OSError("Cannot configure FreeCAD process limits")
+    return job
+
+
+def _own_job(api, limit):
+    job = _make_job(api, limit)
+    if not api.AssignProcessToJobObject(job, api.GetCurrentProcess()):
+        api.CloseHandle(job)
+        raise OSError("Cannot establish FreeCAD process ownership; no workers were started")
+    _jobs.append(job)
+
+
+def _watch_disconnect(api, stop, pipe, parent, *, grace=10, terminate=os._exit):
+    """Observe the wire without consuming bytes, even after SDK fd diversion."""
+    try:
+        while not stop.wait(0.25):
+            parent_gone = api.WaitForSingleObject(parent, 0) in {0, 0xFFFFFFFF}
+            broken_pipe = False
+            if pipe and not api.PeekNamedPipe(pipe, None, 0, None, None, None):
+                broken_pipe = True  # Lost/invalid observation also fails closed.
+            if parent_gone or broken_pipe:
+                # SDK/lifespan cleanup gets a bounded grace period; no receipt is acknowledged.
+                if not stop.wait(grace):
+                    terminate(1)
+                return
+    finally:
+        if pipe:
+            api.CloseHandle(pipe)
+        api.CloseHandle(parent)
+
+
+@contextmanager
+def process_lifetime(*, stdio=False, limit=32):
+    """Windows descendants die with this owner; stdio EOF/parent exit is bounded.
+
+    An explicitly started HTTP host is the root owner. Its lifetime does not follow
+    an installer parent. Existing external FreeCAD GUIs are never assigned here.
+    Non-Windows process-tree acceptance is not implemented.
+    """
+    if os.name != "nt":
+        yield
+        return
+    api = _kernel()
+    if not _jobs:
+        _own_job(api, limit)
+    stopped, watcher = threading.Event(), None
+    if stdio:
+        from ctypes import wintypes as w
+
+        parent = api.OpenProcess(0x100000, False, os.getppid())  # SYNCHRONIZE; pin identity once.
+        if not parent:
+            raise OSError("Cannot observe the FreeCAD frontend parent")
+        pipe = w.HANDLE()
+        wire = api.GetStdHandle(w.DWORD(-10).value)
+        if api.GetFileType(wire) == 3:  # FILE_TYPE_PIPE; interactive consoles have no wire.
+            owner = api.GetCurrentProcess()
+            if not api.DuplicateHandle(owner, wire, owner, ctypes.byref(pipe), 0, False, 2):
+                api.CloseHandle(parent)
+                raise OSError("Cannot observe the FreeCAD frontend input pipe")
+        watcher = threading.Thread(
+            target=_watch_disconnect,
+            args=(api, stopped, pipe.value, parent),
+            daemon=True,
+        )
+        watcher.start()
+    try:
+        yield
+    finally:
+        stopped.set()
+        if watcher is not None:
+            watcher.join(timeout=1)

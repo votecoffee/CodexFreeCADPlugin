@@ -14,6 +14,8 @@ Development now includes an **experimental app-owned shared-framework host** pin
 
 The app-owned host serves hash-pinned workflow guides through ordinary tools and Skills-over-MCP on its authenticated HTTP endpoint. Guide-only publications can update connected clients without replacing CAD workers. CAD batches report dispatch/reply progress; cancelling a request cannot establish that FreeCAD stopped. See [runtime guides and feature boundaries](docs/RUNTIME_FEATURES.md).
 
+Lifecycle hardening is under review: plugin connections require an explicitly started host, with bounded frontend slots and Windows process ownership guards. These changes need isolated process-tree and shutdown acceptance before deployment; see [lifecycle status](docs/SERVICE_MANAGEMENT.md#process-lifetime-hardening).
+
 To explicitly install that host, run `scripts\Install-Framework.ps1` after normal setup with a trusted framework wheel and its SHA-256. It audits application wheels, installs a separate runtime and updates FreeCAD's existing standalone plugin. The plugin starts only FreeCAD's app-owned host on connection. Later setup/launcher runs preserve this selection; they do not switch connections automatically. See [framework installation](docs/FRAMEWORK.md#install-the-app-owned-host).
 
 The app-owned host reports cached status and component versions to the optional Windows MCP Service Manager. Tray restart remains disabled until an app-owned supervisor can protect every chat's native state. FreeCAD setup does not install another manager. See [tray service reporting](docs/SERVICE_MANAGEMENT.md).
