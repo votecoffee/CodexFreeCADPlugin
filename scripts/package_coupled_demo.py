@@ -11,9 +11,10 @@ from pathlib import Path
 
 from mcp import Client
 
-from codex_freecad import __version__
+from codex_freecad import __package_version__, __version__
 from codex_freecad.client import HeadlessClient
 from codex_freecad.server import create_server
+from codex_freecad.versioning import same_version
 
 
 def digest(path):
@@ -44,7 +45,7 @@ def main():
         raise RuntimeError("Versioned demo output already exists; choose a fresh output directory")
     report_path = workspace / "verification.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    if report["plugin_version"] != __version__ or not report.get(
+    if not same_version(report["plugin_version"], __version__) or not report.get(
         "fresh_process_reopen_inverse_pose_undo"
     ):
         raise RuntimeError("Matching fresh-process native verification is required")
@@ -98,6 +99,7 @@ def main():
     ]
     manifest = {
         "version": __version__,
+        "package_version": __package_version__,
         "git_commit": commit,
         "backend": "headless",
         "panel_gui_validation": "requires manual GUI smoke test",

@@ -83,7 +83,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Host dependency check failed.' }
 & $pythonPath (Join-Path $PSScriptRoot 'verify_framework_wheels.py') --backend-wheel $backendWheel --host-wheel $hostWheel --framework-wheel $frameworkCopy --framework-sha256 $FrameworkSha256.ToLowerInvariant() --site-packages (Join-Path $runtime 'Lib\site-packages')
 if ($LASTEXITCODE -ne 0) { throw 'Installed package readback differs from audited wheels.' }
 # Known local artifacts only; this is not a package-feed or GitHub update check.
-$availability = @{schema_version = 1; versions = @{
+$availability = @{schema_version = 1; display_version = $wheelAudit.display_version; versions = @{
     app = $wheelAudit.backend; host = $wheelAudit.host; framework = $wheelAudit.framework
     mcp = $wheelAudit.mcp_requirement; plugin = $wheelAudit.backend
 }}
@@ -142,6 +142,7 @@ if ($marketplace.Count -eq 1 -and $marketplace[0].root -ne $output) {
 $record = @{
     schema_version = 1; application_id = 'freecad-mcp-server'; source_commit = $sourceCommit
     framework = $wheelAudit.framework; mcp = $wheelAudit.mcp_requirement; framework_sha256 = $FrameworkSha256.ToLowerInvariant()
+    version = $wheelAudit.backend; host_version = $wheelAudit.host; display_version = $wheelAudit.display_version
     output = $output; python = $hostPython; workspace = $Workspace
     packages = $packages
 }

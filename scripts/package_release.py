@@ -10,7 +10,8 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
-from codex_freecad import __version__
+from codex_freecad import __package_version__, __version__
+from codex_freecad.versioning import same_version
 
 
 def digest(path):
@@ -48,10 +49,10 @@ def main():
         raise RuntimeError("Packaging requires a completed passing JUnit test report")
     counts["passed"] = counts["tests"] - counts["skipped"]
     version = __version__
-    if report.get("plugin_version") != version:
+    if not same_version(report.get("plugin_version"), version):
         raise RuntimeError("Native validation report version does not match the package")
     tool_count, operation_count = report["tool_count"], report["operation_count"]
-    wheel = root / "dist" / f"codex_freecad-{version}-py3-none-any.whl"
+    wheel = root / "dist" / f"codex_freecad-{__package_version__}-py3-none-any.whl"
     sample_name = report.get("sample_name", "FinishedPlate")
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", sample_name):
         raise RuntimeError("Invalid sample artifact name")
@@ -149,6 +150,7 @@ The optional Responses adapter exposes {tool_count - 1} text-result tools. Paid 
     artifact_names = [*copies, source_zip.name, guide_path.name]
     manifest = {
         "version": version,
+        "package_version": __package_version__,
         "git_commit": git_commit,
         "tests": counts,
         "tool_count": tool_count,

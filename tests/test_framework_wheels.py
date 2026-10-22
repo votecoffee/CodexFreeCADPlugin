@@ -58,7 +58,7 @@ def wheels(tmp_path):
     backend = wheel(
         tmp_path / "backend.whl",
         "codex-freecad",
-        "0.9.0",
+        tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"],
         ["mcp==2.3.0"],
         source_members(ROOT / "src/codex_freecad", "codex_freecad"),
     )
@@ -103,6 +103,19 @@ def test_changed_wheel_member_is_rejected_by_record(wheels):
             bundle.writestr(name, content)
     with pytest.raises(ValueError, match="RECORD validation"):
         checks.inspect_wheel(backend)
+
+
+def test_wheel_metadata_must_match_fixed_release_manifest(wheels):
+    root, backend, host, framework_version = wheels
+    _, members = checks.inspect_wheel(backend)
+    code = {name: raw for name, raw in members.items() if name.startswith("codex_freecad/")}
+    wheel(backend, "codex-freecad", "0.9.0", ["mcp==2.3.0"], code)
+    framework = wheel(
+        root / "framework.whl", "universal-codex-tools", framework_version, ["mcp==2.3.0"]
+    )
+    digest = hashlib.sha256(framework.read_bytes()).hexdigest()
+    with pytest.raises(ValueError, match="fixed stamp"):
+        checks.verify(backend, host, framework, digest)
 
 
 def test_installed_package_readback_rejects_changed_bytes_and_extra_files(wheels):

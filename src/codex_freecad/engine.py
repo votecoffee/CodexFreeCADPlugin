@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import __version__
+from . import __package_version__, __version__
 
 
 class CadError(ValueError):
@@ -279,6 +279,7 @@ class Engine:
     def status(self):
         return {
             "plugin_version": __version__,
+            "plugin_package_version": __package_version__,
             "backend_pid": os.getpid(),
             "freecad_version": list(self.app.Version()),
             "mode": "live" if self.gui else "headless",

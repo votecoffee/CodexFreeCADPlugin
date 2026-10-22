@@ -424,6 +424,7 @@ def create_server(
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--mode", choices=["live", "headless"], required=True)
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--state-file", type=Path)

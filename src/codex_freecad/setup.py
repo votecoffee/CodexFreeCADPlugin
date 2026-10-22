@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import __version__
+from . import __package_version__, __version__
 from .client import find_freecad_cmd
 
 
@@ -99,8 +99,8 @@ def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
     (plugin / ".codex-plugin").mkdir(parents=True, exist_ok=True)
     manifest = {
         "name": "freecad-modeling",
-        "version": __version__,
-        "description": "Inspect and edit local FreeCAD models in a live window or background worker.",
+        "version": __package_version__,
+        "description": f"FreeCAD {__version__}: edit models in a live window or background worker.",
         "mcpServers": "./.mcp.json",
         "skills": "./skills/",
         "interface": {
@@ -114,6 +114,7 @@ def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
     (plugin / ".mcp.json").write_text(
         json.dumps({"mcpServers": servers}, indent=2) + "\n", encoding="utf-8"
     )
+    (plugin / "release.json").write_bytes(Path(__file__).with_name("release.json").read_bytes())
     skill = plugin / "skills" / "freecad-modeling"
     skill.mkdir(parents=True, exist_ok=True)
     (skill / "SKILL.md").write_text(

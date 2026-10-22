@@ -30,6 +30,7 @@ def copy_native_package(destination):
     destination.mkdir(parents=True, exist_ok=True)
     for name in MODULES:
         shutil.copy2(source / (name + ".py"), destination / (name + ".py"))
+    shutil.copy2(source / "release.json", destination / "release.json")
     shutil.copytree(
         source / "extensions",
         destination / "extensions",

@@ -13,7 +13,11 @@ from universal_tools import __version__ as framework_running
 from universal_tools.framework import ApplicationBackend
 from universal_tools.management import ComponentVersion, ManagedStatus, RestartResult
 
-from . import __version__ as host_running
+from codex_freecad import __package_version__ as app_running
+from codex_freecad.versioning import version_key
+
+from . import __package_version__ as host_running
+from . import __version__ as app_display
 from .maintenance import journal_status
 
 PLUGIN_ID = "freecad-modeling@freecad-development"
@@ -53,8 +57,8 @@ def newer(available, installed):
     if not available:
         return False
     try:
-        return tuple(map(int, available.split("."))) > tuple(map(int, installed.split(".")))
-    except ValueError:
+        return version_key(available) > version_key(installed)
+    except (ValueError, TypeError):
         return False
 
 
@@ -71,7 +75,7 @@ class StatusCache:
         self.versions = {}
         self.resources = {"state": "unassessed", "durable_ledger": "awaiting-shared-api"}
         self.running = {name: installed_version(package) for name, package in COMPONENTS.items()}
-        self.running.update(framework=framework_running, host=host_running)
+        self.running.update(app=app_running, framework=framework_running, host=host_running)
 
     def collect(self):
         """Producer-only file reads. The HTTP status callback never calls this method."""
@@ -160,7 +164,7 @@ class StatusCache:
                 )
                 message = "Retained CAD contexts or unresolved effects require app-owned review."
             message += (
-                f" Frontends {self.resources.get('sampled_frontends', 'unknown')}/8; "
+                f" FreeCAD {app_display}. Frontends {self.resources.get('sampled_frontends', 'unknown')}/8; "
                 "attached GUIs are external. Durable resource recovery pending."
             )
             return ManagedStatus(
@@ -187,6 +191,8 @@ class ReportingBackend(ApplicationBackend):
                 return result
             value = {
                 **result.structured_content,
+                "app_version": app_display,
+                "app_package_version": app_running,
                 "resource_ownership": self.host.tray_status.resource_snapshot(),
             }
             return result.model_copy(

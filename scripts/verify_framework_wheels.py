@@ -11,6 +11,8 @@ import zipfile
 from email.parser import Parser
 from pathlib import Path
 
+from codex_freecad.versioning import timestamp_forms
+
 
 def inspect_wheel(path):
     with zipfile.ZipFile(path) as bundle:
@@ -60,9 +62,15 @@ def verify(backend, host, framework, expected_framework_sha256, *, site_packages
         raise ValueError("Host must use the exact normal framework dependency")
     if "mcp==2.3.0" not in values[2][0].get_all("Requires-Dist", []):
         raise ValueError("Framework wheel must require MCP 2.3.0; downgrades are not accepted")
-    for (_, members), source, package in (
-        (values[0], root / "src/codex_freecad", "codex_freecad"),
-        (values[1], root / "framework-host/src/freecad_mcp_host", "freecad_mcp_host"),
+    releases = []
+    for (metadata, members), source, package, project in (
+        (values[0], root / "src/codex_freecad", "codex_freecad", root / "pyproject.toml"),
+        (
+            values[1],
+            root / "framework-host/src/freecad_mcp_host",
+            "freecad_mcp_host",
+            root / "framework-host/pyproject.toml",
+        ),
     ):
         expected = {
             package + "/" + path.relative_to(source).as_posix(): path.read_bytes()
@@ -78,6 +86,18 @@ def verify(backend, host, framework, expected_framework_sha256, *, site_packages
             )
         if any(name.startswith("universal_tools/") for name in members):
             raise ValueError("Application wheel must not vendor framework implementation")
+        release = json.loads(members[package + "/release.json"])
+        forms = timestamp_forms(release["display_version"])
+        project_version = tomllib.loads(project.read_text(encoding="utf-8"))["project"]["version"]
+        if (
+            any(release.get(key) != value for key, value in forms.items())
+            or metadata["Version"] != forms["package_version"]
+            or project_version != forms["package_version"]
+        ):
+            raise ValueError("Application wheel release identity differs from its fixed stamp")
+        releases.append(release)
+    if releases[0] != releases[1]:
+        raise ValueError("Backend and host must use the same release checkpoint")
     if site_packages is not None:
         site_packages = Path(site_packages).resolve()
         for (_, members), package in zip(
@@ -96,6 +116,8 @@ def verify(backend, host, framework, expected_framework_sha256, *, site_packages
         "framework_sha256": digest,
         "backend": values[0][0]["Version"],
         "host": values[1][0]["Version"],
+        "display_version": releases[0]["display_version"],
+        "release": releases[0],
         "mcp_requirement": "2.3.0",
         "source_and_record_verified": True,
         "installed_bytes_verified": site_packages is not None,

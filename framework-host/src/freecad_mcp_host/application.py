@@ -12,6 +12,7 @@ from universal_tools.management import ManagedService
 from universal_tools.models import load_settings
 
 from codex_freecad.resource_ownership import resource_session
+from codex_freecad.versioning import apply_mcp_identity
 
 from . import APPLICATION_ID
 from .guidance import GuidanceCatalog
@@ -41,7 +42,7 @@ def serve(state, publication, *, registry=None):
     host.tray_status = cache = StatusCache(state, publication)
     host.backend = ReportingBackend(host)
     guidance = GuidanceCatalog(publication)
-    server = host.create_server(port=settings.port, skills=guidance.catalog)
+    server = apply_mcp_identity(host.create_server(port=settings.port, skills=guidance.catalog))
     base = server.streamable_http_app(**server.http_options)
 
     async def refresh():

@@ -17,7 +17,9 @@ from universal_tools.framework import load_application
 from universal_tools.models import BrokerError, atomic_json, load_settings
 from universal_tools.surface import RemoteBackend, create_surface
 
-from . import APPLICATION_ID, FRAMEWORK_VERSION
+from codex_freecad.versioning import apply_mcp_identity
+
+from . import APPLICATION_ID, FRAMEWORK_VERSION, __package_version__, __version__
 from .application import serve
 from .maintenance import journal_status, require_idle
 
@@ -275,6 +277,8 @@ def doctor(state, path):
     return {
         "passed": True,
         "application_id": APPLICATION_ID,
+        "app_version": __version__,
+        "app_package_version": __package_version__,
         "framework": version("universal-codex-tools"),
         "mcp": version("mcp"),
         "app_host": version("freecad-mcp-host"),
@@ -296,6 +300,7 @@ def main():
     from codex_freecad.resource_ownership import resource_session, share_supervisor
 
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--publication", type=Path, required=True)
     parser.add_argument(
@@ -388,10 +393,12 @@ def main():
             ):
                 share_supervisor(value["resource_ownership"]["supervisor"])
                 run_stdio(
-                    create_surface(
-                        RemoteBackend(load_settings(state)),
-                        name=definition.display_name,
-                        instructions=definition.instructions,
+                    apply_mcp_identity(
+                        create_surface(
+                            RemoteBackend(load_settings(state)),
+                            name=definition.display_name,
+                            instructions=definition.instructions,
+                        )
                     )
                 )
             return
@@ -416,10 +423,12 @@ def main():
                 ):
                     share_supervisor(value["resource_ownership"]["supervisor"])
                     run_stdio(
-                        create_surface(
-                            RemoteBackend(load_settings(state)),
-                            name=definition.display_name,
-                            instructions=definition.instructions,
+                        apply_mcp_identity(
+                            create_surface(
+                                RemoteBackend(load_settings(state)),
+                                name=definition.display_name,
+                                instructions=definition.instructions,
+                            )
                         )
                     )
     except (BrokerError, OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:

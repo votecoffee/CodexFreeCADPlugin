@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from . import __version__
+from . import __package_version__, __version__
 from .host_config import PROTOCOL_MODES, backend_services
 
 INSTRUCTIONS = (
@@ -191,8 +191,8 @@ def publish(
         plugin / ".codex-plugin/plugin.json",
         {
             "name": "freecad-modeling",
-            "version": __version__,
-            "description": "Experimental FreeCAD app-owned framework connection",
+            "version": __package_version__,
+            "description": f"FreeCAD {__version__}: experimental app-owned framework connection",
             "mcpServers": "./.mcp.json",
             "skills": "./skills/",
             "requires_local_executor": True,
@@ -218,6 +218,7 @@ def publish(
     skill = plugin / "skills/freecad-modeling/SKILL.md"
     skill.parent.mkdir(parents=True, exist_ok=True)
     skill.write_bytes(files["package/codex_freecad/standalone_skill.md"])
+    (plugin / "release.json").write_bytes(files["package/codex_freecad/release.json"])
     atomic_json(
         output / ".agents/plugins/marketplace.json",
         {
@@ -238,7 +239,9 @@ def publish(
         "deployment": str(deployment),
         "state": str(state),
         "plugin": str(plugin),
-        "framework": "0.18.0",
+        "framework": "0.20.0",
+        "app_version": __version__,
+        "app_package_version": __package_version__,
         "protocol_mode": protocol_mode,
         "content_revision": content_revision,
         "host_commands": {
