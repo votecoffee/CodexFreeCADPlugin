@@ -53,7 +53,7 @@ For a release, build/install the host wheel instead of the editable host. Verify
 The wheel auditor checks trusted framework hash, wheel RECORD entries, exact normal dependency pins, MCP 2.3 requirements and application code/resource bytes against this checkout:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\verify_framework_wheels.py --backend-wheel dist\codex_freecad-26.1022.180335-py3-none-any.whl --host-wheel dist\freecad_mcp_host-26.1022.180335-py3-none-any.whl --framework-wheel C:\Packages\VerifiedWheels\framework.whl --framework-sha256 EXPECTED_SHA256
+.\.venv\Scripts\python.exe scripts\verify_framework_wheels.py --backend-wheel dist\codex_freecad-26.1022.184257-py3-none-any.whl --host-wheel dist\freecad_mcp_host-26.1022.184257-py3-none-any.whl --framework-wheel C:\Packages\VerifiedWheels\framework.whl --framework-sha256 EXPECTED_SHA256
 ```
 
 Both application wheels carry the same fixed release manifest. The auditor checks its display/package identities against wheel metadata and source project versions. See [versioning](VERSIONING.md). Older or mismatched framework artifacts are rejected before installation. Unit fixtures for this audit do not establish that an actual updated framework artifact exists.

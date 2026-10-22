@@ -12,6 +12,7 @@ from pydantic import Field
 
 from . import __package_version__, __version__
 from .offline_files import bundled_capabilities, inspect_fcstd
+from .offline_interpreter import inherited_stdio, require_windowless_root
 from .offline_session import Admission, offline_session, run_offline
 
 PROFILE = "direct-standalone-offline"
@@ -103,6 +104,11 @@ def main():
     args = parser.parse_args()
     if os.name != "nt":
         parser.error("Offline lifetime containment currently requires Windows")
+    try:
+        require_windowless_root()
+        inherited_stdio()
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
     admission = Admission()
     server = create_offline_server(args.workspace, admission)
     run_offline(

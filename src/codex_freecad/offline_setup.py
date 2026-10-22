@@ -3,12 +3,12 @@
 import argparse
 import hashlib
 import json
-import sys
 from importlib.metadata import distributions
 from pathlib import Path
 
 from . import __package_version__, __version__
 from .framework_setup import atomic_json
+from .offline_interpreter import pe_identity, windowless_interpreter
 
 
 def inventory(root):
@@ -32,11 +32,7 @@ def generate(workspace, output, runtime, *, python=None):
     output = Path(output).resolve()
     if not workspace.is_dir() or not runtime.is_dir() or output.exists():
         raise ValueError("Use existing workspace/runtime directories and a fresh candidate output")
-    interpreter = Path(python or sys._base_executable).resolve(strict=True)
-    if interpreter != Path(sys._base_executable).resolve(strict=True):
-        raise ValueError(
-            "Use this Python's real base interpreter; launcher wrappers are unavailable"
-        )
+    interpreter = windowless_interpreter(python)
     versions = {
         d.metadata["Name"].lower().replace("_", "-"): d.version
         for d in distributions(path=[str(runtime)])
@@ -58,7 +54,13 @@ def generate(workspace, output, runtime, *, python=None):
     if (
         not {
             "codex_freecad/" + name
-            for name in ("__init__.py", "release.json", "process_lifetime.py", "offline_session.py")
+            for name in (
+                "__init__.py",
+                "release.json",
+                "process_lifetime.py",
+                "offline_session.py",
+                "offline_interpreter.py",
+            )
         }
         <= files.keys()
     ):
@@ -70,8 +72,8 @@ def generate(workspace, output, runtime, *, python=None):
     output.mkdir(parents=True)
     (output / "closure.json").write_bytes(manifest)
     launcher = (
-        '"""Generated immutable offline entry; launch only with the real Python -I -S -B."""\n'
-        "import ctypes,hashlib,json,os,sys,threading,traceback\nfrom contextlib import contextmanager\nfrom pathlib import Path\n"
+        '"""Generated immutable offline entry; use paired real pythonw.exe -I -S -B."""\n'
+        "import ctypes,hashlib,io,json,msvcrt,os,struct,sys,threading,traceback\nfrom contextlib import contextmanager\nfrom pathlib import Path\n"
         "root=Path(__file__).resolve().parent\n"
         "with (root/'closure.json').open('rb') as stream: raw=stream.read(8*1024*1024+1)\n"
         f"if hashlib.sha256(raw).hexdigest() != {manifest_hash!r}:\n"
@@ -81,11 +83,13 @@ def generate(workspace, output, runtime, *, python=None):
         "    raise RuntimeError('Offline runtime root link/junction refused')\n"
         "if (runtime/'codex_freecad/__pycache__').exists() or list((runtime/'codex_freecad').glob('*.py[co]')):\n"
         "    raise RuntimeError('Offline bootstrap bytecode cache refused')\n"
-        "for name in ('__init__.py','release.json','process_lifetime.py','offline_session.py'):\n"
+        "for name in ('__init__.py','release.json','process_lifetime.py','offline_session.py','offline_interpreter.py'):\n"
         "    key='codex_freecad/'+name; p=runtime/key\n"
         "    if p.is_symlink() or hashlib.sha256(p.read_bytes()).hexdigest()!=closure['files'][key]:\n"
         "        raise RuntimeError('Offline bootstrap code changed')\n"
         "sys.path.insert(0,str(runtime))\n"
+        "from codex_freecad.offline_interpreter import require_windowless_root,inherited_stdio\n"
+        "require_windowless_root(); inherited_stdio()\n"
         "from codex_freecad.offline_session import root_lifetime\n"
         f"with root_lifetime({str(output / 'state')!r}):\n"
         "    total=0\n"
@@ -188,6 +192,8 @@ def generate(workspace, output, runtime, *, python=None):
         "runtime": str(runtime),
         "python": str(interpreter),
         "python_sha256": hashlib.sha256(interpreter.read_bytes()).hexdigest(),
+        "python_image": pe_identity(interpreter),
+        "python_kind": "paired-real-windowless-base-interpreter",
         "closure_sha256": manifest_hash,
         "launcher_sha256": hashlib.sha256(launcher.encode()).hexdigest(),
         "native_execution": False,

@@ -218,6 +218,31 @@ def test_offline_closure_refuses_unverified_bytecode(tmp_path):
         inventory(tmp_path)
 
 
+def test_console_serving_is_refused_before_server_creation(tmp_path, monkeypatch):
+    from codex_freecad import offline
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "offline",
+            "--workspace",
+            str(tmp_path),
+            "--state",
+            str(tmp_path / "state"),
+            "--registry",
+            str(tmp_path / "registry"),
+        ],
+    )
+    monkeypatch.setattr(
+        offline, "create_offline_server", lambda *_: pytest.fail("Console root admitted")
+    )
+    with pytest.raises(SystemExit) as refused:
+        offline.main()
+    assert refused.value.code == 2
+    assert not (tmp_path / "state").exists() and not (tmp_path / "registry").exists()
+
+
 def test_offline_root_refuses_a_different_state_or_preexisting_job(tmp_path, monkeypatch):
     from codex_freecad import offline_session, process_lifetime
 
@@ -249,14 +274,22 @@ def test_generation_pins_real_interpreter_and_does_not_create_live_state(tmp_pat
     (runtime / "codex_freecad").mkdir()
     (runtime / "codex_freecad/offline.py").write_text("# source fixture")
     (runtime / "codex_freecad/release.json").write_bytes((source / "release.json").read_bytes())
-    for name in ("__init__.py", "process_lifetime.py", "offline_session.py"):
+    for name in (
+        "__init__.py",
+        "process_lifetime.py",
+        "offline_session.py",
+        "offline_interpreter.py",
+    ):
         (runtime / "codex_freecad" / name).write_bytes((source / name).read_bytes())
     output = tmp_path / "candidate"
     result = generate(tmp_path, output, runtime)
     compile((output / "offline-launch.py").read_text(), "offline-launch.py", "exec")
     config = json.loads((Path(result["plugin"]) / ".mcp.json").read_bytes())["mcpServers"]
     assert list(config) == ["freecad"]
-    assert config["freecad"]["command"] == str(Path(sys._base_executable).resolve())
+    from codex_freecad.offline_interpreter import windowless_interpreter
+
+    assert config["freecad"]["command"] == str(windowless_interpreter())
+    assert result["python_image"]["subsystem"] == 2
     assert config["freecad"]["args"][:3] == ["-I", "-S", "-B"]
     assert not (output / "state").exists() and not (output / "registry").exists()
     assert not result["installed"] and not result["started"]
