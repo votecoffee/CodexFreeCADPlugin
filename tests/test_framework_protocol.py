@@ -12,6 +12,25 @@ import codex_freecad
 
 
 @pytest.mark.framework
+def test_management_reporting_and_synthetic_restart_contract(tmp_path):
+    configured = os.environ.get("FREECAD_FRAMEWORK_PYTHON")
+    if not configured:
+        pytest.skip("Set FREECAD_FRAMEWORK_PYTHON to an isolated app-host runtime")
+    result = subprocess.run(
+        [
+            str(Path(configured).resolve()),
+            str(Path(__file__).with_name("management_checks.py")),
+            "--root",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr.decode(errors="replace")[-10000:]
+    assert json.loads((tmp_path / "management.json").read_bytes())["native_dispatches"] == 0
+
+
+@pytest.mark.framework
 def test_app_host_startup_and_reconnect_without_native_dispatch(tmp_path):
     configured = os.environ.get("FREECAD_FRAMEWORK_PYTHON")
     if not configured:
@@ -70,7 +89,7 @@ def test_app_owned_framework_profile_with_disposable_provider(
         )
     assert result.returncode == 0, log.read_text(encoding="utf-8", errors="replace")[-10000:]
     evidence = json.loads((tmp_path / "profile.json").read_bytes())
-    assert evidence["framework"] == "0.17.0" and evidence["frontend_tools"] == 14
+    assert evidence["framework"] == "0.18.0" and evidence["frontend_tools"] == 14
     assert evidence["framework_sdk"] == "2.3.0" and evidence["durable_recovery_barrier"]
     assert evidence["native_dispatches"] == 0 and evidence["same_session_refresh"]
     assert evidence["structural_budget_rejections"] == ["depth", "nodes"]

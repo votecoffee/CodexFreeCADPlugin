@@ -37,7 +37,7 @@ def test_framework_dependency_is_separate_from_sdk2_backend():
     backend = tomllib.loads((root / "pyproject.toml").read_text())
     host = tomllib.loads((root / "framework-host/pyproject.toml").read_text())
     assert backend["project"]["dependencies"] == ["mcp==2.3.0"]
-    assert host["project"]["dependencies"] == ["universal-codex-tools==0.17.0", "mcp==2.3.0"]
+    assert host["project"]["dependencies"] == ["universal-codex-tools==0.18.0", "mcp==2.3.0"]
     assert "mcp==2.3.0" in (root / "framework-host/requirements.lock").read_text()
 
 

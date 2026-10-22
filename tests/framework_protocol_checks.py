@@ -93,6 +93,8 @@ async def exercise(args):
         str(state),
         "--publication",
         str(publication),
+        "--management-registry",
+        str(args.root / "management-registry"),
     ]
     run_cli([*base, "init", "--port", str(port)])
     options = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}

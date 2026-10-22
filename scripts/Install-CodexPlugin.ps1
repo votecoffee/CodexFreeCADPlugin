@@ -28,3 +28,21 @@ if ($CodexHome) { $integrationArgs += @('--codex-home', $CodexHome) }
 if (-not $Preview) { $integrationArgs += '--apply' }
 & $pythonPath @integrationArgs
 if ($LASTEXITCODE -ne 0) { throw 'Codex integration failed. Existing connections were preserved.' }
+if (-not $Preview -and $Integration -eq 'standalone' -and (Test-Path -LiteralPath (Join-Path $Output 'application.json'))) {
+    $previousCodexHome = $env:CODEX_HOME
+    try {
+        if ($CodexHome) { $env:CODEX_HOME = $CodexHome }
+        $inventoryJson = & codex plugin list --json
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot read installed FreeCAD plugin version.' }
+    } finally {
+        $env:CODEX_HOME = $previousCodexHome
+    }
+    $plugin = @(($inventoryJson | ConvertFrom-Json).installed | Where-Object { $_.pluginId -eq 'freecad-modeling@freecad-development' -and $_.installed })
+    if ($plugin.Count -ne 1) { throw 'FreeCAD plugin identity is missing or ambiguous.' }
+    $record = @{plugin_id = $plugin[0].pluginId; version = $plugin[0].version}
+    $metadataPath = Join-Path $Output 'installed-plugin.json'
+    $metadataPending = $metadataPath + '.' + [Guid]::NewGuid().ToString('N') + '.pending'
+    [IO.File]::WriteAllText($metadataPending, ($record | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
+    if (Test-Path -LiteralPath $metadataPath) { [IO.File]::Replace($metadataPending, $metadataPath, $null) }
+    else { [IO.File]::Move($metadataPending, $metadataPath) }
+}

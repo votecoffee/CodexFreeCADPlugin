@@ -82,6 +82,16 @@ if ($LASTEXITCODE -ne 0) { throw 'Host runtime installation failed; existing Cod
 if ($LASTEXITCODE -ne 0) { throw 'Host dependency check failed.' }
 & $pythonPath (Join-Path $PSScriptRoot 'verify_framework_wheels.py') --backend-wheel $backendWheel --host-wheel $hostWheel --framework-wheel $frameworkCopy --framework-sha256 $FrameworkSha256.ToLowerInvariant() --site-packages (Join-Path $runtime 'Lib\site-packages')
 if ($LASTEXITCODE -ne 0) { throw 'Installed package readback differs from audited wheels.' }
+# Known local artifacts only; this is not a package-feed or GitHub update check.
+$availability = @{schema_version = 1; versions = @{
+    app = $wheelAudit.backend; host = $wheelAudit.host; framework = $wheelAudit.framework
+    mcp = $wheelAudit.mcp_requirement; plugin = $wheelAudit.backend
+}}
+$availabilityPath = Join-Path $output 'available-versions.json'
+$availabilityPending = $availabilityPath + '.' + $generation + '.pending'
+[IO.File]::WriteAllText($availabilityPending, ($availability | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
+if (Test-Path -LiteralPath $availabilityPath) { [IO.File]::Replace($availabilityPending, $availabilityPath, $null) }
+else { [IO.File]::Move($availabilityPending, $availabilityPath) }
 $hostArgs = @('-m', 'freecad_mcp_host', '--state', (Join-Path $output 'state'), '--publication', (Join-Path $output 'application.json'))
 $backup = Join-Path $output "backups\$generation"
 $null = [IO.Directory]::CreateDirectory($backup)

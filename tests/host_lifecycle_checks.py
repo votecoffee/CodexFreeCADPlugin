@@ -70,6 +70,8 @@ def exercise(args):
         str(state),
         "--publication",
         result["publication"],
+        "--management-registry",
+        str(args.root / "management-registry"),
     ]
     run([*base, "init", "--port", str(free_port())])
     settings = load_settings(state)

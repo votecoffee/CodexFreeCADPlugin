@@ -41,7 +41,7 @@ Tests using UI lifecycle doubles check controller contracts. They do not establi
 
 ## App-owned framework host
 
-The experimental app-owned framework pins framework 0.17.0 and MCP 2.3 throughout. It does not require the Universal Tools plugin or a universal daemon. After installing the verified framework wheel and host package, include its disposable-provider protocol profiles:
+The experimental app-owned framework pins framework 0.18.0 and MCP 2.3 throughout. It does not require the Universal Tools plugin or a universal daemon. After installing the verified framework wheel and host package, include its disposable-provider protocol profiles:
 
 ```powershell
 $env:FREECAD_FRAMEWORK_PYTHON = 'C:\Apps\FreeCADHost\python.exe'
@@ -53,6 +53,8 @@ The framework cases start only isolated app hosts and published SDK 2 workers wi
 The host suite checks standalone installation previews, preservation of existing direct configuration, rejection of removed installer/server options, exclusive app-owned backend definitions, exact write allowlists, unchanged direct MCP schemas and installation metadata discovery without executing extension code. Normal setup generates no broker manifests. Live GUI editing and Codex UI activation remain separate manual checks.
 
 Each protocol profile also sends an over-depth and an over-node-count CAD extension argument. It checks rejection before schema validation, absence of a write receipt, no provider calls and no fake model effects. Native dispatch is separately guarded. Optional Tasks/Skills APIs are not composed by the FreeCAD host; framework extension tests do not establish durable CAD jobs, host approval UI or native skill activation.
+
+The management case uses a dedicated registry and fake restart ledgers. It checks callback-only cached reads, separate component versions and unknown availability, concurrent CAD-request counts, cancellation cleanup, stale/busy denial and disabled app restarts. A disposable subprocess exits after a recorded fake effect to check the durable restart barrier after process loss. Synthetic supervision is test-only; live FreeCAD restart remains disabled. Lifecycle and protocol fixtures pass an explicit management registry so they cannot publish rows into the user's shared manager. See [management scope](SERVICE_MANAGEMENT.md).
 
 ## Headless smoke checks
 

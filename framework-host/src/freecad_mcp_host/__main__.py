@@ -12,11 +12,12 @@ from pathlib import Path
 
 from universal_tools.cli import initialize, probe, process_options, stop
 from universal_tools.daemon import InstanceLock
-from universal_tools.framework import load_application, serve_application
+from universal_tools.framework import load_application
 from universal_tools.models import BrokerError, atomic_json, load_settings
 from universal_tools.surface import RemoteBackend, create_surface
 
 from . import APPLICATION_ID, FRAMEWORK_VERSION
+from .application import serve
 from .maintenance import journal_status, require_idle
 
 
@@ -89,7 +90,7 @@ def wait_stopped(state, *, deadline=None, allow_running=False):
             time.sleep(0.1)
 
 
-def start(state, path, *, timeout=35):
+def start(state, path, *, timeout=35, management_registry=None):
     """Start only this app's server, preserving its ownership and recovery journals."""
     require_state(state, path)
     settings = load_settings(state)
@@ -117,17 +118,20 @@ def start(state, path, *, timeout=35):
                     "FreeCAD host port is occupied; existing process preserved"
                 ) from None
         with (state / "freecad-host.log").open("ab") as log:
+            command = [
+                sys.executable,
+                "-m",
+                "freecad_mcp_host",
+                "--state",
+                str(state),
+                "--publication",
+                str(path),
+                "serve",
+            ]
+            if management_registry is not None:
+                command += ["--management-registry", str(management_registry)]
             child = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-m",
-                    "freecad_mcp_host",
-                    "--state",
-                    str(state),
-                    "--publication",
-                    str(path),
-                    "serve",
-                ],
+                command,
                 stdin=subprocess.DEVNULL,
                 stdout=log,
                 stderr=log,
@@ -205,6 +209,9 @@ def main():
         ],
     )
     parser.add_argument("--port", type=int, default=8891)
+    parser.add_argument(
+        "--management-registry", type=Path, help="Explicit private registry for isolated testing"
+    )
     args = parser.parse_args()
     state, path = args.state.expanduser().resolve(), args.publication.expanduser().resolve()
     try:
@@ -226,7 +233,7 @@ def main():
             )
             return
         if args.command in {"start", "connect"}:
-            value = start(state, path)
+            value = start(state, path, management_registry=args.management_registry)
             if args.command == "start":
                 print(json.dumps(value))
                 return
@@ -247,7 +254,7 @@ def main():
         else:
             require_state(state, path)
             if args.command == "serve":
-                serve_application(state, path)
+                serve(state, path, registry=args.management_registry)
             elif args.command == "proxy":
                 # The app host must already be running. Never auto-start a universal daemon.
                 create_surface(
