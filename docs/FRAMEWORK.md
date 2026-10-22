@@ -1,6 +1,6 @@
 # Experimental app-owned framework host
 
-The shared app framework is the primary development direction. FreeCAD owns its standalone Codex plugin, stable discovery/invocation interface, CAD backends and native validation. The framework is an implementation dependency of this app-owned host. It does not add a central plugin, broker registration or automatic route selection. Initial normal setup uses direct endpoints; framework installation is an explicit choice.
+The architecture is a shared app framework with an independent Windows manager. FreeCAD owns its standalone Codex plugin, native skills, stable discovery/invocation interface, CAD backends and native validation. Plugin installation never depends on another app's plugin being present. There is no universal Codex plugin, aggregated skill installer or universal MCP connection. The framework is an implementation dependency of this app-owned host; its retained `universal-codex-tools` distribution and `universal_tools` import names do not imply a universal plugin deployment. Initial normal setup uses direct endpoints; framework installation is an explicit choice.
 
 ## Install the app-owned host
 
