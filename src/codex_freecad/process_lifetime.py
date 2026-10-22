@@ -24,6 +24,13 @@ def run_stdio(server, *, exit_process=os._exit):
         result = 1
         traceback.print_exc(file=sys.stderr)
     finally:
+        try:
+            from .resource_ownership import close_session
+
+            close_session()
+        except BaseException:
+            result = 1
+            traceback.print_exc(file=sys.stderr)
         for stream in (sys.stdout, sys.stderr):
             try:
                 stream.flush()
@@ -105,8 +112,8 @@ def process_tree_snapshot():
         "owned_processes": [],
         "maximum_processes": 32,
         "attached_gui_policy": "external-detach-only",
-        "durable_ledger": "awaiting-shared-api",
-        "shared_last_owner_cleanup": "blocked-awaiting-durable-ledger-and-drain-fence",
+        "durable_ledger": "framework-0.20-native-claims",
+        "shared_last_owner_cleanup": "blocked-awaiting-complete-client-admission-and-drain-fence",
     }
     if os.name != "nt" or not _jobs:
         return result

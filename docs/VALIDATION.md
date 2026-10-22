@@ -24,6 +24,8 @@ For host-only checks, use `.venv\Scripts\pytest.exe -q -m 'not native'`. Native 
 
 The source-only lifecycle subset is `.venv\Scripts\pytest.exe -q tests/test_process_lifetime.py tests/test_owned_process.py`. It uses file locks and stub APIs without launching MCP servers or native applications. It checks admission limits, handle/creation-identity sequencing, startup refusal, bounded reader cleanup and detach-only attachments. It does not establish Job Object behavior or child-process cleanup on Windows. Lifecycle deployment also requires isolated process-tree/EOF/owner-death, shared-lease and native attach-preservation acceptance plus the published common durable-ledger integration; see [current lifecycle status](SERVICE_MANAGEMENT.md#process-lifetime-hardening).
 
+With the reviewed 0.20 package available, `tests/test_resource_ownership.py` exercises the actual ledger against a fake driver and a private registry. `FREECAD_RUN_RESOURCE_FIXTURES=1` enables `tests/test_resource_process_fixtures.py`: harmless Python pipe-worker/grandchild and pre-resume failure fixtures, without MCP or engineering applications. These tests use dedicated registries and retain failed reservations. They do not establish native model recovery or full server lifecycle acceptance.
+
 Coverage includes:
 
 - Workspace confinement, explicit overwrites/backups, typed schemas, revision guards, setup generation and API schema conversion.
@@ -43,7 +45,7 @@ Tests using UI lifecycle doubles check controller contracts. They do not establi
 
 ## App-owned framework host
 
-The experimental app-owned framework pins framework 0.18.0 and MCP 2.3 throughout. It does not require the Universal Tools plugin or a universal daemon. After installing the verified framework wheel and host package, include its disposable-provider protocol profiles:
+The experimental app-owned framework pins framework 0.20.0 and MCP 2.3 throughout. It does not require the Universal Tools plugin or a universal daemon. After installing the verified framework wheel and host package, include its disposable-provider protocol profiles:
 
 ```powershell
 $env:FREECAD_FRAMEWORK_PYTHON = 'C:\Apps\FreeCADHost\python.exe'

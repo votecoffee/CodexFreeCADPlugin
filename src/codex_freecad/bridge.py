@@ -122,7 +122,8 @@ class Bridge:
 
         if self.state_file.exists():
             try:
-                LiveClient(self.state_file, timeout=1).call("status")
+                # Native startup probe only: keep FreeCAD's bundled Python stdlib-only.
+                LiveClient(self.state_file, timeout=1, managed=False).call("status")
             except Exception:
                 pass
             else:

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 import codex_freecad.owned_process as owned
+import codex_freecad.resource_ownership as resources
 from codex_freecad.client import HeadlessClient, LiveClient
 from codex_freecad.engine import CadError
 
@@ -34,6 +35,23 @@ def setup_spawn(monkeypatch, *, accepted=True):
         AssignProcessToJobObject=lambda *args: events.append("assign") or accepted,
         CloseHandle=lambda handle: events.append(("close", handle)) or True,
     )
+
+    class Claim:
+        resource_id = "a" * 32
+
+        def __init__(self, owner=None):
+            events.append("reserve")
+
+        def bind(self, process):
+            events.append("durable-bind")
+
+        def failed(self, reason):
+            events.append("barrier")
+
+        def closed(self):
+            events.append("retire")
+
+    monkeypatch.setattr(resources, "NativeClaim", Claim)
     monkeypatch.setattr(owned, "os", SimpleNamespace(name="nt"))
     monkeypatch.setattr(owned, "_jobs", [1])
     monkeypatch.setattr(owned, "_kernel", lambda: api)
@@ -47,7 +65,7 @@ def setup_spawn(monkeypatch, *, accepted=True):
 def test_worker_identity_and_containment_precede_execution(monkeypatch):
     events, options, process = setup_spawn(monkeypatch)
     result = owned.spawn_owned(["disposable-stub"])
-    assert events == ["popen-suspended", "identity", "assign", "resume"]
+    assert events == ["reserve", "popen-suspended", "identity", "assign", "durable-bind", "resume"]
     assert options["creationflags"] & 4 and options["creationflags"] & 0x08000000
     assert options["close_fds"] is True
     assert result.process is process and result.identity["creation_filetime"] == 200
@@ -60,7 +78,16 @@ def test_failed_assignment_never_resumes_and_uses_retained_process(monkeypatch):
     events, _, process = setup_spawn(monkeypatch, accepted=False)
     with pytest.raises(OSError, match="containment"):
         owned.spawn_owned(["disposable-stub"])
-    assert events == ["popen-suspended", "identity", "assign", ("close", 99), "kill", "wait"]
+    assert events == [
+        "reserve",
+        "popen-suspended",
+        "identity",
+        "assign",
+        "barrier",
+        ("close", 99),
+        "kill",
+        "wait",
+    ]
     assert process.poll() == 1
 
 
@@ -174,6 +201,7 @@ def test_reader_start_failure_closes_new_owned_worker(tmp_path, monkeypatch):
         api=SimpleNamespace(CloseHandle=lambda handle: closed.append(handle) or True),
     )
     monkeypatch.setattr(owned, "spawn_owned", lambda *args, **kwargs: tree)
+    monkeypatch.setattr(resources, "api_owner", lambda *args: (SimpleNamespace(), False))
     monkeypatch.setattr(client_module, "find_freecad_cmd", lambda *args: "disposable-stub")
 
     class FailedReader:

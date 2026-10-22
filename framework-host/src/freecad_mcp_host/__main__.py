@@ -181,6 +181,7 @@ def activate(
             installed=True,
             source_package=source_package,
             modern_discovery=modern_discovery,
+            resource_registry=management_registry,
         )
         initialize_app(state, path, port)
         child = spawn_serve(state, path, management_registry)
@@ -292,6 +293,7 @@ def doctor(state, path):
 
 def main():
     from codex_freecad.process_lifetime import ProcessSlots, process_lifetime, run_stdio
+    from codex_freecad.resource_ownership import resource_session, share_supervisor
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True)
@@ -377,9 +379,14 @@ def main():
                 raise BrokerError(
                     "FreeCAD host is stopped; an administrator must start it explicitly"
                 )
-            asyncio.run(status(state))  # Verify identity without starting any replacement.
+            value = asyncio.run(status(state))
             definition = publication(path)
-            with ProcessSlots(state / "frontends"), process_lifetime(stdio=True, limit=8):
+            with (
+                ProcessSlots(state / "frontends"),
+                process_lifetime(stdio=True, limit=8),
+                resource_session(args.management_registry),
+            ):
+                share_supervisor(value["resource_ownership"]["supervisor"])
                 run_stdio(
                     create_surface(
                         RemoteBackend(load_settings(state)),
@@ -401,7 +408,13 @@ def main():
                     serve(state, path, registry=args.management_registry)
             elif args.command == "proxy":
                 # The app host must already be running. Never auto-start a universal daemon.
-                with ProcessSlots(state / "frontends"), process_lifetime(stdio=True, limit=8):
+                value = asyncio.run(status(state))
+                with (
+                    ProcessSlots(state / "frontends"),
+                    process_lifetime(stdio=True, limit=8),
+                    resource_session(args.management_registry),
+                ):
+                    share_supervisor(value["resource_ownership"]["supervisor"])
                     run_stdio(
                         create_surface(
                             RemoteBackend(load_settings(state)),

@@ -40,7 +40,9 @@ def find_freecad_cmd(explicit=None):
 
 
 class HeadlessClient:
-    def __init__(self, workspace, freecad_cmd=None, timeout=120, extension_dirs=None):
+    def __init__(
+        self, workspace, freecad_cmd=None, timeout=120, extension_dirs=None, resource_registry=None
+    ):
         self.workspace = Path(workspace).expanduser().resolve()
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.freecad_cmd = freecad_cmd
@@ -53,6 +55,9 @@ class HeadlessClient:
         self.failed = False
         self.readers = []
         self.last_resource = None
+        self.resource_registry = resource_registry
+        self.resource_owner = None
+        self.owns_resource_owner = False
         atexit.register(self.close)
 
     def _read(self, stream, replies, response_queue):
@@ -102,6 +107,10 @@ class HeadlessClient:
                 [str(Path(p).expanduser().resolve()) for p in self.extension_dirs]
             )
         from .owned_process import spawn_owned
+        from .resource_ownership import api_owner
+
+        if self.resource_owner is None:
+            self.resource_owner, self.owns_resource_owner = api_owner(self.resource_registry)
 
         self.process = spawn_owned(
             [
@@ -121,6 +130,7 @@ class HeadlessClient:
             bufsize=1,
             cwd=str(self.workspace),
             env=env,
+            resource_owner=self.resource_owner,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
         try:
@@ -194,6 +204,8 @@ class HeadlessClient:
                     self.failed = True  # Retain handles/evidence; never spawn another worker here.
                 else:
                     self.process, self.readers = None, []
+        if self.owns_resource_owner:
+            self.resource_owner.close()
 
     def resource_status(self):
         result = (
@@ -219,11 +231,16 @@ class HeadlessClient:
 
 
 class LiveClient:
-    def __init__(self, state_file, timeout=120):
+    def __init__(self, state_file, timeout=120, resource_registry=None, *, managed=True):
         self.state_file = Path(state_file).expanduser().resolve()
         self.timeout = timeout
         # Never send the local bearer token through environment HTTP proxies.
         self.opener = build_opener(ProxyHandler({}))
+        self.attachment = None
+        self.managed = managed
+        self.resource_registry = resource_registry
+        self.resource_owner = None
+        self.owns_resource_owner = False
 
     def call(self, method, **params):
         try:
@@ -235,6 +252,21 @@ class LiveClient:
         port = state["port"]
         if type(port) is not int or not 1 <= port <= 65535:
             raise CadError("Invalid live bridge state")
+        if self.managed:
+            from .resource_ownership import Attachment, api_owner
+
+            pid = state.get("pid")
+            if type(pid) is not int or pid <= 0:
+                raise CadError(
+                    "Live bridge process identity is missing; inspect its intended bridge"
+                )
+            if self.attachment is None:
+                if self.resource_owner is None:
+                    self.resource_owner, self.owns_resource_owner = api_owner(
+                        self.resource_registry
+                    )
+                self.attachment = Attachment(pid, self.resource_owner)
+            self.attachment.verify(pid)
         body = json.dumps({"method": method, "params": params}).encode("utf-8")
         request = Request(
             "http://127.0.0.1:%d/call" % port,
@@ -255,6 +287,8 @@ class LiveClient:
                 message = "Bridge HTTP error: " + str(exc.code)
             raise CadError(str(message)) from None
         except (URLError, TimeoutError, OSError):
+            if self.attachment is not None:
+                self.attachment.uncertain()
             raise CadError(
                 "Live bridge unavailable or timed out. Inspect the model before retrying a write."
             ) from None
@@ -263,7 +297,11 @@ class LiveClient:
         return payload["result"]
 
     def close(self):
-        pass
+        if self.attachment is not None:
+            self.attachment.close()
+            self.attachment = None
+        if self.owns_resource_owner:
+            self.resource_owner.close()
 
     def resource_status(self):
         return {
@@ -271,4 +309,5 @@ class LiveClient:
             "cleanup": "detach-only",
             "terminate_allowed": False,
             "native_dirty_state": "not-inspected",
+            "ledger_resource_id": self.attachment.record.resource_id if self.attachment else None,
         }

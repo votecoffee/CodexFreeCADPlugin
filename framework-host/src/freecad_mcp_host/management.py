@@ -76,8 +76,10 @@ class StatusCache:
     def collect(self):
         """Producer-only file reads. The HTTP status callback never calls this method."""
         from codex_freecad.process_lifetime import ProcessSlots, process_tree_snapshot
+        from codex_freecad.resource_ownership import supervisor_status
 
         resources = process_tree_snapshot()
+        resources.update(supervisor_status())
         resources["sampled_frontends"] = ProcessSlots.occupied(self.state / "frontends")
         resources["frontend_limit"] = 8
         with self.lock:

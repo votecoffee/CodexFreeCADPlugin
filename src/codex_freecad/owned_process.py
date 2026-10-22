@@ -9,15 +9,17 @@ from .process_lifetime import _jobs, _kernel, _make_job, _own_job
 
 
 class OwnedProcess:
-    def __init__(self, process, *, api=None, job=None, creation=None):
+    def __init__(self, process, *, api=None, job=None, creation=None, claim=None):
         self.process, self.api, self.job = process, api, job
+        self.claim = claim
         self.identity = {
-            "resource_id": uuid.uuid4().hex,
+            "resource_id": claim.resource_id if claim else uuid.uuid4().hex,
             "ownership": "exclusive-launched",
             "pid": process.pid,
             "creation_filetime": creation,
             "containment": "windows-job" if job else "unassessed-platform",
             "native_dirty_state": "not-inspected",
+            "ledger_resource_id": claim.resource_id if claim else None,
         }
 
     def __getattr__(self, name):
@@ -31,6 +33,9 @@ class OwnedProcess:
                 raise OSError("Cannot close the retained owned-worker job")
             self.job = None
             self.identity["cleanup"] = "closed"
+        if self.claim is not None:
+            self.claim.closed()
+            self.claim = None
 
 
 def _creation_time(api, handle):
@@ -102,10 +107,13 @@ def _resume_created_process(api, process, creation):
         api.CloseHandle(snapshot)
 
 
-def spawn_owned(command, **options):
+def spawn_owned(command, *, resource_owner=None, **options):
     """Hold the new worker suspended until assigned to its exclusive lifetime job."""
     if os.name != "nt":
-        return OwnedProcess(subprocess.Popen(command, **options))
+        raise OSError("Managed native process containment currently requires Windows")
+    from .resource_ownership import NativeClaim
+
+    claim = NativeClaim(resource_owner)
     api = _kernel()
     if not _jobs:
         _own_job(api, 32)  # Contain startup failures/death before the child-job assignment.
@@ -118,12 +126,20 @@ def spawn_owned(command, **options):
         creation = _creation_time(api, handle)
         if not api.AssignProcessToJobObject(job, handle):
             raise OSError("Owned worker containment failed before execution")
+        claim.bind(
+            process
+        )  # Durable identity must precede execution on the existing pipe transport.
         _resume_created_process(api, process, creation)
-        return OwnedProcess(process, api=api, job=job, creation=creation)
+        return OwnedProcess(process, api=api, job=job, creation=creation, claim=claim)
     except BaseException:
-        api.CloseHandle(job)
-        if process is not None:
-            if process.poll() is None:
-                process.kill()  # Popen uses the retained handle, never a recycled PID.
-            process.wait(timeout=3)
+        try:
+            claim.failed(
+                "Native launch/initialization did not complete; preserve this reservation and inspect the owned process"
+            )
+        finally:
+            api.CloseHandle(job)
+            if process is not None:
+                if process.poll() is None:
+                    process.kill()  # Popen uses the retained handle, never a recycled PID.
+                process.wait(timeout=3)
         raise

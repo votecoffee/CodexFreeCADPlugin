@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Aligned source with the reviewed framework 0.20.0 resource API while retaining MCP 2.3 and FreeCAD's own plugin. Native reservations/bindings precede execution; GUI attachments and shared frontend references are report-only. Native barriers and process-exit attestations remain distinct from CAD write recovery. Source/package/stub and harmless non-MCP process evidence do not establish native/MCP acceptance. SDK launcher registration and shared shutdown remain deployment blockers; no installation or live registry migration is implied.
+
 - Prepared source-only process lifetime hardening: connection commands no longer auto-start hosts; frontend slots are bounded and Windows jobs/EOF-parent guards bind descendants to owners. Runtime/shutdown validation and deployment remain pending. Journals and external GUI sessions are preserved; tray restart stays disabled.
 - Prepared exclusive native-worker ownership with suspended launch, retained handles/creation identity, child-job teardown and bounded reader cleanup. Added read-only ownership/status reporting and explicit external-GUI classification. Durable resource recovery and shared last-owner cleanup await the common ledger API and assessed fencing; no older dependency is claimed to provide them.
 

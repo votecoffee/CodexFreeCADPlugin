@@ -95,6 +95,7 @@ async def exercise(args):
         source_package=source,
         protocol_mode=args.protocol_mode,
         modern_discovery=modern_discovery,
+        resource_registry=args.root / "management-registry",
     )
     publication = Path(result["publication"])
     initial = json.loads(publication.read_bytes())
@@ -297,6 +298,7 @@ async def exercise(args):
                 source_package=source,
                 protocol_mode=args.protocol_mode,
                 modern_discovery=modern_discovery,
+                resource_registry=args.root / "management-registry",
             )
             refresh = data(await owner.call_tool("refresh_services", {}))
             assert any(row["status"] == "deferred" for row in refresh["backend_publications"])
@@ -363,6 +365,7 @@ async def exercise(args):
                 source_package=source,
                 protocol_mode=args.protocol_mode,
                 modern_discovery=modern_discovery,
+                resource_registry=args.root / "management-registry",
             )
             selected = json.loads(publication.read_bytes())
             live_backend = next(

@@ -87,7 +87,7 @@ def exercise(root):
     cache.failed()
     assert cache.snapshot().state == "degraded"
     (root / "available-versions.json").write_text(
-        json.dumps({"versions": {"app": "2.0.0", "framework": "0.18.0", "plugin": "0.9.0"}})
+        json.dumps({"versions": {"app": "2.0.0", "framework": "0.20.0", "plugin": "0.9.0"}})
     )
     (root / "installed-plugin.json").write_text(
         json.dumps({"plugin_id": PLUGIN_ID, "version": "0.9.0"})

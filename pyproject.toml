@@ -12,6 +12,7 @@ dependencies = ["mcp==2.3.0"]
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "ruff>=0.17,<0.18"]
 api = ["openai>=2,<3"]
+managed = ["universal-codex-tools==0.20.0"]
 
 [project.scripts]
 codex-freecad = "codex_freecad.server:main"
@@ -28,6 +29,7 @@ testpaths = ["tests"]
 markers = [
     "native: requires a real FreeCAD installation",
     "framework: requires FREECAD_FRAMEWORK_PYTHON pointing to an isolated app-host runtime",
+    "resource_process: explicit harmless non-MCP Python process fixtures in a private registry",
 ]
 
 [tool.ruff]

@@ -9,32 +9,32 @@ def feature_report(
         "features": {
             "durable_resource_ownership": {
                 "state": "blocked",
-                "detail": "Awaiting the published shared ownership-ledger API. App-local jobs/handles are not durable recovery evidence. Shared last-owner cleanup and crash reconciliation are not accepted.",
+                "detail": "Framework 0.20 ledger reservations/bindings protect native workers, attachments and frontend references. SDK-created wrapper registration, shared last-owner draining and native crash recovery remain unaccepted.",
             },
             "process_lifetime": {
                 "state": "unassessed",
                 "detail": "Source-only hardening: explicit host startup, eight frontend slots, Windows job ownership and EOF/parent-exit guards. Runtime process-tree/shutdown acceptance is pending.",
             },
             "runtime_guidance": {
-                "state": "enabled-and-tested",
+                "state": "implemented-unassessed",
                 "detail": "Hash-pinned get_workflow and references; data is not write approval.",
             },
             "mcp_skills": {
-                "state": "enabled-and-tested" if app_host else "outside",
+                "state": "implemented-unassessed" if app_host else "outside",
                 "detail": "App-owned HTTP profile; stdio uses guide tools. Native Codex loading is unassessed.",
             },
             "catalog_watch": {
-                "state": "enabled-and-tested" if watch_catalog else "blocked",
+                "state": "implemented-unassessed" if watch_catalog else "blocked",
                 "detail": "Explicit retained modern/auto profile only; legacy requires refresh.",
                 "protocol_mode": protocol_mode,
             },
             "discovery_cache": {
-                "state": "enabled-and-tested" if discovery_cache_ttl_seconds else "blocked",
+                "state": "implemented-unassessed" if discovery_cache_ttl_seconds else "blocked",
                 "detail": "Connection-scoped opt-in discovery; absent hints disable caching. Invocation rechecks policy/schema.",
                 "ttl_seconds": discovery_cache_ttl_seconds,
             },
             "cad_progress": {
-                "state": "enabled-and-tested",
+                "state": "implemented-unassessed",
                 "detail": "Request dispatch/reply phases, not geometry percentages. Native/GUI acceptance is unassessed.",
             },
             "native_cancellation": {

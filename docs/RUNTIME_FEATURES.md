@@ -24,12 +24,12 @@ The owner validates the entire candidate, expected revision, bounded resource in
 
 ## Accepted profiles and blocked features
 
-`doctor` returns `feature_report` without contacting FreeCAD. The same report is discoverable as `references/features.json`. Enabled-and-tested refers to host/protocol fixtures; native geometry, GUI gestures and native Codex skill loading are separate acceptance layers.
+`doctor` returns `feature_report` without contacting FreeCAD. The same report is discoverable as `references/features.json`. The 0.20 source target reports protocol features as implemented but unassessed until its MCP profiles are rerun. Earlier protocol evidence used the previous pin. Native geometry, GUI gestures and native Codex skill loading are separate acceptance layers.
 
 | Feature | Selected behavior and evidence boundary |
 | --- | --- |
 | Process/resource ownership | Source-only and unassessed: bounded frontend leases, owner/worker jobs, suspended native launch, creation identities and detach-only live attachments. Pure stubs cannot establish native cleanup. |
-| Durable ownership recovery | Blocked awaiting the published common ledger API, shared last-owner admission/drain fencing and isolated acceptance. No automatic cleanup based on sampled lease counts. |
+| Durable ownership recovery | 0.20 reservations/bindings and protected attachments/references are integrated in source. Complete SDK-launcher registration, shared draining and native recovery remain blocked/unaccepted. No automatic cleanup based on sampled lease counts. |
 | Runtime guidance and HTTP Skills | Shared SHA-256 bytes, connected-client add/update/remove, stale reads and failed-candidate preservation tested with disposable CAD providers. |
 | Modern catalog watching | Explicit `--modern-discovery` with `auto`/modern only. A retained CAD backend publishes a changed tool list; an already connected client discovers it from a notification. Legacy remains the default. |
 | Discovery cache | Private, bounded two-second hints. Three warm tool-list reads require one server roundtrip in the SDK fixture instead of three; a second connection has its own cache, and change notifications invalidate it. This measures discovery roundtrips, not native CAD speed. |

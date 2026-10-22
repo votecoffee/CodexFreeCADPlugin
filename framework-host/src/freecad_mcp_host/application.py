@@ -11,12 +11,29 @@ from universal_tools.framework import ApplicationHost
 from universal_tools.management import ManagedService
 from universal_tools.models import load_settings
 
+from codex_freecad.resource_ownership import resource_session
+
 from . import APPLICATION_ID
 from .guidance import GuidanceCatalog
 from .management import PLUGIN_ID, ReportingBackend, StatusCache
 
 
 def serve(state, publication, *, registry=None):
+    if registry is not None:
+        from pathlib import Path
+
+        from universal_tools.framework import load_application
+
+        for backend in load_application(publication).backends:
+            args = backend.service.transport.args
+            if (
+                "--resource-registry" not in args
+                or Path(args[args.index("--resource-registry") + 1]).resolve()
+                != Path(registry).resolve()
+            ):
+                raise ValueError(
+                    "An isolated host requires the same explicit resource registry on every backend"
+                )
     settings = load_settings(state)
     host = ApplicationHost(
         state, publication, max_request_body_bytes=settings.max_request_body_bytes
@@ -86,4 +103,5 @@ def serve(state, publication, *, registry=None):
     )
     process = uvicorn.Server(config)
     config.app = ProtectedApp(app, settings, process, secrets.token_hex(16))
-    process.run()
+    with resource_session(registry):
+        process.run()

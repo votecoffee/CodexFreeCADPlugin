@@ -8,7 +8,7 @@ From a clean committed checkout, run normal setup, then select the framework hos
 
 ```powershell
 .\scripts\Setup.ps1
-.\scripts\Install-Framework.ps1 -FrameworkWheel C:\Packages\universal_codex_tools-0.18.0-py3-none-any.whl -FrameworkSha256 TRUSTED_SHA256
+.\scripts\Install-Framework.ps1 -FrameworkWheel C:\Packages\universal_codex_tools-0.20.0-py3-none-any.whl -FrameworkSha256 TRUSTED_SHA256
 ```
 
 The installer checks the supplied hash before installing anything, builds both application wheels, verifies source bytes and wheel RECORDs, and installs normal dependencies into a separate runtime in ignored `.local/framework/runtimes/`. It reads installed package bytes back against all three audited wheels. It initializes dedicated app state, starts only the FreeCAD host, backs up the previous local Codex config and FreeCAD plugin cache, and replaces `freecad-modeling@freecad-development`. Other plugins are not selected or removed. No CAD document or GUI is opened. Native/GUI and Codex UI acceptance remain separate from installation and transport discovery.
@@ -23,14 +23,14 @@ The new runtime must pass `doctor` before plugin replacement. Local admin comman
 
 The owning host also provides [cached tray reporting](SERVICE_MANAGEMENT.md) using framework 0.18's management endpoint. Backend dispatch still uses the original `ApplicationBackend` ownership and routing implementation, with an operation counter around CAD-facing requests. Tray restart stays disabled; this reporting interface does not add safe supervision to explicit installer maintenance. No duplicate manager, universal plugin or unrelated extension is installed.
 
-**Current baseline: framework 0.18.0 and MCP 2.3.0 throughout.** The framework uses `MCPServer`, typed pagination and snake_case Python fields with wire aliases. SDK 1.x compatibility is not required. Legacy publications retain the negotiated `2025-11-25` handshake. Explicit `auto` and `2026-07-28` candidates are assessed with disposable providers, including modern frontend ownership through independent stdio proxies. Framework support for SDK 2.2 does not establish this app's acceptance of a different version than its exact MCP 2.3 pin.
+**Source target: framework 0.20.0 and MCP 2.3.0 throughout. Protocol/native acceptance for this target is pending.** The framework uses `MCPServer`, typed pagination and snake_case Python fields with wire aliases. SDK 1.x compatibility is not required. Legacy publications retain the negotiated `2025-11-25` handshake. Explicit `auto` and `2026-07-28` candidates are assessed with disposable providers, including modern frontend ownership through independent stdio proxies. Framework support for SDK 2.2 does not establish this app's acceptance of a different version than its exact MCP 2.3 pin.
 
 ## Packages and SDK boundary
 
 | Package | Environment | Pinned dependency |
 | --- | --- | --- |
 | `codex-freecad` | CAD MCP backend | `mcp==2.3.0` |
-| `freecad-mcp-host` | App-owned host | `universal-codex-tools==0.18.0`, `mcp==2.3.0` |
+| `freecad-mcp-host` | App-owned host | `universal-codex-tools==0.20.0`, `mcp==2.3.0` |
 | Native FreeCAD engine | FreeCAD's bundled Python | Native FreeCAD modules; no host MCP/Pydantic imports |
 
 The host imports `universal_tools.framework` from a normal exact package dependency. The framework pin and `framework-host/requirements.lock` are updated together from the MCP 2.3 baseline. Use normal pip installation with a verified wheel or an explicit editable framework checkout for coordinated development. No framework source is copied into this project, no Git submodule is used, and no public package feed or native .NET binding is assumed. A separate app-owned environment keeps deployment/rollback independent even though both host and backend now use MCP 2.3.
@@ -39,7 +39,7 @@ Create a separate environment and install the host with a verified framework whe
 
 ```powershell
 py -3.13 -m venv .local\framework-runtime
-.\.local\framework-runtime\Scripts\python.exe -m pip install C:\Packages\VerifiedWheels\universal_codex_tools-0.18.0-py3-none-any.whl -r framework-host\requirements.lock -e . -e framework-host
+.\.local\framework-runtime\Scripts\python.exe -m pip install C:\Packages\VerifiedWheels\universal_codex_tools-0.20.0-py3-none-any.whl -r framework-host\requirements.lock -e . -e framework-host
 .\.local\framework-runtime\Scripts\python.exe -m pip check
 ```
 

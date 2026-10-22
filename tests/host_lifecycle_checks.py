@@ -62,6 +62,7 @@ def exercise(args):
         backend_python=args.backend_python,
         source_package=source,
         installed=True,
+        resource_registry=args.root / "management-registry",
     )
     state = Path(result["state"])
     base = [

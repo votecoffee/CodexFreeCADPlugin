@@ -61,6 +61,7 @@ def publish(
     protocol_mode="legacy",
     installed=False,
     modern_discovery=False,
+    resource_registry=None,
 ):
     """Local admin publication only. This function never starts a host/native app or installs a plugin."""
     if protocol_mode not in PROTOCOL_MODES:
@@ -146,6 +147,8 @@ def publish(
             if not path.is_file():
                 raise ValueError("FreeCADCmd executable is missing")
             args += ["--freecad-cmd", str(path)]
+        if resource_registry is not None:
+            args += ["--resource-registry", str(Path(resource_registry).expanduser().resolve())]
         servers["freecad-" + mode] = {"command": str(backend_python), "args": args}
     extensions = [str(deployment / "extensions" / str(i)) for i, _ in enumerate(extension_dirs)]
     for name in servers:
@@ -260,6 +263,7 @@ def main():
     parser.add_argument("--extensions", type=Path, action="append", default=[])
     parser.add_argument("--protocol-mode", choices=PROTOCOL_MODES, default="legacy")
     parser.add_argument("--modern-discovery", action="store_true")
+    parser.add_argument("--resource-registry", type=Path)
     parser.add_argument(
         "--installed",
         action="store_true",
@@ -279,6 +283,7 @@ def main():
                     protocol_mode=args.protocol_mode,
                     installed=args.installed,
                     modern_discovery=args.modern_discovery,
+                    resource_registry=args.resource_registry,
                 ),
                 indent=2,
             )

@@ -430,6 +430,7 @@ def main():
     parser.add_argument("--freecad-cmd")
     parser.add_argument("--guidance-snapshot", type=Path)
     parser.add_argument("--modern-discovery", action="store_true")
+    parser.add_argument("--resource-registry", type=Path)
     parser.add_argument(
         "--framework-backend", action="store_true", help="Expose app workflow guidance"
     )
@@ -448,13 +449,14 @@ def main():
     if args.mode == "live" and args.extensions and not args.framework_backend:
         parser.error("Configure live extension directories in the generated FreeCAD startup macro")
     from .process_lifetime import ProcessSlots, process_lifetime, run_stdio
+    from .resource_ownership import resource_session
 
     slots = (
         nullcontext()
         if args.framework_backend
         else ProcessSlots(args.workspace / ".runtime/frontends")
     )
-    with slots, process_lifetime(stdio=True, limit=8):
+    with slots, process_lifetime(stdio=True, limit=8), resource_session(args.resource_registry):
         run_stdio(
             create_server(
                 client,

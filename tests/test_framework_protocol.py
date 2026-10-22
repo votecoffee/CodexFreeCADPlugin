@@ -3,7 +3,6 @@
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -67,7 +66,7 @@ def test_app_host_startup_and_reconnect_without_native_dispatch(tmp_path):
             "--backend-source",
             str(Path(codex_freecad.__file__).parent),
             "--backend-python",
-            sys.executable,
+            str(Path(configured).resolve()),
         ],
         capture_output=True,
         timeout=150,
@@ -95,7 +94,7 @@ def test_app_owned_framework_profile_with_disposable_provider(
         "--source",
         str(Path(codex_freecad.__file__).parent),
         "--backend-python",
-        sys.executable,
+        str(Path(configured).resolve()),
         "--protocol-mode",
         protocol_mode,
         "--frontend-mode",
@@ -109,7 +108,7 @@ def test_app_owned_framework_profile_with_disposable_provider(
         )
     assert result.returncode == 0, log.read_text(encoding="utf-8", errors="replace")[-10000:]
     evidence = json.loads((tmp_path / "profile.json").read_bytes())
-    assert evidence["framework"] == "0.18.0" and evidence["frontend_tools"] == 14
+    assert evidence["framework"] == "0.20.0" and evidence["frontend_tools"] == 14
     assert evidence["framework_sdk"] == "2.3.0" and evidence["durable_recovery_barrier"]
     assert evidence["native_dispatches"] == 0 and evidence["same_session_refresh"]
     assert evidence["structural_budget_rejections"] == ["depth", "nodes"]
