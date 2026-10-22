@@ -8,12 +8,14 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from mcp import Client
 from mcp.client.stdio import StdioServerParameters
 from universal_tools.cli import probe
-from universal_tools.models import load_settings
+from universal_tools.daemon import InstanceLock
+from universal_tools.models import BrokerError, load_settings
 
 
 def run(command, *, success=True):
@@ -96,6 +98,44 @@ def exercise(args):
         rejected = run([*base, "doctor"], success=False)
         assert b"Live backend publication differs" in rejected.stderr
         publication.write_bytes(original)
+        worker = subprocess.Popen(
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--root",
+                str(args.root),
+                "--host-source",
+                str(args.host_source),
+                "--backend-source",
+                str(args.backend_source),
+                "--backend-python",
+                args.backend_python,
+                "--activate-worker",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        deadline = time.monotonic() + 25
+        while True:
+            try:
+                with InstanceLock(state / "freecad-startup.lock"):
+                    pass
+            except BrokerError:
+                break
+            assert worker.poll() is None and time.monotonic() < deadline
+            time.sleep(0.05)
+        contenders = [
+            subprocess.Popen([*base, "start"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            for _ in range(3)
+        ]
+        _, error = worker.communicate(timeout=80)
+        assert worker.returncode == 0, error.decode(errors="replace")
+        for contender in contenders:
+            _, error = contender.communicate(timeout=50)
+            assert contender.returncode == 0, error.decode(errors="replace")
+        replacement = probe(settings)
+        assert replacement and replacement != first
+        first = replacement
         run([*base, "start"])
         assert probe(settings) == first
         asyncio.run(connect([*base, "connect"]))
@@ -128,6 +168,7 @@ def exercise(args):
                 "app_identity_guard": True,
                 "occupied_port_preserved": True,
                 "native_dispatches": 0,
+                "fenced_handoff_with_waiting_frontends": True,
             },
             indent=2,
         )
@@ -140,7 +181,30 @@ def main():
     parser.add_argument("--host-source", type=Path, required=True)
     parser.add_argument("--backend-source", type=Path, required=True)
     parser.add_argument("--backend-python", required=True)
-    exercise(parser.parse_args())
+    parser.add_argument("--activate-worker", action="store_true")
+    args = parser.parse_args()
+    if args.activate_worker:
+        os.environ["PYTHONPATH"] = str(args.host_source)
+        sys.path.insert(0, str(args.root / "source"))
+        from freecad_mcp_host.__main__ import activate
+
+        output = args.root / "installation"
+        print(
+            json.dumps(
+                activate(
+                    output / "state",
+                    output / "application.json",
+                    previous_python=sys.executable,
+                    workspace=args.root / "models",
+                    backup=output / "backups/activation",
+                    port=load_settings(output / "state").port,
+                    management_registry=args.root / "management-registry",
+                    source_package=args.root / "source/codex_freecad",
+                )
+            )
+        )
+    else:
+        exercise(args)
 
 
 if __name__ == "__main__":

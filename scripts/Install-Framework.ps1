@@ -101,20 +101,6 @@ if ($Upgrade) {
     Copy-Item -LiteralPath $marker -Destination (Join-Path $backup 'framework-installation.json')
     Copy-Item -LiteralPath (Join-Path $output 'application.json') -Destination (Join-Path $backup 'application.json')
     Copy-Item -LiteralPath (Join-Path $output 'plugin') -Destination (Join-Path $backup 'generated-plugin') -Recurse
-    # The operator must quiesce other frontends. Recheck immediately before shutdown.
-    & $hostPython @hostArgs check-idle
-    if ($LASTEXITCODE -ne 0) { throw 'Work began during preparation. Upgrade stopped before host shutdown.' }
-    & $previous.python @hostArgs validate
-    if ($LASTEXITCODE -ne 0) { throw 'Existing runtime/publication validation failed before shutdown.' }
-    & $previous.python @hostArgs stop
-    if ($LASTEXITCODE -ne 0) { throw 'Previous host did not stop cleanly. No runtime selection was changed.' }
-    & $hostPython @hostArgs wait-stopped
-    if ($LASTEXITCODE -ne 0) { throw 'Previous host still owns its state. No replacement was started.' }
-    & $hostPython @hostArgs check-idle
-    if ($LASTEXITCODE -ne 0) { throw 'Shutdown left a recovery barrier. No publication, journal or runtime selection was replaced.' }
-    Get-ChildItem -LiteralPath (Join-Path $output 'state') -Filter '*.sqlite3' | ForEach-Object {
-        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $backup $_.Name)
-    }
 }
 $publishArgs = @('-m', 'codex_freecad.framework_setup', '--workspace', $Workspace, '--output', $output, '--host-python', $hostPython, '--backend-python', $hostPython, '--installed')
 if ($Upgrade) {
@@ -122,14 +108,22 @@ if ($Upgrade) {
 }
 if ($FreeCADCmd) { $publishArgs += @('--freecad-cmd', $FreeCADCmd) }
 foreach ($directory in $Extensions) { $publishArgs += @('--extensions', $directory) }
-& $hostPython @publishArgs
-if ($LASTEXITCODE -ne 0) { throw 'Framework publication failed.' }
-& $hostPython @hostArgs init --port $Port
-if ($LASTEXITCODE -ne 0) { throw 'Framework state initialization failed.' }
-& $hostPython @hostArgs start
-if ($LASTEXITCODE -ne 0) { throw 'App host startup failed; existing Codex plugin was preserved.' }
-& $hostPython @hostArgs doctor
-if ($LASTEXITCODE -ne 0) { throw 'New host failed its doctor checks. Prior runtime, state and backups were retained.' }
+if ($Upgrade) {
+    $activateArgs = @('activate', '--previous-python', $previous.python, '--workspace', $Workspace, '--backup', $backup, '--port', $Port, '--protocol-mode', $previous.protocol_mode)
+    if ($FreeCADCmd) { $activateArgs += @('--freecad-cmd', $FreeCADCmd) }
+    foreach ($directory in $Extensions) { $activateArgs += @('--extensions', $directory) }
+    & $hostPython @hostArgs @activateArgs
+    if ($LASTEXITCODE -ne 0) { throw 'Fenced host activation failed. Prior runtime, state and backups were retained.' }
+} else {
+    & $hostPython @publishArgs
+    if ($LASTEXITCODE -ne 0) { throw 'Framework publication failed.' }
+    & $hostPython @hostArgs init --port $Port
+    if ($LASTEXITCODE -ne 0) { throw 'Framework state initialization failed.' }
+    & $hostPython @hostArgs start
+    if ($LASTEXITCODE -ne 0) { throw 'App host startup failed; existing Codex plugin was preserved.' }
+    & $hostPython @hostArgs doctor
+    if ($LASTEXITCODE -ne 0) { throw 'New host failed its doctor checks. Prior runtime, state and backups were retained.' }
+}
 # Use the same FreeCAD marketplace identity, replacing the direct plugin rather than duplicating it.
 $codexHomePath = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
 [IO.File]::WriteAllText((Join-Path $backup 'marketplaces.json'), ($marketplaceJson -join "`n"), (New-Object Text.UTF8Encoding($false)))

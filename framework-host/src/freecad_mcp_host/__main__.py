@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import json
+import shutil
 import socket
 import subprocess
 import sys
@@ -90,6 +91,116 @@ def wait_stopped(state, *, deadline=None, allow_running=False):
             time.sleep(0.1)
 
 
+def spawn_serve(state, path, management_registry=None):
+    command = [
+        sys.executable,
+        "-m",
+        "freecad_mcp_host",
+        "--state",
+        str(state),
+        "--publication",
+        str(path),
+        "serve",
+    ]
+    if management_registry is not None:
+        command += ["--management-registry", str(management_registry)]
+    with (state / "freecad-host.log").open("ab") as log:
+        return subprocess.Popen(
+            command, stdin=subprocess.DEVNULL, stdout=log, stderr=log, **process_options()
+        )
+
+
+def activate(
+    state,
+    path,
+    *,
+    previous_python,
+    workspace,
+    backup,
+    port=8891,
+    freecad_cmd=None,
+    extension_dirs=(),
+    protocol_mode="legacy",
+    management_registry=None,
+    source_package=None,
+):
+    """Local idle-host maintenance. Fence proxy auto-start across the complete handoff."""
+    from codex_freecad.framework_setup import publish
+
+    require_state(state, path)
+    publication(path)
+    if not Path(previous_python).is_file() or not Path(backup).resolve().is_relative_to(
+        path.parent / "backups"
+    ):
+        raise BrokerError(
+            "Activation requires the prior interpreter and an app-owned backup directory"
+        )
+    lock = InstanceLock(state / "freecad-startup.lock")
+    deadline = time.monotonic() + 35
+    while True:
+        try:
+            lock.__enter__()
+            break
+        except BrokerError:
+            if time.monotonic() >= deadline:
+                raise BrokerError(
+                    "Another client still owns startup; activation did not begin"
+                ) from None
+            time.sleep(0.1)
+    try:
+        require_idle(state)
+        subprocess.run(
+            [
+                str(previous_python),
+                "-m",
+                "freecad_mcp_host",
+                "--state",
+                str(state),
+                "--publication",
+                str(path),
+                "stop",
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            **process_options(),
+        )
+        wait_stopped(state)
+        require_idle(state)
+        Path(backup).mkdir(parents=True, exist_ok=True)
+        for name in ("ownership.sqlite3", "writes.sqlite3"):
+            shutil.copy2(state / name, Path(backup) / name)
+        result = publish(
+            workspace,
+            path.parent,
+            sys.executable,
+            backend_python=sys.executable,
+            freecad_cmd=freecad_cmd,
+            extension_dirs=extension_dirs,
+            protocol_mode=protocol_mode,
+            installed=True,
+            source_package=source_package,
+        )
+        initialize_app(state, path, port)
+        child = spawn_serve(state, path, management_registry)
+        deadline = time.monotonic() + 35
+        settings = load_settings(state)
+        while time.monotonic() < deadline:
+            if probe(settings):
+                return {
+                    "startup_fence": True,
+                    "publication": result["publication"],
+                    "doctor": doctor(state, path),
+                }
+            if child.poll() is not None:
+                raise BrokerError(
+                    "Replacement startup failed; preserved runtimes and journals need inspection"
+                )
+            time.sleep(0.1)
+        raise BrokerError("Replacement startup timed out; no runtime selection was acknowledged")
+    finally:
+        lock.__exit__()
+
+
 def start(state, path, *, timeout=35, management_registry=None):
     """Start only this app's server, preserving its ownership and recovery journals."""
     require_state(state, path)
@@ -117,26 +228,7 @@ def start(state, path, *, timeout=35, management_registry=None):
                 raise BrokerError(
                     "FreeCAD host port is occupied; existing process preserved"
                 ) from None
-        with (state / "freecad-host.log").open("ab") as log:
-            command = [
-                sys.executable,
-                "-m",
-                "freecad_mcp_host",
-                "--state",
-                str(state),
-                "--publication",
-                str(path),
-                "serve",
-            ]
-            if management_registry is not None:
-                command += ["--management-registry", str(management_registry)]
-            child = subprocess.Popen(
-                command,
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=log,
-                **process_options(),
-            )
+        child = spawn_serve(state, path, management_registry)
         while time.monotonic() < deadline:
             if probe(settings):
                 return asyncio.run(status(state))
@@ -206,9 +298,18 @@ def main():
             "doctor",
             "check-idle",
             "wait-stopped",
+            "activate",
         ],
     )
     parser.add_argument("--port", type=int, default=8891)
+    parser.add_argument("--previous-python", type=Path)
+    parser.add_argument("--workspace", type=Path)
+    parser.add_argument("--backup", type=Path)
+    parser.add_argument("--freecad-cmd", type=Path)
+    parser.add_argument("--extensions", type=Path, action="append", default=[])
+    parser.add_argument(
+        "--protocol-mode", choices=["legacy", "auto", "2026-07-28"], default="legacy"
+    )
     parser.add_argument(
         "--management-registry", type=Path, help="Explicit private registry for isolated testing"
     )
@@ -216,6 +317,26 @@ def main():
     state, path = args.state.expanduser().resolve(), args.publication.expanduser().resolve()
     try:
         check_runtime()
+        if args.command == "activate":
+            if not args.previous_python or not args.workspace or not args.backup:
+                raise BrokerError("activate requires --previous-python, --workspace and --backup")
+            print(
+                json.dumps(
+                    activate(
+                        state,
+                        path,
+                        previous_python=args.previous_python,
+                        workspace=args.workspace,
+                        backup=args.backup,
+                        port=args.port,
+                        freecad_cmd=args.freecad_cmd,
+                        extension_dirs=args.extensions,
+                        protocol_mode=args.protocol_mode,
+                        management_registry=args.management_registry,
+                    )
+                )
+            )
+            return
         if args.command == "wait-stopped":
             require_state(state, path)
             wait_stopped(state)
@@ -262,7 +383,7 @@ def main():
                     name=definition.display_name,
                     instructions=definition.instructions,
                 ).run(transport="stdio")
-    except (BrokerError, OSError, ValueError) as exc:
+    except (BrokerError, OSError, ValueError, subprocess.CalledProcessError) as exc:
         parser.exit(1, "FreeCAD framework host: " + str(exc) + "\n")
 
 
