@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Deferred the single shared native lease until a frontend's first backend call. Up to four
+  metadata frontends can initialize and discover tools/guides without owning a FreeCAD worker.
+  Competing native calls return busy before dispatch or receipt creation; the frontend remains
+  usable. Successful backend close releases capacity; failed cleanup retains it, and OS locks
+  release on process death. Native worker capacity remains one per shared state directory.
+  Existing running sessions keep their current behavior until reconnected to the new release.
+
 - Repaired native embedded-Python bytecode isolation after a real pilot created six Python 3.11
   cache files in the immutable runtime. FreeCADCmd now imports a fixed entry staged in its private
   generation, disables bytecode before importing backend code, confines any entry cache to that

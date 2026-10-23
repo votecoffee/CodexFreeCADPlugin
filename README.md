@@ -4,7 +4,7 @@ Local MCP tools for live and headless FreeCAD modeling.
 
 Create, inspect and edit native FreeCAD models from an MCP client such as Codex, or from Python. Use an open FreeCAD window for visible editing or a persistent FreeCADCmd worker for background modeling. Both backends share the same modeling engine, validation and file protections. No OpenAI API key is required for MCP or direct Python use.
 
-Application version **26.1022.192757** is a source/package checkpoint using a fixed New York timestamp. Backend, host and standalone plugin share this identity; framework and protocol dependency versions remain independent. Runtime deployment and lifecycle acceptance remain pending. See [versioning](docs/VERSIONING.md) and the [changelog](docs/CHANGELOG.md).
+Application releases use a fixed New York timestamp. Backend, host and standalone plugin share this identity; framework and protocol dependency versions remain independent. The standalone headless profile has passed native modeling and lifecycle checks; GUI and shared-host acceptance remain separate. See [versioning](docs/VERSIONING.md) and the [changelog](docs/CHANGELOG.md).
 
 Features include reloadable hole and fastener tools, parametric modeling, movable assemblies, saved joint couplings and interference checks.
 
@@ -18,6 +18,11 @@ dispatch. Preparation does not replace an installed offline profile or launch Fr
 native pilot is required before promotion; see [native preparation and pilot](docs/NATIVE.md).
 Native startup stages its entry in the private worker directory and disables bytecode before
 backend imports, preserving the immutable runtime across native sessions.
+Up to four chats can initialize and discover guidance without activating FreeCAD. The first native
+call reserves the single shared native slot until that connection closes. Another chat receives
+an explicit busy result for native calls while its metadata tools remain available. Save unsaved
+work before closing the owning connection. This admission update requires its own targeted
+runtime validation before installation; it does not alter already running connections.
 
 The current checkout also includes saved design requirements with opt-in edit enforcement, a source-aware bill of materials, refreshable native spreadsheets, source-preserving parameter sweeps, numeric change previews with added/removed material reports, saved configuration snapshots and dimensioned TechDraw sheets with headless SVG rendering. See [engineering extensions](docs/ENGINEERING.md).
 

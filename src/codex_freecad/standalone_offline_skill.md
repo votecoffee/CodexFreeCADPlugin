@@ -2,8 +2,8 @@
 name: freecad-offline
 description: Inspect FCStd ZIP/XML metadata and bundled FreeCAD capability schemas through the standalone offline connection.
 metadata:
-  version: "26.1023.84201"
-  display_version: "26.1023.084201"
+  version: "26.1023.100300"
+  display_version: "26.1023.100300"
 ---
 
 Read `freecad_offline_status` and `get_offline_workflow`. Inspect an explicit FCStd path inside the configured workspace with `inspect_fcstd_package`; retain its SHA-256 for subsequent reads. Package/XML checks establish metadata only; geometry, recompute, expressions and native document acceptance remain unassessed.

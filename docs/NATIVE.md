@@ -52,7 +52,16 @@ not infer a verified rollback from an error string. An explicit native recovery 
 the original result before resuming writes. Receipt inspection and state preservation are available;
 automatic reconciliation or acknowledgement is deliberately absent.
 
-The pilot admits one connection and one active request. Its root job limits the entire tree to
+Up to four metadata frontends can initialize, list tools, read guides and review file targets in
+one state directory without reserving native capacity. The first native call acquires the same
+single `native-pilot` lease used by earlier releases. A competing native call returns a busy error
+before backend dispatch or receipt creation; it does not close that frontend or queue a retry.
+The owning connection retains its lease and native documents between calls. Save work and close
+that connection to release capacity. Failed backend cleanup retains the lease; process death
+releases its OS lock while existing process containment and uncertain receipts remain in force.
+Do not create separate state roots to bypass the shared worker limit.
+
+Each admitted native frontend permits one active request. Its root job limits the entire tree to
 four processes and retains the independent parent-death and pipe guards. Each owned native worker
 is assigned its private job and durably bound before resuming. The budget permits a worker and
 runtime helpers, subject to actual pilot inspection; it is not a kernel memory cap. Closing an

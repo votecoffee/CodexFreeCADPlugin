@@ -35,9 +35,15 @@ class Backend:
 @pytest.fixture
 def client(tmp_path):
     pytest.importorskip("universal_tools.resources")
-    return native_session.NativeClient(
+    result = native_session.NativeClient(
         Backend(), tmp_path / "models", tmp_path / "state", mode="headless"
     )
+    try:
+        yield result
+    finally:
+        # A test exercising close failure must retain the lease until teardown.
+        result.client.close = lambda: None
+        result.close()
 
 
 def receipts(client):
@@ -120,10 +126,60 @@ def test_admission_close_and_binding_are_fail_closed(client):
 
 
 def test_backend_close_failure_is_not_marked_closed(client):
+    client.call("status")
     client.client.close = lambda: (_ for _ in ()).throw(OSError("retained job close failed"))
     with pytest.raises(OSError):
         client.close()
     assert not client.closed
+    assert client.native_admitted
+
+
+def test_idle_frontends_share_metadata_but_native_admission_stays_one(client):
+    from codex_freecad.process_lifetime import ProcessSlots
+
+    other = native_session.NativeClient(
+        Backend(), client.workspace.root, client.state, mode="headless"
+    )
+    try:
+        client.review_target("demo.FCStd")
+        other.review_target("demo.FCStd")
+        assert not client.client.calls and not other.client.calls
+        assert ProcessSlots.occupied(client.state / "native-pilot", limit=1) == 0
+        client.call("status")
+        with pytest.raises(CadError, match="native capacity is busy"):
+            other.call("new_document", name="Other")
+        assert not other.client.calls and not other.uncertain and not receipts(other)
+        assert not other.native_admitted
+        # A capacity refusal leaves the connection usable for metadata.
+        assert other.review_target("demo.FCStd")["native_opened"] is False
+        client.close()
+        assert ProcessSlots.occupied(client.state / "native-pilot", limit=1) == 0
+        assert (
+            other.call("new_document", name="Other")["native_receipt"]["state"] == "reply-received"
+        )
+        other.close()
+        assert ProcessSlots.occupied(client.state / "native-pilot", limit=1) == 0
+    finally:
+        other.close()
+
+
+def test_failed_backend_cleanup_keeps_capacity_until_cleanup_succeeds(client):
+    client.call("status")
+    client.client.close = lambda: (_ for _ in ()).throw(OSError("retained worker"))
+    other = native_session.NativeClient(
+        Backend(), client.workspace.root, client.state, mode="headless"
+    )
+    try:
+        with pytest.raises(OSError, match="retained worker"):
+            client.close()
+        with pytest.raises(CadError, match="native capacity is busy"):
+            other.call("status")
+        assert not other.client.calls
+        client.client.close = lambda: None
+        client.close()
+        other.call("status")
+    finally:
+        other.close()
 
 
 @pytest.mark.parametrize("path", ["../outside.FCStd", "outside.py"])
@@ -266,6 +322,7 @@ def test_native_owner_cleanup_failure_keeps_uncertain_root_history(tmp_path, mon
     @contextmanager
     def slot(*args, **kwargs):
         assert kwargs["limit"] == 1
+        assert Path(args[0]).name == "history-admission"
         yield
 
     @contextmanager

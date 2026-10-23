@@ -29,14 +29,10 @@ def native_session(client, state, registry):
     try:
         with (
             root_lifetime(state, process_limit=4),
-            ProcessSlots(Path(state) / "native-pilot", limit=1),
             resource_session(registry) as owner,
         ):
             folder = Path(state) / "native-sessions"
             folder.mkdir(parents=True, exist_ok=True)
-            if len(list(folder.glob("*.json"))) >= 256:
-                raise RuntimeError("Native root history full; preserve the original evidence")
-            path = folder / (owner.owner_id + ".json")
             record = {
                 "profile": "direct-standalone-native",
                 "version": __version__,
@@ -46,7 +42,12 @@ def native_session(client, state, registry):
                 "receipt_generation": client.generation,
                 "state": "active",
             }
-            durable_json(path, record)
+            # Metadata frontends can coexist; keep the history bound atomic.
+            with ProcessSlots(Path(state) / "history-admission", limit=1):
+                if len(list(folder.glob("*.json"))) >= 256:
+                    raise RuntimeError("Native root history full; preserve the original evidence")
+                path = folder / (owner.owner_id + ".json")
+                durable_json(path, record)
 
             def status():
                 return ManagedStatus(

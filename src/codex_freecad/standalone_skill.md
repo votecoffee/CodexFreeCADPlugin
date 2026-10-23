@@ -2,8 +2,8 @@
 name: freecad-modeling
 description: Inspect and edit FreeCAD models through this application's direct or experimental framework connection, including live and headless workflows.
 metadata:
-  version: "26.1023.84201"
-  display_version: "26.1023.084201"
+  version: "26.1023.100300"
+  display_version: "26.1023.100300"
 ---
 
 Use the selected FreeCAD connection. Discover and describe `get_workflow`, then read its `overview` topic. On the app-owned host, acquire the selected live/headless service first and retain its context. Read relevant `extensions` or `recovery` guidance and listed references using their revision and SHA-256 pins. Then discover/describe exact current tool schemas and native catalog revisions before use.

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from . import __package_version__
 from .engine import CadError, Workspace
+from .process_lifetime import ProcessSlots
 
 READS = frozenset(
     {
@@ -61,6 +62,10 @@ class NativeClient:
         self.uncertain = False
         self.validated = False
         self.binding_check = binding_check
+        # Use the same shared-state slot as earlier releases, but acquire it only
+        # before native dispatch. A metadata-only chat owns no native capacity.
+        self.native_slot = ProcessSlots(self.state / "native-pilot", limit=1)
+        self.native_admitted = False
         self.targets, self.revisions = {}, {}
         # Every connection has its own receipt generation; old uncertainty remains.
         self.generation = uuid.uuid4().hex
@@ -120,6 +125,15 @@ class NativeClient:
                             "Unresolved native receipt; inspect original work without replay"
                         )
             if not self.validated:
+                if not self.native_admitted:
+                    try:
+                        self.native_slot.__enter__()
+                    except RuntimeError as exc:
+                        raise CadError(
+                            "FreeCAD native capacity is busy in another connection; "
+                            "save its work and close that owning connection before retrying"
+                        ) from exc
+                    self.native_admitted = True
                 status = self.client.call("status")
                 if (
                     status.get("plugin_package_version") != __package_version__
@@ -184,6 +198,9 @@ class NativeClient:
         try:
             if not self.closed:
                 self.client.close()
+                # Never release capacity until owned-backend cleanup succeeds.
+                self.native_slot.__exit__(None, None, None)
+                self.native_admitted = False
                 self.closed = True
         finally:
             self.lock.release()
@@ -194,4 +211,5 @@ class NativeClient:
             "receipt_generation": self.generation,
             "uncertain": self.uncertain,
             "admission": "one active request; no waiting queue",
+            "native_admitted": self.native_admitted,
         }

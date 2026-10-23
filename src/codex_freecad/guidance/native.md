@@ -19,8 +19,13 @@ only after reviewing the saved source. Use the returned revision and source/outp
 evidence. Save headless work explicitly before disconnecting; unsaved owned documents are not
 automatically persisted. Live/headless documents and Undo histories are independent.
 
-One native pilot connection and one active request are admitted at a time. There is no waiting
-work queue or automatic replay. Mutations have durable dispatched/reply-received/uncertain receipts.
+Up to four metadata frontends can initialize and discover tools without activating FreeCAD. The
+first native call reserves one shared native slot until that connection closes. Other native
+calls return busy before dispatch; metadata remains usable and there is no waiting work queue.
+Save work before closing the owning connection. Failed backend cleanup retains the lease;
+process death releases its OS lock without reconciling uncertain native effects.
+Each native connection allows one active request and no automatic replay. Mutations have durable
+dispatched/reply-received/uncertain receipts.
 Any ambiguous dispatch or failed receipt persistence disables further native work. A fresh client
 also refuses unresolved receipts in the same state directory. Preserve the original files,
 receipts and resource barriers for inspection; deleting state or restarting is not reconciliation.
