@@ -86,7 +86,10 @@ def test_existing_direct_connections_are_preserved(installation, tmp_path, enabl
     assert config.read_bytes() == before
 
 
-def test_execution_preserves_argv_environment_and_stops_on_failure(installation, tmp_path):
+def test_execution_preserves_argv_environment_and_stops_on_failure(
+    installation, tmp_path, monkeypatch
+):
+    monkeypatch.setattr("codex_freecad.integration.validate_stable_plugin", lambda output: None)
     plan = connection_plan(installation, codex_home=tmp_path / "isolated")
     calls = []
 
@@ -103,6 +106,12 @@ def test_execution_preserves_argv_environment_and_stops_on_failure(installation,
 
     with pytest.raises(OSError, match="fixture failure"):
         execute_plan(plan, run=fail)
+
+
+def test_legacy_preview_cannot_publish_checkout_bound_routes(installation, tmp_path):
+    plan = connection_plan(installation, codex_home=tmp_path / "isolated")
+    with pytest.raises(ValueError, match="stable standalone"):
+        execute_plan(plan, run=lambda *a, **k: pytest.fail("Published an old checkout route"))
 
 
 @pytest.mark.parametrize("config", ['plugins = ["invalid"]', "mcp_servers = []", "invalid toml"])

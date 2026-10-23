@@ -1,5 +1,9 @@
 # Standalone native preparation
 
+Normal Windows installation now uses the [app-owned stable launcher](STABLE_LAUNCHER.md)
+through `Install.cmd`. The candidate generator below remains a review/preparation tool;
+publishing a production plugin requires the retained stable entry and cwd.
+
 The native profile uses the existing shared FreeCAD engine. It restores the modeling, assembly,
 hole/fastener, engineering extension, recompute, save and export tools that the separate offline
 ZIP/XML profile intentionally omits. It can attach to an explicitly selected existing live bridge;
@@ -57,7 +61,8 @@ one state directory without reserving native capacity. The first native call acq
 single `native-pilot` lease used by earlier releases. A competing native call returns a busy error
 before backend dispatch or receipt creation; it does not close that frontend or queue a retry.
 The known native-capacity refusal uses the SDK's explicit tool-error path so the caller receives
-the busy explanation. Other exceptions retain the SDK's error handling and redaction.
+the busy explanation. Known pre-dispatch policy refusals also retain their actionable messages;
+unexpected backend exceptions retain SDK redaction.
 The owning connection retains its lease and native documents between calls. Save work and close
 that connection to release capacity. Failed backend cleanup retains the lease; process death
 releases its OS lock while existing process containment and uncertain receipts remain in force.

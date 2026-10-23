@@ -10,6 +10,17 @@ Host dependencies must not be imported into FreeCAD's bundled interpreter. Nativ
 
 ## Automated checks
 
+The production runtime has a separate reviewed closure; prepare the development environment
+from the README before using pytest. Launcher/package work can use the bounded source subset
+`pytest -q -m 'not native and not framework and not resource_process'` without replaying native
+jobs. Keep XML/raw per-run evidence ignored under `.local/validation/`.
+
+The stable-launch suite separately checks real initialize/discovery, current guidance,
+synthetic file hashes, cache removal, immutable selection with an active peer, refusal,
+EOF and owner loss. OS process fixtures use only isolated Python/shell actors and an
+explicit reviewed runtime; they do not start FreeCAD. See [stable launch](STABLE_LAUNCHER.md).
+Native/domain acceptance is retained independently rather than inferred from those checks.
+
 From the repository root after setup:
 
 ```powershell

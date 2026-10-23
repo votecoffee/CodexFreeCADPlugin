@@ -17,7 +17,7 @@ from pydantic import Field
 
 from . import __version__
 from .client import HeadlessClient, LiveClient
-from .native_session import NativeCapacityError
+from .native_session import NativeCapacityError, NativePolicyError
 from .schemas import Edit
 
 READ = ToolAnnotations(read_only_hint=True, open_world_hint=False)
@@ -47,7 +47,7 @@ def create_server(
     def call(method, **params):
         try:
             return client.call(method, **params)
-        except NativeCapacityError as exc:
+        except (NativeCapacityError, NativePolicyError) as exc:
             raise ToolError(str(exc)) from exc
 
     initial_guidance = build_snapshot(

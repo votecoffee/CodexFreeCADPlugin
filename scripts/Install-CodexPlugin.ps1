@@ -17,12 +17,24 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) { throw 'Run scripts\Setup.ps1 first.' }
 if (-not $Output) {
-    $localOutput = Join-Path $projectRoot '.local'
-    $selectionJson = & $pythonPath -m codex_freecad.installed_host --output $localOutput
-    if ($LASTEXITCODE -ne 0) { throw 'Cannot read the selected FreeCAD installation.' }
-    $selection = $selectionJson | ConvertFrom-Json
-    $Output = if ($null -ne $selection) { $selection.output } else { $localOutput }
+    $appRoot = Join-Path $env:LOCALAPPDATA 'FreeCADMCPServer'
+    $pointerPath = Join-Path $appRoot 'launcher\current.json'
+    if (-not (Test-Path -LiteralPath $pointerPath)) { throw 'Run Install.cmd to prepare the stable installation first.' }
+    $pointer = Get-Content -LiteralPath $pointerPath -Raw | ConvertFrom-Json
+    if ($pointer.snapshot -notmatch '^[a-f0-9]{64}$') { throw 'Invalid selected snapshot.' }
+    $selectedBytes = [IO.File]::ReadAllBytes((Join-Path $appRoot "launcher\snapshots\$($pointer.snapshot)\manifest.json"))
+    $selectedHasher = [Security.Cryptography.SHA256]::Create()
+    try { $selectedDigest = [BitConverter]::ToString($selectedHasher.ComputeHash($selectedBytes)).Replace('-','').ToLowerInvariant() }
+    finally { $selectedHasher.Dispose() }
+    if ($selectedDigest -ne $pointer.snapshot) { throw 'Selected snapshot changed.' }
+    $selected = [Text.Encoding]::UTF8.GetString($selectedBytes) | ConvertFrom-Json
+    $Output = Split-Path -Parent (Join-Path $appRoot $selected.entry)
 }
+$oldPythonPath = $env:PYTHONPATH
+$oldBytecode = $env:PYTHONDONTWRITEBYTECODE
+try {
+$env:PYTHONPATH = Join-Path $projectRoot 'src'
+$env:PYTHONDONTWRITEBYTECODE = '1'
 $integrationArgs = @('-m', 'codex_freecad.integration', '--output', $Output, '--integration', $Integration)
 if ($CodexHome) { $integrationArgs += @('--codex-home', $CodexHome) }
 if (-not $Preview) { $integrationArgs += '--apply' }
@@ -45,7 +57,9 @@ if (-not $Preview -and $Integration -eq 'standalone') {
         throw 'Installed FreeCAD plugin version differs from the prepared release.'
     }
     $record = @{plugin_id = $plugin[0].pluginId; version = $canonical; display_version = $release.display_version}
-    $metadataPath = Join-Path $Output 'installed-plugin.json'
+    $pluginRoute = (Get-Content -LiteralPath (Join-Path $Output 'plugin\.mcp.json') -Raw | ConvertFrom-Json).mcpServers.freecad
+    $managedRoot = Split-Path -Parent $pluginRoute.args[3]
+    $metadataPath = Join-Path $managedRoot 'installed-plugin.json'
     $metadataPending = $metadataPath + '.' + [Guid]::NewGuid().ToString('N') + '.pending'
     [IO.File]::WriteAllText($metadataPending, ($record | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
     if (Test-Path -LiteralPath $metadataPath) {
@@ -53,3 +67,4 @@ if (-not $Preview -and $Integration -eq 'standalone') {
     }
     else { [IO.File]::Move($metadataPending, $metadataPath) }
 }
+} finally { $env:PYTHONPATH = $oldPythonPath; $env:PYTHONDONTWRITEBYTECODE = $oldBytecode }

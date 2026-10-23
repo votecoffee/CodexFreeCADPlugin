@@ -47,6 +47,7 @@ def connection_plan(output, *, integration="standalone", codex_home=None):
         raise ValueError("Standalone plugin is missing; run setup first")
     return {
         "integration": "standalone",
+        "output": str(output),
         "codex_home": str(codex_home),
         "commands": [
             ["codex", "plugin", "marketplace", "add", str(output)],
@@ -61,10 +62,36 @@ def execute_plan(plan, *, run=subprocess.run):
         return
     if plan["integration"] != "standalone":
         raise ValueError("Only standalone plugin installation is supported")
+    validate_stable_plugin(Path(plan["output"]))
     environment = dict(os.environ, CODEX_HOME=plan["codex_home"])
     for command in plan["commands"]:
         # argv arrays and no shell preserve paths containing spaces and metacharacters.
         run(command, check=True, env=environment, stdout=sys.stderr)
+
+
+def validate_stable_plugin(output):
+    """Legacy preview generation is useful, but cannot publish a checkout route."""
+    from .stable_launcher import selection
+
+    servers = json.loads((output / "plugin/.mcp.json").read_bytes())["mcpServers"]
+    if set(servers) != {"freecad"}:
+        raise ValueError(
+            "Prepare the single stable standalone route with Install.cmd before publication"
+        )
+    route = servers["freecad"]
+    args = route.get("args", [])
+    if len(args) != 4 or args[:3] != ["-I", "-S", "-B"] or Path(args[3]).name != "Start-Mcp.py":
+        raise ValueError("A retained app-owned stable entry is required before plugin publication")
+    selected = selection(Path(args[3]).parent)
+    if route != selected["manifest"]["route"]:
+        raise ValueError("Plugin route differs from the reviewed stable selection")
+    expected_output = Path(args[3]).parent / Path(selected["manifest"]["entry"]).parent
+    manifest = json.loads((output / "plugin/.codex-plugin/plugin.json").read_bytes())
+    if (
+        output.absolute() != expected_output
+        or manifest["version"] != selected["manifest"]["package_version"]
+    ):
+        raise ValueError("Plugin/skill source is not the selected retained generation")
 
 
 def main():

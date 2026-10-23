@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### 26.1023.165906
+
+- Added an app-owned stable windowless entry and working directory, retained runtime
+  snapshots, full wheel/hash/RECORD verification, source-to-Git package checks and
+  atomic selection with exact previous-state backups and concurrent-edit refusal.
+  Normal startup keeps the original wire and never builds, fetches or changes profile.
+- Root installation/run commands now use the retained standalone native profile.
+  The standalone plugin and skill remain; legacy dual checkout registration is retired.
+  The Start menu entry shows verified installed selection without inferring live health.
+- Retain surviving-supervisor job observations, bind the suspended primary actor
+  before resume, and reconcile only proven departed claims. Original before-images,
+  native barriers and uncertain receipts remain. Live/unknown peers, unbound intents,
+  cleanup receipts and legacy claims lacking generation evidence stay visible.
+- Added OS file-identity alias observations for logical/physical Windows image paths;
+  copied executable bytes do not prove an alias or grant termination rights. Selected
+  and running package/snapshot observations are reported separately.
+- Known native pre-dispatch policy refusals now use the caller-safe SDK error path;
+  unexpected backend exceptions remain masked. The shared lazy native lease and
+  independent pinned-parent/original-pipe guards remain in place.
+- Framework remains 0.20.0 and SDK 2.3.0. Launcher/process fixtures do not broaden
+  native geometry, GUI, shared-host or controller acceptance.
+
 - Added root `Install.cmd` and `Run.cmd` aliases, preserving quoted arguments and child exit
   status. Fresh checkout setup accepts a hash-verified framework 0.20.0 wheel and installs the
   managed dependencies required by direct native transports; MCP remains pinned to 2.3.0.

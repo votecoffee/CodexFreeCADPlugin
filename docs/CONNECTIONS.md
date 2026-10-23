@@ -1,58 +1,84 @@
 # Standalone connections
 
-The shared library and optional separate Windows management app come from
-[CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker). They do not replace FreeCAD's
-standalone server, app-owned plugin or native skills, and do not install a universal plugin.
+FreeCAD owns its standalone MCP server, Codex plugin and native skill. The shared
+framework and optional separate Windows manager come from
+[CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker). Installing that
+manager does not install this server, migrate models, or introduce a universal
+plugin/broker route. Framework **0.20.0** and SDK **2.3.0** remain independently pinned.
 
-The [native profile](NATIVE.md) has one resolved `freecad` connection and 27 tools; the
-[offline profile](OFFLINE.md) has four read-only tools. The checkout setup below generates the
-direct live/headless development endpoints. Selecting or updating a versioned native/offline
-runtime is an explicit reviewed publication; checkout setup is not evidence of that runtime's
-native acceptance.
+## Installed route
 
-FreeCADMCPServer owns its Codex plugin and MCP endpoints. Live GUI editing and headless FreeCADCmd modeling use the same application engine, with separate documents and Undo histories.
-
-## Codex plugin
-
-For a fresh checkout, first follow the [framework wheel prerequisites](../README.md#install).
-The examples below assume the reviewed framework 0.20.0 dependency is already installed;
-otherwise pass `-FrameworkWheel` and `-FrameworkSha256` to setup.
-
-Windows setup installs `freecad-modeling@freecad-development` from the generated local marketplace:
+Follow [README installation](../README.md#install). The root installer prepares
+a retained immutable runtime and selects an app-owned `Start-Mcp.py` and `cwd/`
+outside the checkout and disposable plugin caches. The direct standalone native
+profile has one `freecad` connection and 27 tools. The offline profile has four
+read-only FCStd ZIP/XML tools and no native execution. See
+[stable launch and recovery](STABLE_LAUNCHER.md) for exact publication policy.
 
 ```powershell
-.\scripts\Setup.ps1
-```
-
-The root `Install-and-Run.cmd -InstallOnly` performs the same installation without starting a server. The installed plugin exposes both `freecad-live` and `freecad-headless`. Start a new Codex chat after installation. Live editing connects to the bridge you start manually with `.local\StartBridge.FCMacro`.
-
-Setup uses this checkout's virtual environment and stores machine-specific files in ignored `.local/`. Rerun setup after moving the checkout or changing the native skill. To generate configuration before reviewing the plugin installation:
-
-```powershell
-.\scripts\Setup.ps1 -Integration none
+.\Install.cmd -Integration none -NoStartMenuShortcut
 .\scripts\Install-CodexPlugin.ps1 -Preview
 .\scripts\Install-CodexPlugin.ps1
 ```
 
-`standalone` and `none` are the only installation choices. Preview never changes Codex configuration. `-CodexHome` on the plugin installer supports another Codex installation; otherwise it uses `CODEX_HOME` or `~/.codex`. Existing direct FreeCAD MCP entries stop plugin installation rather than being removed automatically. The package uses Codex's [local marketplace and plugin format](https://developers.openai.com/plugins/build/plugins).
+The first command prepares/selects without changing Codex. Supply the reviewed
+framework wheel/hash on a fresh machine, or a reviewed retained wheelhouse. The
+plugin installer supports `-CodexHome` for a disposable or alternate host home.
+Preview reads configuration but never writes it. Actual plugin publication refuses
+legacy source-bound routes; it uses only the current reviewed stable selection.
 
-## Direct MCP clients
+The plugin source remains in the retained connection directory. Its manifest and
+native skill are application-owned. Updating a Codex cache cannot remove the
+launcher, interpreter binding, working directory, backend closure or shared state.
+The application never patches files inside immutable Codex caches.
 
-For a client that launches stdio MCP servers, run setup with `-Integration none` and use the generated `.local\codex-mcp.toml` as a configuration reference. To register those endpoints directly with Codex:
+Other stdio clients can use the exact command, argument array, cwd and environment
+in the app-owned `installation.json`. `Run.cmd` starts that existing selection
+without setup. Published host routes launch the real `pythonw` entry directly,
+without CMD/PowerShell forwarding wrappers. An ordinary console is not an MCP
+client; the windowless profile requires inherited protocol pipes.
 
-```powershell
-.\scripts\Setup.ps1 -Integration none
-.\scripts\Register-Codex.ps1
-```
+## Migrate an older host binding
 
-Use the same workspace arguments for setup and registration. Choose one FreeCAD connection per workflow to avoid duplicate tools and independent headless documents. Saving an FCStd file is the explicit exchange between sessions. Disconnecting a headless server loses unsaved documents; reconnecting does not recover them automatically.
+Save native work before closing its owning connection. An uncertain operation
+requires inspection of its original model/receipt, not replay or route switching.
+Keep old runtime directories, plugin versions, state, registry and exact backups
+until no configuration or active owned generation needs them.
 
-## App-owned framework host
+Prepare and validate the new stable installation first. Read the actual host
+settings as bytes, preserve BOM/comments/newlines/unrelated entries, and compare
+the expected route/settings hash before a serialized atomic publication. Keep
+one effective enabled `freecad` route and the standalone plugin/skills. If a
+host leaves a packaged placeholder unresolved, an authorized host-local absolute
+binding can select the same stable entry while disabling the unresolved duplicate.
+Never restore a stale global configuration over another app's changes.
 
-The [experimental framework host](FRAMEWORK.md) packages another standalone FreeCAD plugin with a stable discovery/invocation front door and immutable backend publications. Its installation and activation remain separate from normal setup. The shared library is an implementation dependency; no central broker plugin, service registration or automatic route selection is provided.
+`Register-Codex.ps1` no longer adds checkout-bound `freecad-live` and
+`freecad-headless` duplicates. Existing old entries cause plugin installation to
+stop for a reviewed migration; they are not automatically deleted. Installation,
+plugin enablement, route enablement, backend readiness and desktop-chat discovery
+are separate observations. A new chat/host reload may be required, and direct
+SDK/CLI evidence does not prove activation in an already-open desktop chat.
 
-## Updates from older installations
+## Sessions and updates
 
-Broker registration, automatic Universal Tools detection, generated broker service manifests and the `--broker-catalog` server option have been removed. Old `broker` and `auto` installer choices are rejected before changing client configuration. Retire previous FreeCAD registrations in their original administrator-managed environment before using the standalone plugin; this installer does not manage other applications or a shared service's state. Old generated `.local/broker/` manifests are unused and can be archived outside the active configuration.
+Live and headless modes use the shared modeling engine with separate documents
+and Undo histories. Live selection requires an explicit existing bridge descriptor;
+no GUI is started. FCStd save/open is the explicit exchange between sessions.
+Headless disconnect loses unsaved documents; reconnect does not recover them.
 
-Save native documents before disconnecting an old route. Do not switch routes or replay a write after a lost reply; inspect the original operation and model state first. Document revisions, workspace confinement, explicit overwrites and backups remain application safeguards.
+An update atomically selects reviewed new bytes through the unchanged stable host
+route. Active peers retain their original runtime, documents and shared leases.
+Shared state/registry bindings remain explicit and are preserved during an upgrade.
+Management distinguishes selected from running versions and never equates a valid
+selection with observed health. EOF and parent loss use the retained original wire
+and pinned process handle, with a separate parent watcher for blocked readers.
+
+## Development and experimental hosts
+
+The source setup generator can still prepare development macros and preview
+configurations. Those previews are not production registrations. The
+[experimental framework host](FRAMEWORK.md) remains a separate, explicitly reviewed
+profile; installing the stable standalone native server does not enable or accept
+shared-host/native GUI behavior. Retired broker/auto routes and broker manifests
+are not part of the current installer.

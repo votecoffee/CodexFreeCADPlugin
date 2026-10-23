@@ -3,9 +3,12 @@ param(
     [string]$FreeCADCmd = '',
     [string]$FrameworkWheel = '',
     [string]$FrameworkSha256 = '',
+    [string]$InstallRoot = '',
+    [string]$Wheelhouse = '',
+    [string]$BridgeDescriptor = '',
     [string[]]$Extensions = @(),
-    [ValidateSet('headless', 'live')]
-    [string]$ShortcutMode = 'headless',
+    [ValidateSet('', 'headless', 'live')]
+    [string]$ShortcutMode = '',
     [ValidateSet('standalone', 'none')]
     [string]$Integration = 'standalone',
     [switch]$NoStartMenuShortcut
@@ -34,42 +37,36 @@ if ($FrameworkWheel) {
         }
     } finally { $wheelArchive.Dispose() }
 }
-if (-not $Workspace) { $Workspace = Join-Path $projectRoot 'models' }
-$Workspace = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Workspace)
-if ($FreeCADCmd) {
-    $FreeCADCmd = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($FreeCADCmd)
-}
+if ($Extensions.Count -gt 0) { throw 'The stable profile uses reviewed bundled extensions. Prepare explicit immutable extension updates separately.' }
+if (-not $InstallRoot) { $InstallRoot = Join-Path $env:LOCALAPPDATA 'FreeCADMCPServer' }
+$InstallRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($InstallRoot)
 $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pythonPath)) {
-    if (-not $FrameworkWheel) { throw 'A fresh setup requires -FrameworkWheel and its trusted -FrameworkSha256 for framework 0.20.0.' }
     & py -3.13 -m venv (Join-Path $projectRoot '.venv')
     if ($LASTEXITCODE -ne 0) { throw 'Python 3.13 could not create the virtual environment.' }
 }
-# Validate the explicit selection before regenerating any installation files.
-if (Test-Path -LiteralPath (Join-Path $projectRoot '.local\framework-installation.json')) {
-    $selectionJson = & $pythonPath -m codex_freecad.installed_host --output (Join-Path $projectRoot '.local')
-    if ($LASTEXITCODE -ne 0) { throw 'Cannot read the selected FreeCAD installation.' }
-    $selection = $selectionJson | ConvertFrom-Json
-    if ($Workspace -ne $selection.workspace -or $Extensions.Count -gt 0 -or $FreeCADCmd) {
-        throw 'Selected framework publication owns its workspace and extensions. Update it explicitly before changing setup options.'
-    }
-}
-if ($FrameworkWheel) {
-    & $pythonPath -m pip install --no-deps $FrameworkWheel
-    if ($LASTEXITCODE -ne 0) { throw 'Reviewed framework wheel installation failed.' }
-}
-$frameworkVersion = & $pythonPath -c "import importlib.metadata as m; print(next((d.version for d in m.distributions() if d.metadata.get('Name', '').lower().replace('_', '-') == 'universal-codex-tools'), ''))"
-if ($LASTEXITCODE -ne 0 -or $frameworkVersion -ne '0.20.0') { throw 'Framework 0.20.0 is required. Supply -FrameworkWheel and its trusted -FrameworkSha256.' }
-& $pythonPath -m pip install -e "${projectRoot}[dev,managed]"
-if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
-$setupArgs = @('-m', 'codex_freecad.setup', '--workspace', $Workspace, '--output', (Join-Path $projectRoot '.local'))
-if ($FreeCADCmd) { $setupArgs += @('--freecad-cmd', $FreeCADCmd) }
-foreach ($directory in $Extensions) { $setupArgs += @('--extensions', $directory) }
-& $pythonPath @setupArgs
-if ($LASTEXITCODE -ne 0) { throw 'Configuration generation failed.' }
+$buildArgs = @('-B', (Join-Path $PSScriptRoot 'install_stable.py'), '--project', $projectRoot, '--root', $InstallRoot)
+if ($Workspace) { $buildArgs += @('--workspace', [IO.Path]::GetFullPath($Workspace)) }
+if ($ShortcutMode) { $buildArgs += @('--mode', $ShortcutMode) }
+if ($FrameworkWheel) { $buildArgs += @('--framework-wheel', $FrameworkWheel) }
+if ($Wheelhouse) { $buildArgs += @('--wheelhouse', [IO.Path]::GetFullPath($Wheelhouse)) }
+if ($BridgeDescriptor -and $FreeCADCmd) { throw 'Select one explicit native target.' }
+if ($BridgeDescriptor -and $ShortcutMode -and $ShortcutMode -ne 'live') { throw 'A bridge descriptor requires live mode.' }
+if ($FreeCADCmd -and $ShortcutMode -eq 'live') { throw 'Use -BridgeDescriptor for live mode.' }
+if ($BridgeDescriptor) { $buildArgs += @('--native-target', [IO.Path]::GetFullPath($BridgeDescriptor), '--mode', 'live') }
+elseif ($FreeCADCmd) { $buildArgs += @('--native-target', [IO.Path]::GetFullPath($FreeCADCmd)) }
+$installedJson = (& $pythonPath @buildArgs) -join [Environment]::NewLine
+if ($LASTEXITCODE -ne 0) { throw 'Stable runtime preparation/selection failed; retained profiles were preserved.' }
+$installed = ConvertFrom-Json -InputObject $installedJson
+$iconFolder = Join-Path $InstallRoot 'assets'
+[void][IO.Directory]::CreateDirectory($iconFolder)
+Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\FreeCADMCPServer.ico') -Destination (Join-Path $iconFolder 'FreeCADMCPServer.ico') -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Show-InstalledStatus.ps1') -Destination (Join-Path $InstallRoot 'Show-Status.ps1') -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'inspect_stable.py') -Destination (Join-Path $InstallRoot 'Inspect-Selection.py') -Force
 if ($Integration -ne 'none') {
-    & (Join-Path $PSScriptRoot 'Install-CodexPlugin.ps1') -Integration $Integration
+    & (Join-Path $PSScriptRoot 'Install-CodexPlugin.ps1') -Integration $Integration -Output (Split-Path -Parent $installed.plugin)
 }
 if (-not $NoStartMenuShortcut) {
-    & (Join-Path $PSScriptRoot 'Create-StartMenuShortcut.ps1') -Workspace $Workspace -FreeCADCmd $FreeCADCmd -Mode $ShortcutMode
+    & (Join-Path $PSScriptRoot 'Create-StartMenuShortcut.ps1') -InstallRoot $InstallRoot
 }
+Write-Output $installedJson

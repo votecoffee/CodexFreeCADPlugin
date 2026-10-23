@@ -1,5 +1,29 @@
 # Tray service reporting
 
+## Standalone stable profile
+
+Normal installation uses the [app-owned stable entry](STABLE_LAUNCHER.md), framework
+0.20.0 and SDK 2.3.0. Each surviving standalone frontend registers its actual owner
+generation. Native management reports the MCP frontend, held native lease and
+whether its backend was validated; metadata availability does not prove CAD health.
+Selected/running versions and snapshots remain separate during an immutable update.
+The installed-status shortcut verifies selection and reports **Not reporting** for
+unobserved running health.
+
+Four metadata frontends and one lazy native lease share the retained state. The
+native root job has an actual four-process bound; offline roots permit one process.
+Job status reads the OS limit rather than reporting the inventory array's capacity.
+Generation observations include root and retained job members, including observed
+indirect actors. Dead-claim reconciliation preserves exact before-images and only
+releases proven departed claims; native barriers/receipts, live or unknown peers,
+unbound intents and legacy claims lacking generation evidence remain protected.
+
+Tray restart stays disabled: a per-frontend supervisor is not a cross-chat restart
+coordinator with dirty-document and uncertain-operation approval. Native/GUI/shared
+host acceptance remains separate from launch/process fixtures. The sections below
+describe the **experimental framework host and its historical acceptance limits**;
+their eight/32-process budgets are not the normal standalone native profile.
+
 The app-owned framework host registers with the optional Windows MCP Service Manager through framework 0.20.0. It retains FreeCAD's standalone plugin and connection; it does not register with a universal broker. Install the shared manager separately once if wanted. FreeCAD setup never installs or launches another manager.
 
 Only the owning host registers. Chat proxies and CAD backend workers do not create service rows. The canonical plugin association is `freecad-modeling@freecad-development`; each host process receives a fresh random instance ID. The framework uses the Windows user's Local AppData known folder and the private `CodexMCPManager/Registry` directory, independently of host-specific `LOCALAPPDATA` overrides. `--management-registry PATH` selects a separate registry for isolated tests.
@@ -14,7 +38,7 @@ The manager uses authenticated loopback status and private registrations. Public
 
 ## Restart limitation
 
-Tray restart is disabled. FreeCAD currently has no surviving app-owned supervisor that atomically fences every chat, verifies unsaved documents and Undo history, handles pending reviews/jobs and reconciles uncertain native effects. The reporting adapter returns a specific blocked reason and performs no restart effect. An idle request counter or an empty ownership journal does not establish that an unrelated FreeCAD GUI is saved or restartable.
+Tray restart is disabled. FreeCAD currently has no shared restart coordinator that atomically fences every chat, verifies unsaved documents and Undo history, handles pending reviews/jobs and reconciles uncertain native effects. The reporting adapter returns a specific blocked reason and performs no restart effect. An idle request counter or an empty ownership journal does not establish that an unrelated FreeCAD GUI is saved or restartable.
 
 Explicit host maintenance remains available through the [framework upgrade workflow](FRAMEWORK.md#install-the-app-owned-host), with its separate idle/journal checks and preservation rules. The tray never invokes that installer, closes a FreeCAD GUI, guesses a launch command or kills a PID. A crashed/unreachable host cannot be restarted through this reporting endpoint.
 

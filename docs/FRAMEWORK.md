@@ -1,5 +1,9 @@
 # Experimental app-owned framework host
 
+Normal `Install.cmd` setup selects the [stable standalone profile](STABLE_LAUNCHER.md).
+The framework stays pinned to 0.20.0 and SDK to 2.3.0; launcher adoption does not add
+framework features or accept this experimental shared-host/native GUI profile.
+
 The shared framework and separate Windows management app are developed in
 [CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker). FreeCAD continues to own its
 standalone server, plugin and skills. The manager is optional and there is no universal plugin.

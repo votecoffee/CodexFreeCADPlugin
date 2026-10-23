@@ -1,4 +1,4 @@
-"""Explicit standalone native candidate; never replaces the installed offline profile."""
+"""Standalone native profile with reviewed targets and retained uncertainty fences."""
 
 import argparse
 import hashlib
@@ -56,9 +56,20 @@ def native_session(client, state, registry):
                 from .stable_launcher import deployment_info
 
                 deployment = deployment_info()
+                update_pending = bool(
+                    deployment["selected_package_version"]
+                    and (
+                        deployment["selected_package_version"] != __package_version__
+                        or deployment.get("selected_snapshot") != deployment.get("running_snapshot")
+                    )
+                )
                 return ManagedStatus(
-                    state="busy" if client.lock.locked() else "running",
-                    message=f"FreeCAD {__version__}; {client.mode}; app-owned native candidate",
+                    state="degraded"
+                    if client.uncertain
+                    else "busy"
+                    if client.lock.locked()
+                    else "running",
+                    message=f"FreeCAD {__version__}; {client.mode} MCP frontend; native lease held={client.native_admitted}; backend validated={client.validated}. Metadata is not native health.",
                     active_operations=int(client.lock.locked()),
                     restart_allowed=False,
                     restart_reason="Native documents/receipts require inspection; close the owning client",
@@ -66,10 +77,7 @@ def native_session(client, state, registry):
                         "app": ComponentVersion(
                             installed=deployment["selected_package_version"] or "not-reporting",
                             running=__package_version__,
-                            update_pending=bool(
-                                deployment["selected_package_version"]
-                                and deployment["selected_package_version"] != __package_version__
-                            ),
+                            update_pending=update_pending,
                         )
                     },
                 )
@@ -146,7 +154,14 @@ def main():
     @server.tool(annotations=READ)
     def review_native_target(path: str) -> dict:
         """Review exact workspace source/output bytes before native open/save/export; no native open."""
-        return client.review_target(path)
+        from mcp.server.mcpserver.exceptions import ToolError
+
+        from .native_session import NativePolicyError
+
+        try:
+            return client.review_target(path)
+        except NativePolicyError as exc:
+            raise ToolError(str(exc)) from exc
 
     @server.tool(annotations=READ)
     def get_native_workflow() -> dict:

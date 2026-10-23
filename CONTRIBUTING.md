@@ -19,7 +19,7 @@ Keep live and headless support in the shared engine. Native FreeCAD code must re
 | `docs/` | Public architecture, feature guides, validation procedures and changelog |
 | `.agents/plugins/` | Portable marketplace metadata |
 | `local/` (ignored) | Private notes, machine-specific records and local handoffs |
-| `.local/` (ignored) | Generated installation configuration and FreeCAD macros |
+| `.local/` (ignored) | Private validation, coordination, legacy retained bindings and preparation records |
 | `models/`, `work/` (ignored) | CAD outputs, scratch files and raw validation reports |
 | `.venv/`, `build/`, `dist/` (ignored) | Environment and build outputs |
 
@@ -49,6 +49,11 @@ against a developer's live Codex config.
 Normal plugin registration delegates to the Codex CLI with an explicit `CODEX_HOME` when testing.
 
 Root `Install.cmd`, `Run.cmd` and `Install-and-Run.cmd` share `scripts/InstallAndRun.ps1`.
+Production connections use the app-owned [stable entry/cwd and retained runtime](docs/STABLE_LAUNCHER.md),
+independent of this checkout and disposable plugin caches. Keep the framework at its reviewed
+pin; the optional manager and application server remain independently installed. Do not publish
+source-bound preview configurations or patch immutable Codex caches. Installer and running
+version observations must remain separate, including active peers during a pointer update.
 The opt-in `tests/test_launchers.py` uses copied launchers and a sentinel PowerShell target to
 exercise argument forwarding, quoted paths and nonzero exit propagation. Real-launcher checks
 use help or invalid arguments that return before setup; they do not install or start FreeCAD.

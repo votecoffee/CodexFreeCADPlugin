@@ -343,6 +343,9 @@ def test_native_owner_cleanup_failure_keeps_uncertain_root_history(tmp_path, mon
     client = SimpleNamespace(
         mode="headless",
         generation="b" * 32,
+        uncertain=False,
+        native_admitted=False,
+        validated=False,
         lock=threading.Lock(),
         close=lambda: events.append("client-closed"),
     )

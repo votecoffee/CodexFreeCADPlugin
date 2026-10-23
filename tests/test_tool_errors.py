@@ -8,7 +8,7 @@ import pytest
 from mcp.types import CallToolRequestParams
 
 from codex_freecad.engine import CadError
-from codex_freecad.native_session import NativeCapacityError
+from codex_freecad.native_session import NativeCapacityError, NativePolicyError
 from codex_freecad.server import create_server
 
 
@@ -20,13 +20,14 @@ def response(client, name, arguments):
     return json.loads(result.model_dump_json(by_alias=True))
 
 
-def test_known_capacity_refusal_survives_sdk_handler_and_serialization():
+@pytest.mark.parametrize("refusal", [NativeCapacityError, NativePolicyError])
+def test_known_capacity_refusal_survives_sdk_handler_and_serialization(refusal):
     calls = []
     reason = "FreeCAD native capacity is busy in another connection"
 
     def reject(method, **params):
         calls.append(method)
-        raise NativeCapacityError(reason)
+        raise refusal(reason)
 
     wire = response(
         SimpleNamespace(call=reject, close=lambda: None), "new_document", {"name": "Refused"}

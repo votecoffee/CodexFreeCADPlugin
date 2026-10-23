@@ -47,6 +47,8 @@ def prepare(
     native_target=None,
     python=None,
     profile="native",
+    source_commit=None,
+    app_wheel_sha256=None,
 ):
     """Copy reviewed wheel sources; callers review/select the returned exact hash."""
     if (
@@ -122,11 +124,14 @@ def prepare(
         "schema_version": 1,
         "application_id": "freecad-mcp-server",
         "package_version": __package_version__,
+        "source_commit": source_commit,
+        "app_wheel_sha256": app_wheel_sha256,
         "profile": candidate["profile"],
         "mode": candidate.get("mode"),
         "pins": PINS,
         "python": candidate["python"],
         "python_sha256": candidate["python_sha256"],
+        "python_console_sha256": sha256(Path(candidate["python"]).with_name("python.exe")),
         "runtime": payload.relative_to(root).as_posix(),
         "entry": entry.relative_to(root).as_posix(),
         "args": config["args"][4:],

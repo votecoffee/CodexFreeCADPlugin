@@ -1,121 +1,84 @@
 <#
 .SYNOPSIS
-Install the checkout and run a FreeCAD MCP server over stdio.
-.DESCRIPTION
-Uses Setup.ps1 to create/update the local virtual environment, generate configuration
-and install FreeCAD's own Codex plugin. Installation messages go to stderr to preserve MCP stdout.
-FreeCAD and Python 3.13 must already be installed. No GUI is opened automatically.
-.PARAMETER Mode
-Run the headless backend (default), or connect to an existing live bridge.
-.PARAMETER Workspace
-CAD workspace. Relative paths resolve against the checkout; defaults to models.
-.PARAMETER FreeCADCmd
-Optional FreeCADCmd executable for setup and the headless backend.
-.PARAMETER FrameworkWheel
-Reviewed universal-codex-tools 0.20.0 wheel, required for a fresh environment.
-.PARAMETER FrameworkSha256
-Trusted SHA-256 of the supplied framework wheel.
-.PARAMETER InstallOnly
-Install dependencies, generate configuration and install the Codex plugin, then exit.
-.PARAMETER Integration
-Codex integration: standalone (default), or none for configuration only.
-.PARAMETER SkipInstall
-Run with the existing virtual environment without installing or regenerating files.
-.PARAMETER NoStartMenuShortcut
-Install without creating or updating the current user's Start menu shortcut.
-.PARAMETER Help
-Print launcher usage without installing or starting anything.
-.EXAMPLE
-Install-and-Run.cmd
-.EXAMPLE
-Install-and-Run.cmd -Mode live -SkipInstall
+Install/select a retained standalone runtime, or run the app-owned stable entry.
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('headless', 'live')]
-    [string]$Mode = 'headless',
-    [string]$Workspace = '',
-    [string]$FreeCADCmd = '',
-    [string]$FrameworkWheel = '',
-    [string]$FrameworkSha256 = '',
-    [ValidateSet('standalone', 'none')]
-    [string]$Integration = 'standalone',
-    [switch]$InstallOnly,
-    [switch]$SkipInstall,
-    [switch]$NoStartMenuShortcut,
-    [switch]$Help
+    [ValidateSet('', 'headless', 'live')][string]$Mode = '',
+    [string]$Workspace = '', [string]$FreeCADCmd = '',
+    [string]$FrameworkWheel = '', [string]$FrameworkSha256 = '',
+    [string]$InstallRoot = '', [string]$Wheelhouse = '', [string]$BridgeDescriptor = '',
+    [ValidateSet('standalone', 'none')][string]$Integration = 'standalone',
+    [switch]$InstallOnly, [switch]$SkipInstall, [switch]$NoStartMenuShortcut, [switch]$Help
 )
-
 $ErrorActionPreference = 'Stop'
 try {
     if ($Help) {
         [Console]::Error.WriteLine(@'
 Usage: Install-and-Run.cmd [options]
-  -Mode headless|live   Backend to run (default: headless)
-  -Workspace PATH      CAD workspace (default: models in this checkout)
-  -FreeCADCmd PATH     Optional FreeCADCmd executable
-  -FrameworkWheel PATH  Reviewed framework 0.20.0 wheel for fresh setup
-  -FrameworkSha256 HASH  Trusted SHA-256 of that wheel
-  -Integration ROUTE   standalone (default), or none
-  -InstallOnly         Install, including the Codex plugin, then exit
-  -SkipInstall         Start the existing installation without setup
-  -NoStartMenuShortcut  Skip Start menu shortcut creation during setup
-  -Help                Show this help
-The server speaks MCP over stdio and waits for a client. Start the live bridge manually.
+  -InstallOnly          Install/select the stable runtime and standalone plugin
+  -SkipInstall          Run the existing stable selection without building/installing
+  -InstallRoot PATH     App-owned root (default: LOCALAPPDATA\FreeCADMCPServer)
+  -Workspace PATH       Explicit CAD workspace; otherwise preserve the installed one
+  -Mode headless|live   Preserve installed mode unless explicitly selected
+  -FreeCADCmd PATH      Explicit headless executable (hashed, never run by installation)
+  -BridgeDescriptor PATH  Explicit existing live bridge; no GUI starts
+  -Wheelhouse PATH      Reuse reviewed wheels without downloading
+  -FrameworkWheel PATH  Reviewed framework 0.20.0 wheel for a fresh installation
+  -FrameworkSha256 HASH  Trusted wheel hash (must also match the reviewed runtime lock)
+  -Integration standalone|none  Install own plugin, or prepare selection only
+  -NoStartMenuShortcut  Skip the installed-status shortcut
+  -Help                Show help without installation or native execution
+Normal MCP connections launch the retained pythonw entry directly. No checkout/cache is needed.
 '@)
         exit 0
     }
-    if ($InstallOnly -and $SkipInstall) {
-        throw 'Use either -InstallOnly or -SkipInstall.'
-    }
-    if ($SkipInstall -and ($FrameworkWheel -or $FrameworkSha256)) {
-        throw 'Framework wheel options require installation; omit -SkipInstall.'
-    }
+    if ($InstallOnly -and $SkipInstall) { throw 'Use either -InstallOnly or -SkipInstall.' }
+    if ($SkipInstall -and ($FrameworkWheel -or $FrameworkSha256 -or $Wheelhouse)) { throw 'Wheel options require installation; omit -SkipInstall.' }
     $projectRoot = Split-Path -Parent $PSScriptRoot
-    if (-not $Workspace) { $Workspace = 'models' }
-    if (-not [IO.Path]::IsPathRooted($Workspace)) {
-        $Workspace = Join-Path $projectRoot $Workspace
-    }
-    $Workspace = [IO.Path]::GetFullPath($Workspace)
-    if ($FreeCADCmd) {
-        $FreeCADCmd = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($FreeCADCmd)
-    }
-    $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
+    if (-not $InstallRoot) { $InstallRoot = Join-Path $env:LOCALAPPDATA 'FreeCADMCPServer' }
+    $InstallRoot = [IO.Path]::GetFullPath($InstallRoot)
+    if ($Workspace -and -not [IO.Path]::IsPathRooted($Workspace)) { $Workspace = Join-Path $projectRoot $Workspace }
     if (-not $SkipInstall) {
-        $setupArgs = @{
-            Workspace = $Workspace; FreeCADCmd = $FreeCADCmd
-            FrameworkWheel = $FrameworkWheel; FrameworkSha256 = $FrameworkSha256
-            ShortcutMode = $Mode; NoStartMenuShortcut = [bool]$NoStartMenuShortcut
-            Integration = $Integration
-        }
-        & (Join-Path $PSScriptRoot 'Setup.ps1') @setupArgs |
-            ForEach-Object { [Console]::Error.WriteLine([string]$_) }
-    }
-    if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
-        throw 'Virtual environment missing. Run Install-and-Run.cmd without -SkipInstall.'
+        $setupArgs = @{Workspace=$Workspace; FreeCADCmd=$FreeCADCmd; FrameworkWheel=$FrameworkWheel; FrameworkSha256=$FrameworkSha256;
+            InstallRoot=$InstallRoot; Wheelhouse=$Wheelhouse; BridgeDescriptor=$BridgeDescriptor; ShortcutMode=$Mode;
+            NoStartMenuShortcut=[bool]$NoStartMenuShortcut; Integration=$Integration}
+        & (Join-Path $PSScriptRoot 'Setup.ps1') @setupArgs | ForEach-Object { [Console]::Error.WriteLine([string]$_) }
     }
     if ($InstallOnly) { exit 0 }
-    $selectionJson = & $pythonPath -m codex_freecad.installed_host --output (Join-Path $projectRoot '.local')
-    if ($LASTEXITCODE -ne 0) { throw 'Cannot read the selected FreeCAD installation.' }
-    $selection = $selectionJson | ConvertFrom-Json
-    if ($null -ne $selection) {
-        if ($Workspace -ne $selection.workspace -or $FreeCADCmd) {
-            throw 'The selected framework publication owns its workspace/executable. Update the publication explicitly.'
-        }
-        [Console]::Error.WriteLine('Starting the selected app-owned FreeCAD host connection over stdio.')
-        & $selection.python -m freecad_mcp_host --state (Join-Path $selection.output 'state') --publication (Join-Path $selection.output 'application.json') connect
-        exit $LASTEXITCODE
+    $receiptPath = Join-Path $InstallRoot 'installation.json'
+    if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) { throw 'Stable installation missing. Run Install.cmd first.' }
+    $pointer = Get-Content -LiteralPath (Join-Path $InstallRoot 'launcher\current.json') -Raw | ConvertFrom-Json
+    if ($pointer.snapshot -notmatch '^[a-f0-9]{64}$') { throw 'Invalid installed snapshot identity.' }
+    $manifestBytes = [IO.File]::ReadAllBytes((Join-Path $InstallRoot "launcher\snapshots\$($pointer.snapshot)\manifest.json"))
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    try { $manifestDigest = [BitConverter]::ToString($hasher.ComputeHash($manifestBytes)).Replace('-','').ToLowerInvariant() }
+    finally { $hasher.Dispose() }
+    if ($manifestDigest -ne $pointer.snapshot) { throw 'Selected manifest changed.' }
+    $manifest = [Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+    if ($Workspace -or $Mode -or $FreeCADCmd -or $BridgeDescriptor) { throw 'Run uses the exact installed selection. Change workspace/mode/target through Install.cmd.' }
+    $route = $manifest.route
+    $entry = Join-Path $InstallRoot 'Start-Mcp.py'
+    if ($route.args.Count -ne 4 -or ($route.args[0..2] -join ' ') -ne '-I -S -B' -or $route.args[3] -ne $entry -or $route.cwd -ne (Join-Path $InstallRoot 'cwd') -or $route.command -ne $manifest.python -or [IO.Path]::GetFileName($route.command) -ne 'pythonw.exe') { throw 'Installed stable route differs from this root.' }
+    $pythonStream = [IO.File]::OpenRead($route.command)
+    $pythonHasher = [Security.Cryptography.SHA256]::Create()
+    try { $pythonDigest = [BitConverter]::ToString($pythonHasher.ComputeHash($pythonStream)).Replace('-','').ToLowerInvariant() }
+    finally { $pythonHasher.Dispose(); $pythonStream.Dispose() }
+    if ($pythonDigest -ne $manifest.python_sha256) { throw 'Reviewed interpreter changed.' }
+    function Quote-NativeArgument([string]$Value) {
+        $escaped = [regex]::Replace($Value, '(\\*)"', '$1$1\"')
+        return '"' + [regex]::Replace($escaped, '(\\+)$', '$1$1') + '"'
     }
-    $serverArgs = @('-m', 'codex_freecad.server', '--mode', $Mode, '--workspace', $Workspace)
-    if ($Mode -eq 'headless' -and $FreeCADCmd) {
-        $serverArgs += @('--freecad-cmd', $FreeCADCmd)
-    }
-    [Console]::Error.WriteLine("Starting FreeCADMCPServer ($Mode) over stdio; waiting for an MCP client.")
-    if ($Mode -eq 'live') {
-        [Console]::Error.WriteLine('In FreeCAD, execute the generated .local\StartBridge.FCMacro to connect this workspace.')
-    }
-    & $pythonPath @serverArgs
-    exit $LASTEXITCODE
+    $start = New-Object Diagnostics.ProcessStartInfo
+    $start.FileName = $route.command
+    $start.Arguments = ($route.args | ForEach-Object { Quote-NativeArgument $_ }) -join ' '
+    $start.WorkingDirectory = $route.cwd
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    # No redirected/text-mediated pipes: preserve the caller's original OS wire.
+    $process = [Diagnostics.Process]::Start($start)
+    try { $process.WaitForExit(); $result = $process.ExitCode } finally { $process.Dispose() }
+    exit $result
 } catch {
     [Console]::Error.WriteLine('FreeCADMCPServer: ' + $_.Exception.Message)
     exit 1

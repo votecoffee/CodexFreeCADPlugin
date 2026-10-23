@@ -111,7 +111,8 @@ def process_tree_snapshot():
     result = {
         "state": "unassessed",
         "owned_processes": [],
-        "maximum_processes": 32,
+        "maximum_processes": None,
+        "inventory_capacity": 32,
         "attached_gui_policy": "external-detach-only",
         "durable_ledger": "framework-0.20-native-claims",
         "shared_last_owner_cleanup": "blocked-awaiting-complete-client-admission-and-drain-fence",
@@ -145,6 +146,7 @@ def process_tree_snapshot():
         raise OSError("Cannot inspect our retained process job")
     if members.count > 32:
         raise OSError("Owned process inventory exceeded its bound")
+    result["maximum_processes"] = _job_capacity(api, _jobs[0])
     for pid in members.ids[: members.count]:
         process = api.OpenProcess(0x101000, False, pid)
         if not process:
@@ -165,6 +167,31 @@ def process_tree_snapshot():
             api.CloseHandle(process)
     result["state"] = "sampled-job-membership"
     return result
+
+
+def _job_capacity(api, job):
+    from ctypes import wintypes as w
+
+    class Basic(ctypes.Structure):
+        _fields_ = [
+            ("process_time", ctypes.c_longlong),
+            ("job_time", ctypes.c_longlong),
+            ("flags", w.DWORD),
+            ("min_working_set", ctypes.c_size_t),
+            ("max_working_set", ctypes.c_size_t),
+            ("active_processes", w.DWORD),
+            ("affinity", ctypes.c_size_t),
+            ("priority", w.DWORD),
+            ("scheduling", w.DWORD),
+        ]
+
+    limits = Basic()
+    if (
+        not api.QueryInformationJobObject(job, 2, ctypes.byref(limits), ctypes.sizeof(limits), None)
+        or not limits.flags & 0x8
+    ):
+        raise OSError("Cannot verify the retained job's actual process bound")
+    return limits.active_processes
 
 
 def _kernel():

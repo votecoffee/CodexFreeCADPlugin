@@ -74,7 +74,8 @@ def snapshot_manifest(root, revision):
     if hashlib.sha256(manifest_raw).hexdigest() != revision:
         raise ValueError("Selected launcher snapshot changed")
     if (
-        manifest.get("schema_version") != 1
+        type(manifest.get("schema_version")) is not int
+        or manifest.get("schema_version") != 1
         or manifest.get("application_id") != "freecad-mcp-server"
         or manifest.get("pins") != PINS
     ):
@@ -93,6 +94,14 @@ def snapshot_manifest(root, revision):
     entry = manifest["entry"]
     if entry not in manifest["files"] or not entry.startswith("runtimes/"):
         raise ValueError("Selected entry is not a retained runtime")
+    if not isinstance(manifest.get("package_version"), str) or not re.fullmatch(
+        r"[0-9]+\.[0-9]+\.[0-9]+", manifest["package_version"]
+    ):
+        raise ValueError("Invalid selected package version")
+    if not isinstance(manifest.get("runtime"), str) or not manifest["runtime"].startswith(
+        "runtimes/"
+    ):
+        raise ValueError("Runtime is not a retained application payload")
     args = manifest.get("args")
     if (
         not isinstance(args, list)
@@ -133,7 +142,7 @@ def deployment_info():
 
 def error(message):
     """pythonw may have None streams before the verified backend reconstructs them."""
-    raw = ("FreeCAD launcher refused: " + message + "\n").encode("utf-8", "replace")[:4096]
+    raw = ("FreeCAD launcher refused: " + str(message)[:800] + "\n").encode("utf-8", "replace")
     if sys.stderr is not None:
         sys.stderr.write(raw.decode("utf-8", "replace"))
         sys.stderr.flush()
@@ -154,6 +163,10 @@ def error(message):
 
 def main(root=None):
     root = ordinary(root or Path(__file__).parent)
+    if len(sys.argv) != 1:
+        raise ValueError(
+            "Stable entry takes no overrides; update the reviewed selection explicitly"
+        )
     if os.name != "nt" or not (
         sys.flags.isolated and sys.flags.no_site and sys.dont_write_bytecode
     ):
@@ -162,7 +175,7 @@ def main(root=None):
     manifest = selected["manifest"]
     interpreter = ordinary(manifest["python"])
     if (
-        interpreter != Path(sys.executable).absolute()
+        not os.path.samefile(interpreter, sys.executable)
         or interpreter.name.lower() != "pythonw.exe"
         or sha256(interpreter) != manifest["python_sha256"]
     ):
@@ -191,9 +204,11 @@ if __name__ == "__main__":
     try:
         main()
     except BaseException as exc:
-        error(
-            str(exc)
-            if isinstance(exc, (ValueError, OSError))
-            else "Invalid or unavailable reviewed selection"
-        )
-        os._exit(1)
+        try:
+            error(
+                str(exc)
+                if isinstance(exc, (ValueError, OSError))
+                else "Invalid or unavailable reviewed selection"
+            )
+        finally:
+            os._exit(1)

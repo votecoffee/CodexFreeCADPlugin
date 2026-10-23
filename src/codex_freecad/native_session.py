@@ -49,6 +49,10 @@ class NativeCapacityError(CadError):
     """Known pre-dispatch native admission refusal; safe to report to an MCP caller."""
 
 
+class NativePolicyError(CadError):
+    """Known pre-dispatch refusal; contains no unexpected backend exception details."""
+
+
 def digest(path):
     if not path.exists():
         return "absent"
@@ -77,55 +81,67 @@ class NativeClient:
 
     def review_target(self, path):
         if not self.lock.acquire(blocking=False):
-            raise CadError("Native request capacity reached")
+            raise NativePolicyError("Native request capacity reached")
         try:
             if self.closed:
-                raise CadError("Native session is closed")
-            target = self.workspace.path(path, SUFFIXES)
+                raise NativePolicyError("Native session is closed")
+            target = self._reviewed_path(path)
             observed = digest(target)
             self.targets[str(target)] = observed
             return {"path": str(target), "sha256": observed, "native_opened": False}
         finally:
             self.lock.release()
 
+    def _reviewed_path(self, path):
+        try:
+            return self.workspace.path(path, SUFFIXES)
+        except CadError as exc:
+            raise NativePolicyError(str(exc)) from exc
+
     def _guards(self, method, params):
         if method in {"apply_operations", "import_model", "undo_document"}:
             if not params.get("expected_revision"):
-                raise CadError("Inspect the document and pass expected_revision before editing")
+                raise NativePolicyError(
+                    "Inspect the document and pass expected_revision before editing"
+                )
         if method in {"open_document", "save_document", "export_model"}:
-            target = self.workspace.path(params["path"], SUFFIXES)
+            target = self._reviewed_path(params["path"])
             expected = self.targets.get(str(target))
             if expected is None or digest(target) != expected:
-                raise CadError(
+                raise NativePolicyError(
                     "Review this exact native target before opening, saving or exporting"
                 )
             if method == "open_document":
                 if expected == "absent":
-                    raise CadError("FCStd source does not exist")
+                    raise NativePolicyError("FCStd source does not exist")
                 params["expected_sha256"] = expected
             else:
                 document = params["document"]
                 revision = self.revisions.get(document)
                 current = self.client.call("inspect_document", document=document)
                 if not revision or revision != current["revision"]:
-                    raise CadError("Inspect the current document before saving or exporting")
+                    raise NativePolicyError(
+                        "Inspect the current document before saving or exporting"
+                    )
                 params["expected_target_sha256"] = expected
 
     def call(self, method, **params):
         if method not in READS | WRITES:
             raise CadError("Unsupported native dispatch method")
         if not self.lock.acquire(blocking=False):
-            raise CadError("Native request capacity reached; wait for the active request")
+            raise NativePolicyError("Native request capacity reached; wait for the active request")
         receipt = None
         try:
             if self.closed or (self.uncertain and method in WRITES):
-                raise CadError("Native session closed or uncertain; preserve receipts and inspect")
+                raise NativePolicyError(
+                    "Native session closed or uncertain; preserve receipts and inspect"
+                )
             if self.binding_check is not None:
                 self.binding_check()
             if method in WRITES:
                 for previous in (self.state / "native-receipts").glob("*/*.json"):
                     if json.loads(previous.read_bytes())["state"] in {"dispatched", "uncertain"}:
-                        raise CadError(
+                        raise NativePolicyError(
                             "Unresolved native receipt; inspect original work without replay"
                         )
             if not self.validated:
@@ -151,7 +167,9 @@ class NativeClient:
 
                 self.journal.mkdir(parents=True, exist_ok=True)
                 if len(list((self.state / "native-receipts").glob("*/*.json"))) >= 256:
-                    raise CadError("Native receipt history full; preserve it before a new session")
+                    raise NativePolicyError(
+                        "Native receipt history full; preserve it before a new session"
+                    )
                 raw = json.dumps(params, sort_keys=True, ensure_ascii=True).encode()
                 receipt = {
                     "request_id": uuid.uuid4().hex,

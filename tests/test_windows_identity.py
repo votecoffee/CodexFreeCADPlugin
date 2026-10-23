@@ -1,7 +1,9 @@
 """OS image-file identities; no app launch, attachment, or process termination."""
 
+import ctypes
 import os
 import shutil
+from ctypes import wintypes as w
 
 import pytest
 
@@ -30,3 +32,16 @@ def test_logical_physical_file_alias_is_alive_but_copied_image_and_reused_genera
     # Alias-aware observations do not broaden the framework's termination rights.
     with pytest.raises(ProcessLookupError):
         driver.open(identity)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows native image namespace")
+def test_native_physical_image_namespace_matches_the_same_live_generation():
+    driver = AppProcessDriver()
+    current = driver.capture(os.getpid())
+    with driver._open(current["pid"]) as held:
+        size = w.DWORD(32768)
+        image = ctypes.create_unicode_buffer(size.value)
+        assert driver.kernel.QueryFullProcessImageNameW(held.handle, 1, image, ctypes.byref(size))
+        physical = "\\\\?\\GLOBALROOT" + image.value
+        assert os.path.samefile(current["executable"], physical)
+        assert driver.state({**current, "executable": physical}) == "alive"

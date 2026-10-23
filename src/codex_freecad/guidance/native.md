@@ -1,11 +1,25 @@
 # Standalone native profile
 
-This explicit candidate uses the existing shared FreeCAD engine and tools. A headless connection
+The Windows connection uses an app-owned stable entry/cwd and a reviewed retained
+runtime selection. Metadata reports selected and running snapshot/version separately;
+selection does not establish live native health. Ordinary startup never installs or
+changes profile. Original inherited UTF-8 pipes and the independent pinned-parent
+watcher remain in force. New connections can select an update while live peers keep
+their original documents, runtime and shared admission.
+
+Reconnect lifecycle observations may release only proven departed process claims.
+Native barriers, unbound intents, unknown identities and operation receipts stay;
+process exit never acknowledges an uncertain write. Legacy claims without retained
+generation evidence remain visible for inspection. No user/attached GUI is terminated.
+
+This explicit profile uses the existing shared FreeCAD engine and tools. A headless connection
 owns one lazy FreeCADCmd worker; live mode attaches only to the explicitly pinned existing bridge.
 Never launch a user GUI, choose another route after failure, or terminate an attached process.
-The accepted offline plugin remains a separate installation until native pilot acceptance.
+The read-only offline fallback and any GUI/shared-host acceptance remain separate.
 
-Read this guide, `get_workflow`, the current capability descriptions and `freecad_status` first.
+Read this guide and `get_workflow` first. `freecad_status` and native capability calls reserve
+native capacity; use them when native work is needed, not to probe metadata-only readiness.
+Discover the native capability descriptions before modeling.
 Use `review_native_target` before opening an FCStd or choosing a save/export target. It reports
 the exact workspace path and SHA-256, or `absent`, without opening a native document. Native FCStd
 loading is trusted code execution, not a ZIP sandbox; the first pilot uses generated disposable

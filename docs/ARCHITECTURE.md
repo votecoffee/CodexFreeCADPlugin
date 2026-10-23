@@ -1,5 +1,10 @@
 # Architecture
 
+The normal Windows connection uses the [stable standalone launcher](STABLE_LAUNCHER.md):
+app-owned entry/cwd, retained wheel closure, atomic selection and the same surviving
+windowless supervisor. Source checkout endpoints and the optional framework host
+remain separate development/experimental workflows.
+
 FreeCAD owns its standalone MCP server, Codex plugin and native skills. The shared library comes
 from [CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker), which also provides a separate
 Windows management app. No universal plugin, broker hop or central CAD session is required. The

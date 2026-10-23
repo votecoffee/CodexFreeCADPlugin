@@ -101,6 +101,13 @@ def offline_session(state, registry, admission):
             from .stable_launcher import deployment_info
 
             deployment = deployment_info()
+            update_pending = bool(
+                deployment["selected_package_version"]
+                and (
+                    deployment["selected_package_version"] != __package_version__
+                    or deployment.get("selected_snapshot") != deployment.get("running_snapshot")
+                )
+            )
             return ManagedStatus(
                 state="busy" if admission.lock.locked() else "running",
                 message=f"FreeCAD {__version__}; read-only offline profile; zero child processes.",
@@ -109,10 +116,7 @@ def offline_session(state, registry, admission):
                     "app": ComponentVersion(
                         installed=deployment["selected_package_version"] or "not-reporting",
                         running=__package_version__,
-                        update_pending=bool(
-                            deployment["selected_package_version"]
-                            and deployment["selected_package_version"] != __package_version__
-                        ),
+                        update_pending=update_pending,
                     )
                 },
                 restart_allowed=False,

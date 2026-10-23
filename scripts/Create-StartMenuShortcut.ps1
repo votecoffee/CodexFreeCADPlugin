@@ -5,6 +5,7 @@ Create or update the current user's FreeCADMCPServer Start menu shortcut.
 Optional shortcut output directory; defaults to the current user's Programs folder.
 #>
 param(
+    [string]$InstallRoot = '',
     [string]$Workspace = '',
     [string]$FreeCADCmd = '',
     [ValidateSet('headless', 'live')]
@@ -27,8 +28,9 @@ if (-not $ShortcutDirectory) {
     if (-not $ShortcutDirectory) { throw 'The current user Start menu is unavailable.' }
 }
 $ShortcutDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ShortcutDirectory)
-$launcher = Join-Path $PSScriptRoot 'InstallAndRun.ps1'
-$icon = Join-Path $projectRoot 'assets\FreeCADMCPServer.ico'
+if (-not $InstallRoot) { $InstallRoot = Join-Path $env:LOCALAPPDATA 'FreeCADMCPServer' }
+$launcher = Join-Path $InstallRoot 'Show-Status.ps1'
+$icon = Join-Path $InstallRoot 'assets\FreeCADMCPServer.ico'
 $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 foreach ($required in @($launcher, $icon, $powershell)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
@@ -43,8 +45,7 @@ function Quote-NativeArgument([string]$Value) {
 }
 
 $arguments = @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-NoExit',
-    '-File', $launcher, '-SkipInstall', '-Mode', $Mode, '-Workspace', $Workspace)
-if ($FreeCADCmd) { $arguments += @('-FreeCADCmd', $FreeCADCmd) }
+    '-File', $launcher, '-InstallRoot', $InstallRoot)
 $argumentLine = ($arguments | ForEach-Object { Quote-NativeArgument $_ }) -join ' '
 $null = [IO.Directory]::CreateDirectory($ShortcutDirectory)
 $shortcutPath = Join-Path $ShortcutDirectory 'FreeCADMCPServer.lnk'
@@ -55,9 +56,9 @@ try {
     $shortcut = $shell.CreateShortcut($shortcutPath)
     $shortcut.TargetPath = $powershell
     $shortcut.Arguments = $argumentLine
-    $shortcut.WorkingDirectory = $projectRoot
+    $shortcut.WorkingDirectory = Join-Path $InstallRoot 'cwd'
     $shortcut.IconLocation = "$icon,0"
-    $shortcut.Description = "FreeCADMCPServer ($Mode MCP server)"
+    $shortcut.Description = 'FreeCADMCPServer installed selection and connection status'
     $shortcut.WindowStyle = 1
     $shortcut.Save()
 } finally {

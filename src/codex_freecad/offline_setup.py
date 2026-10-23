@@ -14,7 +14,10 @@ from .offline_interpreter import pe_identity, windowless_interpreter
 def inventory(root):
     result, total = {}, 0
     for path in sorted(root.rglob("*")):
-        if path.is_symlink() or getattr(path.stat(), "st_file_attributes", 0) & 0x400:
+        if (
+            path.is_symlink()
+            or getattr(path.stat(follow_symlinks=False), "st_file_attributes", 0) & 0x400
+        ):
             raise ValueError("Offline runtime cannot contain links or junctions")
         if "__pycache__" in path.parts or path.suffix in {".pyc", ".pyo"}:
             raise ValueError("Offline runtime must contain wheel sources without bytecode caches")
@@ -81,13 +84,16 @@ def generate(workspace, output, runtime, *, python=None, state=None, registry=No
         f"if hashlib.sha256(raw).hexdigest() != {manifest_hash!r}:\n"
         "    raise RuntimeError('Offline closure manifest changed')\n"
         "closure=json.loads(raw); runtime=Path(closure['runtime']); actual={}\n"
-        "if runtime.is_symlink() or getattr(runtime.stat(),'st_file_attributes',0)&0x400:\n"
+        "if runtime.is_symlink() or getattr(runtime.stat(follow_symlinks=False),'st_file_attributes',0)&0x400:\n"
         "    raise RuntimeError('Offline runtime root link/junction refused')\n"
+        "package=runtime/'codex_freecad'\n"
+        "if package.is_symlink() or getattr(package.stat(follow_symlinks=False),'st_file_attributes',0)&0x400:\n"
+        "    raise RuntimeError('Offline bootstrap package link/junction refused')\n"
         "if (runtime/'codex_freecad/__pycache__').exists() or list((runtime/'codex_freecad').glob('*.py[co]')):\n"
         "    raise RuntimeError('Offline bootstrap bytecode cache refused')\n"
         "for name in ('__init__.py','release.json','process_lifetime.py','offline_session.py','offline_interpreter.py'):\n"
         "    key='codex_freecad/'+name; p=runtime/key\n"
-        "    if p.is_symlink() or hashlib.sha256(p.read_bytes()).hexdigest()!=closure['files'][key]:\n"
+        "    if p.is_symlink() or getattr(p.stat(follow_symlinks=False),'st_file_attributes',0)&0x400 or hashlib.sha256(p.read_bytes()).hexdigest()!=closure['files'][key]:\n"
         "        raise RuntimeError('Offline bootstrap code changed')\n"
         "sys.path.insert(0,str(runtime))\n"
         "from codex_freecad.offline_interpreter import require_windowless_root,inherited_stdio\n"
@@ -96,7 +102,7 @@ def generate(workspace, output, runtime, *, python=None, state=None, registry=No
         f"with root_lifetime({str(state)!r}):\n"
         "    total=0\n"
         "    for p in runtime.rglob('*'):\n"
-        "        if p.is_symlink() or getattr(p.stat(),'st_file_attributes',0)&0x400:\n"
+        "        if p.is_symlink() or getattr(p.stat(follow_symlinks=False),'st_file_attributes',0)&0x400:\n"
         "            raise RuntimeError('Offline runtime link/junction refused')\n"
         "        if '__pycache__' in p.parts or p.suffix in ('.pyc','.pyo'):\n"
         "            raise RuntimeError('Offline runtime bytecode cache refused')\n"
