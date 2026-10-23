@@ -1,9 +1,12 @@
 """Executed as a script by FreeCADCmd, never by the host Python interpreter."""
 
-import json
-import os
 import sys
-from pathlib import Path
+
+sys.dont_write_bytecode = True
+
+import json  # noqa: E402
+import os  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from codex_freecad.engine import Engine  # noqa: E402

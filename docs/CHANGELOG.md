@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Repaired native embedded-Python bytecode isolation after a real pilot created six Python 3.11
+  cache files in the immutable runtime. FreeCADCmd now imports a fixed entry staged in its private
+  generation, disables bytecode before importing backend code, confines any entry cache to that
+  generation, and removes inherited host Python search/home/startup paths. The original failed
+  preflight and caches remain retained. Changed packages require fresh review before native use.
+
 - Prepared a direct standalone native candidate using the existing headless/live engine and
   modeling tools. Added explicit native executable/bridge hash bindings, reviewed workspace
   source/output targets with worker-side hash rechecks, required edit revisions, bounded request

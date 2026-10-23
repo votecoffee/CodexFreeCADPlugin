@@ -223,3 +223,43 @@ def test_reader_start_failure_closes_new_owned_worker(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="reader startup"):
         client._start()
     assert closed == [99] and client.process is None
+
+
+def test_native_entry_and_environment_are_private_before_launch(tmp_path, monkeypatch):
+    import hashlib
+    import json
+    from pathlib import Path
+
+    import codex_freecad.client as client_module
+
+    for key in (
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "PYTHONSTARTUP",
+        "PYTHONUSERBASE",
+        "PYTHONPYCACHEPREFIX",
+    ):
+        monkeypatch.setenv(key, "outside-private-generation")
+    monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "0")
+    captured = {}
+
+    def launch(command, **options):
+        captured.update(command=command, options=options)
+        raise OSError("Fixture stops before any process launch")
+
+    monkeypatch.setattr(owned, "spawn_owned", launch)
+    monkeypatch.setattr(resources, "api_owner", lambda *args: (SimpleNamespace(), False))
+    monkeypatch.setattr(client_module, "find_freecad_cmd", lambda *args: "harmless-placeholder")
+    client = HeadlessClient(tmp_path)
+    with pytest.raises(OSError, match="before any process"):
+        client._start()
+    env = captured["options"]["env"]
+    assert env["PYTHONDONTWRITEBYTECODE"] == "1" and env["PYTHONNOUSERSITE"] == "1"
+    assert not {"PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE"} & env.keys()
+    entry = Path(captured["command"][-1])
+    assert entry.is_relative_to(tmp_path / ".runtime") and entry.name == "codex_worker.py"
+    assert Path(env["PYTHONPYCACHEPREFIX"]) == entry.parent / "bytecode"
+    manifest = json.loads(entry.with_name("bootstrap.json").read_bytes())
+    assert manifest["sha256"] == hashlib.sha256(entry.read_bytes()).hexdigest()
+    assert "sys.dont_write_bytecode = True" in entry.read_text(encoding="utf-8")
+    assert client.process is None

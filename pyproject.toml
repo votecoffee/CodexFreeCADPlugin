@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codex-freecad"
-version = "26.1023.72651"
+version = "26.1023.84201"
 description = "Local MCP tools for live and headless FreeCAD modeling."
 requires-python = ">=3.11"
 dependencies = ["mcp==2.3.0"]

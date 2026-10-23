@@ -27,6 +27,11 @@ runtime hash closure. Python uses the paired real `pythonw.exe -I -S -B`; no con
 external Python path or shared-host hop is needed. Native worker extension directories are explicit
 and empty by default, while bundled extension features remain available. Existing native skills,
 receipts and offline installations stay in place. Generation performs no plugin installation.
+The native entry is staged in the private worker generation: embedded Python can compile an entry
+before executing it, so importing the package's worker file directly could create caches inside
+the immutable runtime. The staged entry disables bytecode before importing backend code. Bytecode
+environment policy and cache prefix are explicit; inherited host Python search/home/startup paths
+are removed. The generated entry hash and backend worker hash remain in its bootstrap manifest.
 
 ## Dispatch and recovery
 

@@ -16,6 +16,8 @@ connection pins the native executable or bridge descriptor, contains owned worke
 inspected revisions and reviewed file targets, and retains durable receipts after uncertain
 dispatch. Preparation does not replace an installed offline profile or launch FreeCAD. A disposable
 native pilot is required before promotion; see [native preparation and pilot](docs/NATIVE.md).
+Native startup stages its entry in the private worker directory and disables bytecode before
+backend imports, preserving the immutable runtime across native sessions.
 
 The current checkout also includes saved design requirements with opt-in edit enforcement, a source-aware bill of materials, refreshable native spreadsheets, source-preserving parameter sweeps, numeric change previews with added/removed material reports, saved configuration snapshots and dimensioned TechDraw sheets with headless SVG rendering. See [engineering extensions](docs/ENGINEERING.md).
 

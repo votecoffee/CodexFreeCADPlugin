@@ -1,6 +1,7 @@
 """Local application API and transports; no OpenAI account is needed to use these."""
 
 import atexit
+import hashlib
 import json
 import os
 import queue
@@ -16,6 +17,32 @@ from urllib.request import ProxyHandler, Request, build_opener
 from .engine import CadError
 
 PREFIX = "@@CODEX_FREECAD@@"
+
+
+def prepare_worker(runtime):
+    """Keep embedded-Python entry caches outside the immutable backend tree."""
+    backend = Path(__file__).resolve().parents[1]
+    entry = Path(runtime) / "codex_worker.py"
+    text = (
+        "import sys\n"
+        "sys.dont_write_bytecode = True\n"
+        f"sys.path.insert(0, {str(backend)!r})\n"
+        "import codex_freecad.worker\n"
+    )
+    entry.write_text(text, encoding="utf-8", newline="\n")
+    manifest = {
+        "entry": str(entry),
+        "sha256": hashlib.sha256(entry.read_bytes()).hexdigest(),
+        "backend": str(backend),
+        "worker_sha256": hashlib.sha256(
+            Path(__file__).with_name("worker.py").read_bytes()
+        ).hexdigest(),
+        "bytecode_policy": "disabled before immutable import; entry cache confined to private generation",
+    }
+    (Path(runtime) / "bootstrap.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
+    return entry, manifest
 
 
 def find_freecad_cmd(explicit=None):
@@ -102,8 +129,6 @@ class HeadlessClient:
             return
         executable = find_freecad_cmd(self.freecad_cmd)
         if self.executable_sha256 is not None:
-            import hashlib
-
             with Path(executable).open("rb") as stream:
                 observed = hashlib.file_digest(stream, "sha256").hexdigest()
             if observed != self.executable_sha256:
@@ -113,9 +138,17 @@ class HeadlessClient:
         self.responses = queue.Queue()
         runtime = self.workspace / ".runtime" / uuid.uuid4().hex
         runtime.mkdir(parents=True)
+        entry, bootstrap = prepare_worker(runtime)
         env = dict(
-            os.environ, CODEX_FREECAD_WORKSPACE=str(self.workspace), PYTHONIOENCODING="utf-8"
+            os.environ,
+            CODEX_FREECAD_WORKSPACE=str(self.workspace),
+            PYTHONIOENCODING="utf-8",
+            PYTHONDONTWRITEBYTECODE="1",
+            PYTHONPYCACHEPREFIX=str(runtime / "bytecode"),
+            PYTHONNOUSERSITE="1",
         )
+        for inherited in ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE"):
+            env.pop(inherited, None)
         if self.extension_dirs is not None:
             env["CODEX_FREECAD_EXTENSION_PATHS"] = json.dumps(
                 [str(Path(p).expanduser().resolve()) for p in self.extension_dirs]
@@ -133,7 +166,7 @@ class HeadlessClient:
                 str(runtime / "user.cfg"),
                 "-s",
                 str(runtime / "system.cfg"),
-                str(Path(__file__).with_name("worker.py")),
+                str(entry),
             ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -147,6 +180,7 @@ class HeadlessClient:
             resource_owner=self.resource_owner,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
+        self.process.identity["worker_bootstrap"] = bootstrap
         try:
             for stream, replies in ((self.process.stdout, True), (self.process.stderr, False)):
                 reader = threading.Thread(

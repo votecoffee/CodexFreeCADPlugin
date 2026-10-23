@@ -110,3 +110,72 @@ def test_abrupt_harmless_supervisor_exit_retains_barrier_and_stops_worker(tmp_pa
         time.sleep(0.02)
     assert record.recovery_barrier and record.state == "active"
     assert ledger.plan(record.resource_id)["eligible"] is False
+
+
+def test_private_entry_disables_bytecode_before_import_with_cache_enabled(tmp_path, monkeypatch):
+    """Faithful loader ordering; harmless fake backend, no FreeCAD/MCP modules."""
+    import hashlib
+
+    import codex_freecad.client as client_module
+
+    backend = tmp_path / "immutable-backend"
+    package = backend / "codex_freecad"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("# harmless fixture\n")
+    (package / "helper.py").write_text("VALUE = 7\n")
+    (package / "worker.py").write_text(
+        "import sys\nassert sys.dont_write_bytecode\n"
+        "from codex_freecad.helper import VALUE\nassert VALUE == 7\n"
+        "print('private-entry-loaded-without-backend-cache')\n"
+    )
+    monkeypatch.setattr(client_module, "__file__", str(package / "client.py"))
+    generation = tmp_path / "private-generation"
+    generation.mkdir()
+    entry, manifest = client_module.prepare_worker(generation)
+    before = {
+        p.relative_to(backend).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in backend.rglob("*")
+        if p.is_file()
+    }
+    environment = {k: v for k, v in os.environ.items() if not k.startswith("PYTHON")}
+    # Deliberately omit -B and the environment defense: an importer writes the
+    # entry's cache before executing it; backend imports must still create none.
+    process = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-S",
+            "-c",
+            "import sys; sys.path.insert(0,sys.argv[1]); import codex_worker",
+            str(generation),
+        ],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    assert process.returncode == 0, process.stderr
+    assert process.stdout.strip() == "private-entry-loaded-without-backend-cache"
+    assert list(generation.rglob("*.pyc")), (
+        "Fixture did not reproduce entry-cache-before-exec ordering"
+    )
+    after = {
+        p.relative_to(backend).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in backend.rglob("*")
+        if p.is_file()
+    }
+    assert before == after and not list(backend.rglob("*.pyc"))
+    (tmp_path / "bytecode-proof.json").write_text(
+        json.dumps(
+            {
+                "entry": manifest,
+                "harmless_child_returncode": process.returncode,
+                "backend_before": before,
+                "backend_after": after,
+                "private_entry_caches": [str(p) for p in generation.rglob("*.pyc")],
+                "scope": "Harmless Python loader ordering fixture only; no FreeCAD/MCP/native acceptance",
+            },
+            indent=2,
+        )
+    )
