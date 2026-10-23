@@ -346,6 +346,7 @@ def test_native_owner_cleanup_failure_keeps_uncertain_root_history(tmp_path, mon
         uncertain=False,
         native_admitted=False,
         validated=False,
+        receipt_summary=lambda: {"state": "clear", "records": 0, "unresolved": 0},
         lock=threading.Lock(),
         close=lambda: events.append("client-closed"),
     )
@@ -415,3 +416,14 @@ def test_native_session_lifetime_frontend_cap_and_release(tmp_path, monkeypatch)
     assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 0
     with session():
         assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 1
+
+
+@pytest.mark.parametrize("raw", [b"malformed json", b"x" * (256 * 1024 + 1)])
+def test_unassessed_receipt_history_blocks_before_any_native_admission(client, raw):
+    client.journal.mkdir(parents=True)
+    (client.journal / "original.json").write_bytes(raw)
+    assert client.receipt_summary()["state"] == "unknown"
+    with pytest.raises(CadError, match="invalid or unassessed"):
+        client.call("new_document", name="MustNotDispatch")
+    assert client.client.calls == [] and not client.native_admitted
+    assert (client.journal / "original.json").read_bytes() == raw

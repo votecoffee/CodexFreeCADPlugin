@@ -6,6 +6,9 @@ Normal installation uses the [app-owned stable entry](STABLE_LAUNCHER.md), frame
 0.20.0 and SDK 2.3.0. Each surviving standalone frontend registers its actual owner
 generation. Native management reports the MCP frontend, held native lease and
 whether its backend was validated; metadata availability does not prove CAD health.
+Unresolved or unreadable native receipt history reports degraded and blocks new
+writes before native admission. Receipt metadata reads are bounded to 256 records
+and 256 KiB per record; invalid history remains unknown and requires inspection.
 Selected/running versions and snapshots remain separate during an immutable update.
 The installed-status shortcut verifies selection and reports **Not reporting** for
 unobserved running health.

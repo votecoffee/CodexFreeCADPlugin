@@ -79,6 +79,53 @@ class NativeClient:
         self.generation = uuid.uuid4().hex
         self.journal = self.state / "native-receipts" / self.generation
 
+    def receipt_summary(self):
+        """Bounded journal evidence only; never open native work or infer health."""
+        base = self.state / "native-receipts"
+        total, unresolved = 0, 0
+        try:
+            if not base.exists():
+                return {"state": "clear", "records": 0, "unresolved": 0}
+            if (
+                base.is_symlink()
+                or getattr(base.stat(follow_symlinks=False), "st_file_attributes", 0) & 0x400
+            ):
+                raise ValueError("Linked receipt history")
+            folders = 0
+            for folder in base.iterdir():
+                folders += 1
+                if (
+                    folders > 256
+                    or not folder.is_dir()
+                    or folder.is_symlink()
+                    or getattr(folder.stat(follow_symlinks=False), "st_file_attributes", 0) & 0x400
+                ):
+                    raise ValueError("Receipt history bound or directory differs")
+                for path in folder.glob("*.json"):
+                    total += 1
+                    if (
+                        total > 256
+                        or path.is_symlink()
+                        or getattr(path.stat(follow_symlinks=False), "st_file_attributes", 0)
+                        & 0x400
+                    ):
+                        raise ValueError("Receipt record bound or identity differs")
+                    with path.open("rb") as stream:
+                        raw = stream.read(256 * 1024 + 1)
+                    if len(raw) > 256 * 1024:
+                        raise ValueError("Receipt bytes exceed bound")
+                    status = json.loads(raw)["state"]
+                    if status not in {"dispatched", "uncertain", "reply-received"}:
+                        raise ValueError("Unknown receipt state")
+                    unresolved += status != "reply-received"
+            return {
+                "state": "blocked" if unresolved else "clear",
+                "records": total,
+                "unresolved": unresolved,
+            }
+        except (OSError, ValueError, KeyError, TypeError):
+            return {"state": "unknown", "records": total, "unresolved": None}
+
     def review_target(self, path):
         if not self.lock.acquire(blocking=False):
             raise NativePolicyError("Native request capacity reached")
@@ -139,11 +186,15 @@ class NativeClient:
             if self.binding_check is not None:
                 self.binding_check()
             if method in WRITES:
-                for previous in (self.state / "native-receipts").glob("*/*.json"):
-                    if json.loads(previous.read_bytes())["state"] in {"dispatched", "uncertain"}:
-                        raise NativePolicyError(
-                            "Unresolved native receipt; inspect original work without replay"
-                        )
+                summary = self.receipt_summary()
+                if summary["state"] == "blocked":
+                    raise NativePolicyError(
+                        "Unresolved native receipt; inspect original work without replay"
+                    )
+                if summary["state"] != "clear":
+                    raise NativePolicyError(
+                        "Native receipt history is invalid or unassessed; preserve and inspect before writing"
+                    )
             if not self.validated:
                 if not self.native_admitted:
                     try:
