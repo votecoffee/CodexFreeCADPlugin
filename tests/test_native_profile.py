@@ -418,8 +418,9 @@ def test_native_session_lifetime_frontend_cap_and_release(tmp_path, monkeypatch)
         assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 1
 
 
-@pytest.mark.parametrize("raw", [b"malformed json", b"x" * (256 * 1024 + 1)])
-def test_unassessed_receipt_history_blocks_before_any_native_admission(client, raw):
+@pytest.mark.parametrize("case", ["malformed", "oversized"])
+def test_unassessed_receipt_history_blocks_before_any_native_admission(client, case):
+    raw = b"malformed json" if case == "malformed" else b"x" * (256 * 1024 + 1)
     client.journal.mkdir(parents=True)
     (client.journal / "original.json").write_bytes(raw)
     assert client.receipt_summary()["state"] == "unknown"
