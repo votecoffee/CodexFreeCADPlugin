@@ -56,6 +56,8 @@ Up to four metadata frontends can initialize, list tools, read guides and review
 one state directory without reserving native capacity. The first native call acquires the same
 single `native-pilot` lease used by earlier releases. A competing native call returns a busy error
 before backend dispatch or receipt creation; it does not close that frontend or queue a retry.
+The known native-capacity refusal uses the SDK's explicit tool-error path so the caller receives
+the busy explanation. Other exceptions retain the SDK's error handling and redaction.
 The owning connection retains its lease and native documents between calls. Save work and close
 that connection to release capacity. Failed backend cleanup retains the lease; process death
 releases its OS lock while existing process containment and uncertain receipts remain in force.

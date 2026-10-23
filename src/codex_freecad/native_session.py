@@ -45,6 +45,10 @@ WRITES = frozenset(
 SUFFIXES = {".fcstd", ".step", ".stp", ".stl", ".brep"}
 
 
+class NativeCapacityError(CadError):
+    """Known pre-dispatch native admission refusal; safe to report to an MCP caller."""
+
+
 def digest(path):
     if not path.exists():
         return "absent"
@@ -129,7 +133,7 @@ class NativeClient:
                     try:
                         self.native_slot.__enter__()
                     except RuntimeError as exc:
-                        raise CadError(
+                        raise NativeCapacityError(
                             "FreeCAD native capacity is busy in another connection; "
                             "save its work and close that owning connection before retrying"
                         ) from exc

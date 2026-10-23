@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Map the known pre-dispatch native capacity refusal to MCP 2.3 `ToolError` at the server
+  boundary. Its busy explanation reaches the caller instead of a generic unexpected-error
+  message. Other exceptions retain SDK redaction. Native/API callers retain a `CadError`
+  subclass; receipt transitions and tool schemas remain unchanged.
+
 - Deferred the single shared native lease until a frontend's first backend call. Up to four
   metadata frontends can initialize and discover tools/guides without owning a FreeCAD worker.
   Competing native calls return busy before dispatch or receipt creation; the frontend remains

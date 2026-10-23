@@ -11,11 +11,13 @@ from typing import Annotated, Literal
 import anyio
 from mcp.server import CacheHint, MCPServer
 from mcp.server.mcpserver import Context
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ImageContent, ToolAnnotations
 from pydantic import Field
 
 from . import __version__
 from .client import HeadlessClient, LiveClient
+from .native_session import NativeCapacityError
 from .schemas import Edit
 
 READ = ToolAnnotations(read_only_hint=True, open_world_hint=False)
@@ -41,6 +43,12 @@ def create_server(
     modern_discovery=False,
 ):
     from .workflows import build_snapshot, describe_workflow
+
+    def call(method, **params):
+        try:
+            return client.call(method, **params)
+        except NativeCapacityError as exc:
+            raise ToolError(str(exc)) from exc
 
     initial_guidance = build_snapshot(
         framework_extensions,
@@ -119,12 +127,12 @@ def create_server(
         Use describe_capability before invoking a capability. Discover again after reloading.
         New capabilities appear here without changing the fixed MCP tool list.
         """
-        return client.call("list_capabilities")
+        return call("list_capabilities")
 
     @server.tool(annotations=READ)
     def describe_capability(capability: str) -> dict:
         """Get an installed capability's exact argument schema, kind, version and catalog revision."""
-        return client.call("describe_capability", capability=capability)
+        return call("describe_capability", capability=capability)
 
     @server.tool(annotations=READ)
     def run_query(
@@ -135,7 +143,7 @@ def create_server(
         Describe its arguments first. Edits use apply_operations with op='extension', capability,
         arguments and optional catalog_revision, retaining the normal atomic Undo transaction.
         """
-        return client.call(
+        return call(
             "run_query",
             document=document,
             capability=capability,
@@ -151,12 +159,12 @@ def create_server(
         edits first. Changed UI is rebuilt with playback paused. A failed load retains working code.
         Core/MCP schema or native-runtime changes require their normal process/connection update.
         """
-        return client.call("reload_extensions")
+        return call("reload_extensions")
 
     @server.tool(annotations=READ)
     def freecad_status() -> dict:
         """Check FreeCAD version, backend, workspace, documents and supported operations."""
-        result = client.call("status")
+        result = call("status")
         if hasattr(client, "resource_status"):
             result = {**result, "resource_ownership": client.resource_status()}
         return result
@@ -164,27 +172,27 @@ def create_server(
     @server.tool(annotations=READ)
     def list_documents() -> list[dict]:
         """List documents open in this backend. Live and background sessions are independent."""
-        return client.call("list_documents")
+        return call("list_documents")
 
     @server.tool(annotations=WRITE)
     def new_document(name: str, label: str | None = None) -> dict:
         """Create an unsaved document with a unique internal name; no file is written."""
-        return client.call("new_document", name=name, label=label)
+        return call("new_document", name=name, label=label)
 
     @server.tool(annotations=WRITE)
     def open_document(path: str) -> dict:
         """Open a trusted FCStd file inside the CAD workspace, preserving its bytes until saved."""
-        return client.call("open_document", path=path)
+        return call("open_document", path=path)
 
     @server.tool(annotations=READ)
     def inspect_document(document: str) -> dict:
         """Read the feature tree, validity, bounds in mm, volume in mm^3 and current revision."""
-        return client.call("inspect_document", document=document)
+        return call("inspect_document", document=document)
 
     @server.tool(annotations=READ)
     def inspect_object(document: str, object_name: str) -> dict:
         """Read an object's type, parameters, dependencies, constraints and shape measurements."""
-        return client.call("inspect_object", document=document, object_name=object_name)
+        return call("inspect_object", document=document, object_name=object_name)
 
     @server.tool(annotations=READ)
     def inspect_assembly(document: str, assembly: str) -> dict:
@@ -195,7 +203,7 @@ def create_server(
         Use set_joint_positions for one or several coordinated absolute joint coordinates.
         Returned angles wrap to [-180, 180]. Positioning does not check interference or dynamics.
         """
-        return client.call("inspect_assembly", document=document, assembly=assembly)
+        return call("inspect_assembly", document=document, assembly=assembly)
 
     @server.tool(annotations=READ)
     def check_interference(
@@ -209,7 +217,7 @@ def create_server(
         Returns flagged pairs, overlap volumes and category counts. Contact does not imply
         positive-volume interference. Clear pairs can be rejected using bounding-box distance.
         """
-        return client.call(
+        return call(
             "check_interference",
             document=document,
             objects=objects,
@@ -234,7 +242,7 @@ def create_server(
         Persisted affine joint couplings are honored. Source pose and undo history are preserved.
         Limited to 5,000 pair-pose checks. Discrete samples do not prove continuous collision-free travel.
         """
-        return client.call(
+        return call(
             "sample_motion",
             document=document,
             assembly=assembly,
@@ -255,7 +263,7 @@ def create_server(
         XY in mm; use the sketch Placement for its document plane. Native arc/Angle parameters are
         radians; datum strings include units. Use returned constraint indices with set_datum.
         """
-        return client.call("inspect_sketch", document=document, object_name=object_name)
+        return call("inspect_sketch", document=document, object_name=object_name)
 
     @server.tool(annotations=READ)
     def inspect_topology(
@@ -271,7 +279,7 @@ def create_server(
         inspect again after geometry changes before using those names in a feature or measurement.
         Mesh objects require explicit mesh_to_solid conversion before BREP topology inspection.
         """
-        return client.call(
+        return call(
             "inspect_topology",
             document=document,
             object_name=object_name,
@@ -293,7 +301,7 @@ def create_server(
         Returns nearest points. Overlap, containment or touching may return zero; this is not a
         collision, wall-thickness or assembly-clearance certification. Meshes need solid conversion.
         """
-        return client.call(
+        return call(
             "measure_distance",
             document=document,
             object_a=object_a,
@@ -313,7 +321,7 @@ def create_server(
         unit conversion; STL/BREP coordinates are interpreted in mm. Closed meshes can be converted
         using the mesh_to_solid operation. For atomic import-plus-edit, use apply_operations.
         """
-        return client.call(
+        return call(
             "import_model",
             document=document,
             path=path,
@@ -353,7 +361,7 @@ def create_server(
         )
         anyio.from_thread.check_cancelled()
         try:
-            result = client.call(
+            result = call(
                 "apply_operations",
                 document=document,
                 operations=[op.model_dump(mode="json", exclude_none=True) for op in operations],
@@ -377,24 +385,24 @@ def create_server(
     @server.tool(annotations=EDIT)
     def undo_document(document: str, expected_revision: str | None = None) -> dict:
         """Undo the most recent FreeCAD transaction, including a recent manual edit in live mode."""
-        return client.call("undo_document", document=document, expected_revision=expected_revision)
+        return call("undo_document", document=document, expected_revision=expected_revision)
 
     @server.tool(annotations=EDIT)
     def save_document(document: str, path: str, overwrite: bool = False) -> dict:
         """Save FCStd in the workspace; overwrites require true and create a byte-preserving backup."""
-        return client.call("save_document", document=document, path=path, overwrite=overwrite)
+        return call("save_document", document=document, path=path, overwrite=overwrite)
 
     @server.tool(annotations=EDIT)
     def export_model(document: str, objects: list[str], path: str, overwrite: bool = False) -> dict:
         """Export named final objects to STEP, STL or BREP; preserve a backup on explicit overwrite."""
-        return client.call(
+        return call(
             "export_model", document=document, objects=objects, path=path, overwrite=overwrite
         )
 
     @server.tool(annotations=READ)
     def get_selection() -> list[dict]:
         """Read selected objects and faces/edges in the live GUI. Unavailable in background mode."""
-        return client.call("get_selection")
+        return call("get_selection")
 
     @server.tool(annotations=WRITE)
     def set_view(
@@ -408,7 +416,7 @@ def create_server(
 
         Use before capture_view to inspect a specific side. Live GUI only; no model geometry changes.
         """
-        return client.call("set_view", document=document, orientation=orientation, fit_all=fit_all)
+        return call("set_view", document=document, orientation=orientation, fit_all=fit_all)
 
     @server.tool(annotations=WRITE, structured_output=False)
     def capture_view(document: str, width: int = 1200, height: int = 900) -> ImageContent:
@@ -416,7 +424,7 @@ def create_server(
 
         Requires the live GUI. Background modeling has no viewport.
         """
-        result = client.call("capture_view", document=document, width=width, height=height)
+        result = call("capture_view", document=document, width=width, height=height)
         return ImageContent(data=result["data"], mime_type="image/png")
 
     return server

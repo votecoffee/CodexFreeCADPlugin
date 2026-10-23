@@ -146,7 +146,7 @@ def test_idle_frontends_share_metadata_but_native_admission_stays_one(client):
         assert not client.client.calls and not other.client.calls
         assert ProcessSlots.occupied(client.state / "native-pilot", limit=1) == 0
         client.call("status")
-        with pytest.raises(CadError, match="native capacity is busy"):
+        with pytest.raises(native_session.NativeCapacityError, match="native capacity is busy"):
             other.call("new_document", name="Other")
         assert not other.client.calls and not other.uncertain and not receipts(other)
         assert not other.native_admitted
@@ -172,7 +172,7 @@ def test_failed_backend_cleanup_keeps_capacity_until_cleanup_succeeds(client):
     try:
         with pytest.raises(OSError, match="retained worker"):
             client.close()
-        with pytest.raises(CadError, match="native capacity is busy"):
+        with pytest.raises(native_session.NativeCapacityError, match="native capacity is busy"):
             other.call("status")
         assert not other.client.calls
         client.client.close = lambda: None
