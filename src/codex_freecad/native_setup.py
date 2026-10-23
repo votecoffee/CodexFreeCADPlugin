@@ -9,7 +9,17 @@ from .framework_setup import atomic_json
 from .offline_setup import generate as generate_offline
 
 
-def generate(workspace, output, runtime, *, native_target, mode="headless", python=None):
+def generate(
+    workspace,
+    output,
+    runtime,
+    *,
+    native_target,
+    mode="headless",
+    python=None,
+    state=None,
+    registry=None,
+):
     if mode not in {"headless", "live"}:
         raise ValueError("Select headless modeling or an explicit existing live bridge")
     target = Path(native_target).resolve(strict=True)
@@ -23,16 +33,19 @@ def generate(workspace, output, runtime, *, native_target, mode="headless", pyth
     for name in ("native.py", "native_session.py", "guidance/native.md"):
         if not (runtime / "codex_freecad" / name).is_file():
             raise ValueError("Native runtime closure is incomplete")
-    result = generate_offline(workspace, output, runtime, python=python)
+    result = generate_offline(
+        workspace, output, runtime, python=python, state=state, registry=registry
+    )
     output = Path(output).resolve()
+    state = Path(state or output / "state").absolute()
     launcher = output / "offline-launch.py"
     text = launcher.read_text(encoding="utf-8")
-    guard = "with root_lifetime(" + repr(str(output / "state")) + "):"
+    guard = "with root_lifetime(" + repr(str(state)) + "):"
     if text.count(guard) != 1 or text.count("from codex_freecad.offline import main") != 1:
         raise ValueError("Generated bootstrap differs from the reviewed native entry template")
     text = text.replace(
-        "with root_lifetime(" + repr(str(output / "state")) + "):",
-        "with root_lifetime(" + repr(str(output / "state")) + ", process_limit=4):",
+        "with root_lifetime(" + repr(str(state)) + "):",
+        "with root_lifetime(" + repr(str(state)) + ", process_limit=4):",
     )
     text = text.replace(
         "from codex_freecad.offline import main", "from codex_freecad.native import main"

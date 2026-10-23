@@ -27,9 +27,11 @@ def inventory(root):
     return result
 
 
-def generate(workspace, output, runtime, *, python=None):
+def generate(workspace, output, runtime, *, python=None, state=None, registry=None):
     workspace, runtime = Path(workspace).resolve(strict=True), Path(runtime).resolve(strict=True)
     output = Path(output).resolve()
+    state = Path(state or output / "state").absolute()
+    registry = Path(registry or output / "registry").absolute()
     if not workspace.is_dir() or not runtime.is_dir() or output.exists():
         raise ValueError("Use existing workspace/runtime directories and a fresh candidate output")
     interpreter = windowless_interpreter(python)
@@ -91,7 +93,7 @@ def generate(workspace, output, runtime, *, python=None):
         "from codex_freecad.offline_interpreter import require_windowless_root,inherited_stdio\n"
         "require_windowless_root(); inherited_stdio()\n"
         "from codex_freecad.offline_session import root_lifetime\n"
-        f"with root_lifetime({str(output / 'state')!r}):\n"
+        f"with root_lifetime({str(state)!r}):\n"
         "    total=0\n"
         "    for p in runtime.rglob('*'):\n"
         "        if p.is_symlink() or getattr(p.stat(),'st_file_attributes',0)&0x400:\n"
@@ -156,9 +158,9 @@ def generate(workspace, output, runtime, *, python=None):
                         "--workspace",
                         str(workspace),
                         "--state",
-                        str(output / "state"),
+                        str(state),
                         "--registry",
-                        str(output / "registry"),
+                        str(registry),
                     ],
                 }
             }
