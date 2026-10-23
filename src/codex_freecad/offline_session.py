@@ -72,7 +72,7 @@ def offline_session(state, registry, admission):
     # externally launched; it launches zero children and takes no attachments.
     state = Path(state)
     private_directory(state)
-    with root_lifetime(state), resource_session(registry) as owner:
+    with root_lifetime(state), resource_session(registry, state=state) as owner:
         folder = state / "sessions"
         private_directory(folder)
         path = folder / (owner.owner_id + ".json")
@@ -98,13 +98,21 @@ def offline_session(state, registry, admission):
             durable_json(path, record)
 
         def status():
+            from .stable_launcher import deployment_info
+
+            deployment = deployment_info()
             return ManagedStatus(
                 state="busy" if admission.lock.locked() else "running",
                 message=f"FreeCAD {__version__}; read-only offline profile; zero child processes.",
                 active_operations=int(admission.lock.locked()),
                 versions={
                     "app": ComponentVersion(
-                        installed=__package_version__, running=__package_version__
+                        installed=deployment["selected_package_version"] or "not-reporting",
+                        running=__package_version__,
+                        update_pending=bool(
+                            deployment["selected_package_version"]
+                            and deployment["selected_package_version"] != __package_version__
+                        ),
                     )
                 },
                 restart_allowed=False,

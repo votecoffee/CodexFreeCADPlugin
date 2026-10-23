@@ -175,7 +175,7 @@ def test_durable_root_identity_is_the_surviving_owner_without_registering_a_fake
         yield
 
     @contextmanager
-    def ownership(registry):
+    def ownership(registry, **kwargs):
         yield owner
 
     class Manager:

@@ -32,7 +32,7 @@ def native_session(client, state, registry):
             # Keep the profile's lifetime bound explicit as well as the early
             # bootstrap's shared `frontends` lease. History is a separate bound.
             ProcessSlots(Path(state) / "native-frontends", limit=4),
-            resource_session(registry) as owner,
+            resource_session(registry, state=state) as owner,
         ):
             folder = Path(state) / "native-sessions"
             folder.mkdir(parents=True, exist_ok=True)
@@ -53,6 +53,9 @@ def native_session(client, state, registry):
                 durable_json(path, record)
 
             def status():
+                from .stable_launcher import deployment_info
+
+                deployment = deployment_info()
                 return ManagedStatus(
                     state="busy" if client.lock.locked() else "running",
                     message=f"FreeCAD {__version__}; {client.mode}; app-owned native candidate",
@@ -61,7 +64,12 @@ def native_session(client, state, registry):
                     restart_reason="Native documents/receipts require inspection; close the owning client",
                     versions={
                         "app": ComponentVersion(
-                            installed=__package_version__, running=__package_version__
+                            installed=deployment["selected_package_version"] or "not-reporting",
+                            running=__package_version__,
+                            update_pending=bool(
+                                deployment["selected_package_version"]
+                                and deployment["selected_package_version"] != __package_version__
+                            ),
                         )
                     },
                 )
@@ -144,11 +152,14 @@ def main():
     def get_native_workflow() -> dict:
         """Read the fixed native profile guide and its SHA-256 before modeling."""
         raw = Path(__file__).with_name("guidance").joinpath("native.md").read_bytes()
+        from .stable_launcher import deployment_info
+
         return {
             "profile": "direct-standalone-native",
             "mode": args.mode,
             "text": raw.decode("utf-8"),
             "sha256": hashlib.sha256(raw).hexdigest(),
+            "deployment": {**deployment_info(), "running_package_version": __package_version__},
         }
 
     run_native(server, client, args.state, args.registry, exit_process=os._exit)

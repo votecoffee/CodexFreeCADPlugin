@@ -327,7 +327,7 @@ def test_native_owner_cleanup_failure_keeps_uncertain_root_history(tmp_path, mon
         yield
 
     @contextmanager
-    def owner(*args):
+    def owner(*args, **kwargs):
         yield SimpleNamespace(
             owner_id="a" * 32, identity=SimpleNamespace(model_dump=lambda **k: {"pid": 123})
         )
@@ -375,7 +375,7 @@ def test_native_session_lifetime_frontend_cap_and_release(tmp_path, monkeypatch)
     count = 0
 
     @contextmanager
-    def owner(*args):
+    def owner(*args, **kwargs):
         nonlocal count
         count += 1
         yield SimpleNamespace(

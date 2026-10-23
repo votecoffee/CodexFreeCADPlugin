@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 APPLICATION_ID = "freecad-mcp-server"
 _owner = None
+_generation = None
 _references = []
 _lock = threading.RLock()
 
@@ -19,7 +20,11 @@ def create_owner(registry=None):
         ) from exc
     if framework_version != "0.20.0":
         raise RuntimeError("Managed FreeCAD requires the exact verified framework 0.20.0")
-    return ResourceLedger(registry, max_active_per_app=32).owner(APPLICATION_ID)
+    from .windows_identity import AppProcessDriver
+
+    return ResourceLedger(registry, driver=AppProcessDriver(), max_active_per_app=32).owner(
+        APPLICATION_ID
+    )
 
 
 def current_owner():
@@ -38,16 +43,41 @@ def api_owner(registry=None):
 
 
 @contextmanager
-def resource_session(registry=None, *, owner=None):
-    global _owner
+def resource_session(registry=None, *, owner=None, state=None):
+    global _owner, _generation
     with _lock:
         if _owner is not None:
             raise RuntimeError("This process already has a resource supervisor generation")
         _owner = owner or create_owner(registry)
+    generation, clean = None, False
     try:
+        if state is not None:
+            from .generation_journal import GenerationJournal, reconcile_dead_claims
+
+            reconcile_dead_claims(_owner, state)
+            generation = GenerationJournal(_owner, state)
+            generation.start()
+            _generation = generation
         yield _owner
+        clean = True
     finally:
-        close_session()
+        try:
+            close_session()
+        except BaseException:
+            clean = False
+            raise
+        finally:
+            if generation is not None:
+                try:
+                    generation.close("closed" if clean else "uncertain")
+                finally:
+                    _generation = None
+
+
+def sample_generation():
+    """A private actor must be journaled before its suspended thread resumes."""
+    if _generation is not None:
+        _generation.sample()
 
 
 def close_session():
@@ -73,7 +103,7 @@ def supervisor_status():
             "records": len(records),
             "unretired": sum(r.state not in {"released", "terminated", "failed"} for r in records),
             "recovery_barriers": sum(bool(r.recovery_barrier) for r in records),
-            "coverage": "native workers/attachments; SDK launcher registration pending",
+            "coverage": "surviving standalone supervisor, retained job observations, native claims and report-only attachments",
         }
 
 
@@ -111,6 +141,7 @@ class NativeClaim:
             self.failed("Native process identity changed before execution")
             raise RuntimeError("Native resource identity changed before execution")
         self.record = bound
+        sample_generation()
         return bound
 
     def failed(self, reason):
