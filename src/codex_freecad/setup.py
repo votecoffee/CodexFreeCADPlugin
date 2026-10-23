@@ -152,7 +152,9 @@ def generate(workspace, output, freecad_cmd=None, extension_dirs=None):
             "tool_timeout_sec = 150",
             "",
         ]
-    (output / "codex-mcp.toml").write_text("\n".join(config), encoding="utf-8")
+    from .toml_io import encode_toml
+
+    (output / "codex-mcp.toml").write_bytes(encode_toml("\n".join(config)))
     return {
         "workspace": str(workspace),
         "start_macro": str(output / "StartBridge.FCMacro"),

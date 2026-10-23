@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Added root `Install.cmd` and `Run.cmd` aliases, preserving quoted arguments and child exit
+  status. Fresh checkout setup accepts a hash-verified framework 0.20.0 wheel and installs the
+  managed dependencies required by direct native transports; MCP remains pinned to 2.3.0.
+- Added validated UTF-8 TOML byte serialization with explicit Windows CRLF, optional original
+  BOM preservation and malformed-CR rejection. Codex preflight now parses original bytes so
+  universal-newline conversion cannot hide malformed configuration. Disposable fixtures cover
+  LF/CRLF, BOM, no final newline, Unicode, multiline values and unrelated settings.
+- Refreshed setup and architecture guides with standalone profile boundaries and links to the
+  shared framework and separate Windows management app; FreeCAD retains its plugin and skills.
+
 - Map the known pre-dispatch native capacity refusal to MCP 2.3 `ToolError` at the server
   boundary. Its busy explanation reaches the caller instead of a generic unexpected-error
   message. Other exceptions retain SDK redaction. Native/API callers retain a `CadError`

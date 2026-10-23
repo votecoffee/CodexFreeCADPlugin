@@ -52,6 +52,20 @@ def test_none_does_not_read_configuration_or_run_commands(tmp_path):
     execute_plan(plan, run=lambda *args, **kwargs: pytest.fail("none executed a command"))
 
 
+@pytest.mark.parametrize("ending", [b"\r", b"\r\r\n"])
+def test_malformed_config_bytes_are_not_hidden_by_universal_newline_reads(
+    installation, tmp_path, ending
+):
+    home = tmp_path / "disposable home"
+    home.mkdir()
+    config = home / "config.toml"
+    raw = b"model = 'fixture'" + ending
+    config.write_bytes(raw)
+    with pytest.raises(ValueError, match="Cannot read Codex configuration"):
+        connection_plan(installation, codex_home=home)
+    assert config.read_bytes() == raw
+
+
 @pytest.mark.parametrize("route", ["broker", "auto"])
 def test_removed_routes_are_rejected_before_configuration_access(tmp_path, route):
     with pytest.raises(ValueError, match="standalone or none"):

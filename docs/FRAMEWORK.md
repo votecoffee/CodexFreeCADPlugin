@@ -1,5 +1,11 @@
 # Experimental app-owned framework host
 
+The shared framework and separate Windows management app are developed in
+[CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker). FreeCAD continues to own its
+standalone server, plugin and skills. The manager is optional and there is no universal plugin.
+This guide describes the experimental host; the independently deployable
+[native](NATIVE.md) and [offline](OFFLINE.md) profiles have separate acceptance boundaries.
+
 The architecture is a shared app framework with an independent Windows manager. FreeCAD owns its standalone Codex plugin, native skills, stable discovery/invocation interface, CAD backends and native validation. Plugin installation never depends on another app's plugin being present. There is no universal Codex plugin, aggregated skill installer or universal MCP connection. The framework is an implementation dependency of this app-owned host; its retained `universal-codex-tools` distribution and `universal_tools` import names do not imply a universal plugin deployment. Initial normal setup uses direct endpoints; framework installation is an explicit choice.
 
 ## Install the app-owned host
@@ -7,7 +13,7 @@ The architecture is a shared app framework with an independent Windows manager. 
 From a clean committed checkout, run normal setup, then select the framework host with a verified local artifact:
 
 ```powershell
-.\scripts\Setup.ps1
+.\Install.cmd -Integration none -FrameworkWheel C:\Packages\universal_codex_tools-0.20.0-py3-none-any.whl -FrameworkSha256 TRUSTED_SHA256
 .\scripts\Install-Framework.ps1 -FrameworkWheel C:\Packages\universal_codex_tools-0.20.0-py3-none-any.whl -FrameworkSha256 TRUSTED_SHA256
 ```
 
@@ -21,7 +27,7 @@ For a deliberate host/framework upgrade, quiesce other callers, save and release
 
 The new runtime must pass `doctor` before plugin replacement. Local admin commands `doctor` and `check-idle` use the same `--state` and `--publication` arguments; neither calls native CAD tools. Old runtimes, selection/publication/plugin files and stopped journal backups remain under ignored `.local/framework/backups/`. Failure preserves these for deliberate inspection rather than automatically restoring/replaying work. Do not restore the entire Codex config over unrelated later changes. A host runtime change requires frontend reconnection; existing native sessions are not migrated. Starting a new Codex chat loads the updated plugin configuration.
 
-The owning host also provides [cached tray reporting](SERVICE_MANAGEMENT.md) using framework 0.18's management endpoint. Backend dispatch still uses the original `ApplicationBackend` ownership and routing implementation, with an operation counter around CAD-facing requests. Tray restart stays disabled; this reporting interface does not add safe supervision to explicit installer maintenance. No duplicate manager, universal plugin or unrelated extension is installed.
+The owning host also provides [cached tray reporting](SERVICE_MANAGEMENT.md) using the shared framework's management endpoint. Backend dispatch still uses the original `ApplicationBackend` ownership and routing implementation, with an operation counter around CAD-facing requests. Tray restart stays disabled; this reporting interface does not add safe supervision to explicit installer maintenance. No duplicate manager, universal plugin or unrelated extension is installed.
 
 **Source target: framework 0.20.0 and MCP 2.3.0 throughout. Protocol/native acceptance for this target is pending.** The framework uses `MCPServer`, typed pagination and snake_case Python fields with wire aliases. SDK 1.x compatibility is not required. Legacy publications retain the negotiated `2025-11-25` handshake. Explicit `auto` and `2026-07-28` candidates are assessed with disposable providers, including modern frontend ownership through independent stdio proxies. Framework support for SDK 2.2 does not establish this app's acceptance of a different version than its exact MCP 2.3 pin.
 
@@ -53,7 +59,8 @@ For a release, build/install the host wheel instead of the editable host. Verify
 The wheel auditor checks trusted framework hash, wheel RECORD entries, exact normal dependency pins, MCP 2.3 requirements and application code/resource bytes against this checkout:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\verify_framework_wheels.py --backend-wheel dist\codex_freecad-26.1022.192757-py3-none-any.whl --host-wheel dist\freecad_mcp_host-26.1022.192757-py3-none-any.whl --framework-wheel C:\Packages\VerifiedWheels\framework.whl --framework-sha256 EXPECTED_SHA256
+$version = (Get-Content src\codex_freecad\release.json -Raw | ConvertFrom-Json).package_version
+.\.venv\Scripts\python.exe scripts\verify_framework_wheels.py --backend-wheel "dist\codex_freecad-$version-py3-none-any.whl" --host-wheel "dist\freecad_mcp_host-$version-py3-none-any.whl" --framework-wheel C:\Packages\VerifiedWheels\framework.whl --framework-sha256 EXPECTED_SHA256
 ```
 
 Both application wheels carry the same fixed release manifest. The auditor checks its display/package identities against wheel metadata and source project versions. See [versioning](VERSIONING.md). Older or mismatched framework artifacts are rejected before installation. Unit fixtures for this audit do not establish that an actual updated framework artifact exists.

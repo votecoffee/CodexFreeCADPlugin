@@ -1,8 +1,22 @@
 # Standalone connections
 
+The shared library and optional separate Windows management app come from
+[CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker). They do not replace FreeCAD's
+standalone server, app-owned plugin or native skills, and do not install a universal plugin.
+
+The [native profile](NATIVE.md) has one resolved `freecad` connection and 27 tools; the
+[offline profile](OFFLINE.md) has four read-only tools. The checkout setup below generates the
+direct live/headless development endpoints. Selecting or updating a versioned native/offline
+runtime is an explicit reviewed publication; checkout setup is not evidence of that runtime's
+native acceptance.
+
 FreeCADMCPServer owns its Codex plugin and MCP endpoints. Live GUI editing and headless FreeCADCmd modeling use the same application engine, with separate documents and Undo histories.
 
 ## Codex plugin
+
+For a fresh checkout, first follow the [framework wheel prerequisites](../README.md#install).
+The examples below assume the reviewed framework 0.20.0 dependency is already installed;
+otherwise pass `-FrameworkWheel` and `-FrameworkSha256` to setup.
 
 Windows setup installs `freecad-modeling@freecad-development` from the generated local marketplace:
 

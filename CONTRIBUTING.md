@@ -36,6 +36,23 @@ Do not rewrite published Git history as routine cleanup. If a secret is exposed,
 
 ## Documentation and releases
 
+The shared framework and separate Windows management app live in
+[CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker). Keep FreeCAD's standalone server,
+plugin and skills independently usable; shared dependencies do not add a universal plugin.
+
+Use byte reads for TOML preflight so universal-newline conversion cannot hide malformed CR.
+Generate TOML with `toml_io.encode_toml` and `write_bytes`; it emits explicit CRLF on Windows
+without double translation. Validate Unicode/multiline values, exact LF/CRLF bytes and unrelated
+settings in disposable fixtures. When editing an existing file, pass its original `source_bytes`
+to preserve its BOM, and retain whether a final newline was present. Do not test publication
+against a developer's live Codex config.
+Normal plugin registration delegates to the Codex CLI with an explicit `CODEX_HOME` when testing.
+
+Root `Install.cmd`, `Run.cmd` and `Install-and-Run.cmd` share `scripts/InstallAndRun.ps1`.
+The opt-in `tests/test_launchers.py` uses copied launchers and a sentinel PowerShell target to
+exercise argument forwarding, quoted paths and nonzero exit propagation. Real-launcher checks
+use help or invalid arguments that return before setup; they do not install or start FreeCAD.
+
 Keep the root README focused on installation, usage and navigation, following [Standard Readme](https://github.com/RichardLitt/standard-readme). Put detailed feature documentation in `docs/` and runnable demonstrations in `examples/` or `scripts/`. Update the changelog for public behavior changes; keep session logs and per-machine results local.
 
 Before a release, run the full test suite and Ruff checks, build from a clean committed tree, and inspect the release artifacts. Record the source commit, hashes, environment and actual validation scope in the release evidence. GUI checks, API calls and plugin installation must not be inferred from headless tests. Release packaging instructions are in [VALIDATION.md](docs/VALIDATION.md#release-packaging).

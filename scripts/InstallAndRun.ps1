@@ -11,6 +11,10 @@ Run the headless backend (default), or connect to an existing live bridge.
 CAD workspace. Relative paths resolve against the checkout; defaults to models.
 .PARAMETER FreeCADCmd
 Optional FreeCADCmd executable for setup and the headless backend.
+.PARAMETER FrameworkWheel
+Reviewed universal-codex-tools 0.20.0 wheel, required for a fresh environment.
+.PARAMETER FrameworkSha256
+Trusted SHA-256 of the supplied framework wheel.
 .PARAMETER InstallOnly
 Install dependencies, generate configuration and install the Codex plugin, then exit.
 .PARAMETER Integration
@@ -32,6 +36,8 @@ param(
     [string]$Mode = 'headless',
     [string]$Workspace = '',
     [string]$FreeCADCmd = '',
+    [string]$FrameworkWheel = '',
+    [string]$FrameworkSha256 = '',
     [ValidateSet('standalone', 'none')]
     [string]$Integration = 'standalone',
     [switch]$InstallOnly,
@@ -48,6 +54,8 @@ Usage: Install-and-Run.cmd [options]
   -Mode headless|live   Backend to run (default: headless)
   -Workspace PATH      CAD workspace (default: models in this checkout)
   -FreeCADCmd PATH     Optional FreeCADCmd executable
+  -FrameworkWheel PATH  Reviewed framework 0.20.0 wheel for fresh setup
+  -FrameworkSha256 HASH  Trusted SHA-256 of that wheel
   -Integration ROUTE   standalone (default), or none
   -InstallOnly         Install, including the Codex plugin, then exit
   -SkipInstall         Start the existing installation without setup
@@ -59,6 +67,9 @@ The server speaks MCP over stdio and waits for a client. Start the live bridge m
     }
     if ($InstallOnly -and $SkipInstall) {
         throw 'Use either -InstallOnly or -SkipInstall.'
+    }
+    if ($SkipInstall -and ($FrameworkWheel -or $FrameworkSha256)) {
+        throw 'Framework wheel options require installation; omit -SkipInstall.'
     }
     $projectRoot = Split-Path -Parent $PSScriptRoot
     if (-not $Workspace) { $Workspace = 'models' }
@@ -73,6 +84,7 @@ The server speaks MCP over stdio and waits for a client. Start the live bridge m
     if (-not $SkipInstall) {
         $setupArgs = @{
             Workspace = $Workspace; FreeCADCmd = $FreeCADCmd
+            FrameworkWheel = $FrameworkWheel; FrameworkSha256 = $FrameworkSha256
             ShortcutMode = $Mode; NoStartMenuShortcut = [bool]$NoStartMenuShortcut
             Integration = $Integration
         }

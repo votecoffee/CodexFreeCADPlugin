@@ -12,7 +12,9 @@ from pathlib import Path
 def read_config(codex_home):
     path = codex_home / "config.toml"
     try:
-        config = tomllib.loads(path.read_text(encoding="utf-8-sig")) if path.exists() else {}
+        # Universal-newline reads can hide malformed CRCRLF from this preflight
+        # even though the Codex CLI will reject the original bytes.
+        config = tomllib.loads(path.read_bytes().decode("utf-8-sig")) if path.exists() else {}
         for section in ("plugins", "mcp_servers"):
             entries = config.get(section, {})
             if not isinstance(entries, dict) or any(

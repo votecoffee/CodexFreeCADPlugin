@@ -1,5 +1,22 @@
 # Architecture
 
+FreeCAD owns its standalone MCP server, Codex plugin and native skills. The shared library comes
+from [CodexMCPBroker](https://github.com/votecoffee/CodexMCPBroker), which also provides a separate
+Windows management app. No universal plugin, broker hop or central CAD session is required. The
+experimental app-owned host has its own [publication and acceptance boundary](FRAMEWORK.md).
+
+The standalone native entry uses a real windowless interpreter, an immutable runtime closure and
+one shared state/registry. Four metadata frontends may initialize without a native worker. A lazy
+single-worker lease precedes native dispatch and remains held until successful backend cleanup;
+failed cleanup preserves the lease/uncertainty. The host maps only its known pre-dispatch native
+capacity error to MCP 2.3 `ToolError`, retaining SDK redaction for other exceptions. Native worker
+bootstrap files and bytecode stay in private generation directories. See [native recovery](NATIVE.md).
+
+Generated TOML uses `toml_io.encode_toml` and byte writes. It validates TOML, rejects malformed CR,
+normalizes valid LF/CRLF once and emits explicit CRLF on Windows. Text-mode newline translation
+must not be applied to already-CRLF text. Codex integration reads configuration bytes for strict
+preflight and delegates normal registration to the Codex CLI; it does not hand-edit user TOML.
+
 `assemblies.py` creates native Assembly containers and single component links. Joint and grounding proxies come from the installed FreeCAD `JointObject` module. Explicit detached local connector frames avoid transient topology indices. Position commands require directed trees rooted at grounded components, seed a coordinated forward pose, temporarily close selected coordinates with native fixed joints, run the solver and verify ground/connector residuals before restoring revolute/slider types. The transaction captures the complete pose; failures roll back. Native solver success is checked against geometry rather than trusted alone. Angular readback wraps at half a turn; limit checks account for the equivalent signed boundary. Inspection traverses references itself so native connectivity helpers cannot delete malformed joints during a read. Integration markers protect joint controls from generic scalar, placement and expression writes. The planetary driver coordinates gear ratios analytically; no general gear-contact or dynamics solver is claimed.
 
 ```mermaid
