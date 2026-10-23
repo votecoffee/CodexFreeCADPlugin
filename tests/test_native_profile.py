@@ -321,8 +321,9 @@ def test_native_owner_cleanup_failure_keeps_uncertain_root_history(tmp_path, mon
 
     @contextmanager
     def slot(*args, **kwargs):
-        assert kwargs["limit"] == 1
-        assert Path(args[0]).name == "history-admission"
+        assert (
+            kwargs["limit"] == {"history-admission": 1, "native-frontends": 4}[Path(args[0]).name]
+        )
         yield
 
     @contextmanager
@@ -355,3 +356,59 @@ def test_native_owner_cleanup_failure_keeps_uncertain_root_history(tmp_path, mon
     records = list((tmp_path / "native-sessions").glob("*.json"))
     assert len(records) == 1 and json.loads(records[0].read_bytes())["state"] == "uncertain"
     assert events == ["SDK-closed", "client-closed", "manager-closed", "owner-close-failed"]
+
+
+def test_native_session_lifetime_frontend_cap_and_release(tmp_path, monkeypatch):
+    import threading
+    from contextlib import ExitStack
+    from types import SimpleNamespace
+
+    import universal_tools.management as management
+
+    from codex_freecad import offline_session, resource_ownership
+    from codex_freecad.process_lifetime import ProcessSlots
+
+    @contextmanager
+    def root(*args, **kwargs):
+        yield  # No process jobs/watchers in this source-only test.
+
+    count = 0
+
+    @contextmanager
+    def owner(*args):
+        nonlocal count
+        count += 1
+        yield SimpleNamespace(
+            owner_id=f"{count:032x}",
+            identity=SimpleNamespace(model_dump=lambda **k: {"pid": count}),
+        )
+
+    @contextmanager
+    def manager(*args, **kwargs):
+        yield
+
+    monkeypatch.setattr(offline_session, "root_lifetime", root)
+    monkeypatch.setattr(resource_ownership, "resource_session", owner)
+    monkeypatch.setattr(management, "ManagedService", manager)
+
+    def session():
+        return native.native_session(
+            SimpleNamespace(
+                mode="headless", generation="fixture", lock=threading.Lock(), close=lambda: None
+            ),
+            tmp_path,
+            tmp_path / "registry",
+        )
+
+    with ExitStack() as stack:
+        for _ in range(4):
+            stack.enter_context(session())
+        assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 4
+        assert ProcessSlots.occupied(tmp_path / "native-pilot", limit=1) == 0
+        with pytest.raises(RuntimeError, match="frontend limit"):
+            with session():
+                pytest.fail("Fifth frontend admitted")
+        assert len(list((tmp_path / "native-sessions").glob("*.json"))) == 4
+    assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 0
+    with session():
+        assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 1

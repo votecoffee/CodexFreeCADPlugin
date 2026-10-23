@@ -29,6 +29,9 @@ def native_session(client, state, registry):
     try:
         with (
             root_lifetime(state, process_limit=4),
+            # Keep the profile's lifetime bound explicit as well as the early
+            # bootstrap's shared `frontends` lease. History is a separate bound.
+            ProcessSlots(Path(state) / "native-frontends", limit=4),
             resource_session(registry) as owner,
         ):
             folder = Path(state) / "native-sessions"

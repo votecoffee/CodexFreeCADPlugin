@@ -8,6 +8,8 @@
   usable. Successful backend close releases capacity; failed cleanup retains it, and OS locks
   release on process death. Native worker capacity remains one per shared state directory.
   Existing running sessions keep their current behavior until reconnected to the new release.
+  The native session also holds an explicit four-frontend lifetime lease alongside the early
+  bootstrap bound; its short history-publication lock does not provide frontend capacity.
 
 - Repaired native embedded-Python bytecode isolation after a real pilot created six Python 3.11
   cache files in the immutable runtime. FreeCADCmd now imports a fixed entry staged in its private
