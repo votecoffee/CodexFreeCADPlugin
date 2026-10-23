@@ -10,6 +10,13 @@ Features include reloadable hole and fastener tools, parametric modeling, movabl
 
 A separate **standalone offline candidate** provides read-only FCStd ZIP/XML inspection, source hashes and bundled capability-schema references. It has no native, live-bridge, external-extension or shared-host route. Candidate generation preserves installed selections; source checks do not release its runtime. See [offline profile and acceptance](docs/OFFLINE.md).
 
+The **standalone native candidate** restores the existing headless modeling/recompute/save/export
+tools and explicit live-bridge attachment through the same engine. Its generated windowless
+connection pins the native executable or bridge descriptor, contains owned workers, requires
+inspected revisions and reviewed file targets, and retains durable receipts after uncertain
+dispatch. Preparation does not replace an installed offline profile or launch FreeCAD. A disposable
+native pilot is required before promotion; see [native preparation and pilot](docs/NATIVE.md).
+
 The current checkout also includes saved design requirements with opt-in edit enforcement, a source-aware bill of materials, refreshable native spreadsheets, source-preserving parameter sweeps, numeric change previews with added/removed material reports, saved configuration snapshots and dimensioned TechDraw sheets with headless SVG rendering. See [engineering extensions](docs/ENGINEERING.md).
 
 The Python distribution and CLI retain the name `codex-freecad`, the import is `codex_freecad`, and the optional Codex plugin ID is `freecad-modeling` for compatibility. Their display name is **FreeCADMCPServer**.

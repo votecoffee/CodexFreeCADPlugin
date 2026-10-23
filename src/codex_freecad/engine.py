@@ -64,8 +64,15 @@ class Workspace:
             raise CadError("Expected extension: " + ", ".join(sorted(extensions)))
         return candidate
 
-    def prepare_write(self, value, extensions, overwrite=False):
+    def prepare_write(self, value, extensions, overwrite=False, expected_target_sha256=None):
         path = self.path(value, extensions)
+        if expected_target_sha256 is not None:
+            observed = "absent"
+            if path.exists():
+                with path.open("rb") as stream:
+                    observed = hashlib.file_digest(stream, "sha256").hexdigest()
+            if observed != expected_target_sha256:
+                raise CadError("Output target changed after review; inspect it again")
         backup = None
         if path.exists():
             if not overwrite:
@@ -394,10 +401,14 @@ class Engine:
             doc.Label = label
         return self.inspect_document(doc.Name)
 
-    def open_document(self, path):
+    def open_document(self, path, expected_sha256=None):
         source = self.workspace.path(path, {".fcstd"})
         if not source.is_file():
             raise CadError("FCStd file does not exist")
+        if expected_sha256 is not None:
+            with source.open("rb") as stream:
+                if hashlib.file_digest(stream, "sha256").hexdigest() != expected_sha256:
+                    raise CadError("FCStd source changed after review; inspect it again")
         for doc in self.app.listDocuments().values():
             if doc.FileName and Path(doc.FileName).resolve() == source:
                 return self.inspect_document(doc.Name)
@@ -987,15 +998,17 @@ class Engine:
         doc.recompute()
         return self.inspect_document(document)
 
-    def save_document(self, document, path, overwrite=False):
+    def save_document(self, document, path, overwrite=False, expected_target_sha256=None):
         doc = self.document(document)
         self.require_idle(doc, "saving")
-        target, backup = self.workspace.prepare_write(path, {".fcstd"}, overwrite)
+        target, backup = self.workspace.prepare_write(
+            path, {".fcstd"}, overwrite, expected_target_sha256
+        )
         doc.recompute()
         doc.saveAs(str(target))
         return file_result(target, backup)
 
-    def export_model(self, document, objects, path, overwrite=False):
+    def export_model(self, document, objects, path, overwrite=False, expected_target_sha256=None):
         doc = self.document(document)
         self.require_idle(doc, "exporting")
         if not objects:
@@ -1017,7 +1030,7 @@ class Engine:
             else:
                 raise CadError("Object has no exportable geometry: " + obj.Name)
         target, backup = self.workspace.prepare_write(
-            path, {".step", ".stp", ".stl", ".brep"}, overwrite
+            path, {".step", ".stp", ".stl", ".brep"}, overwrite, expected_target_sha256
         )
         if target.suffix.lower() in {".step", ".stp"}:
             import Import

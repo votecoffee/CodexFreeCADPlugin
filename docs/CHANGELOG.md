@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Prepared a direct standalone native candidate using the existing headless/live engine and
+  modeling tools. Added explicit native executable/bridge hash bindings, reviewed workspace
+  source/output targets with worker-side hash rechecks, required edit revisions, bounded request
+  admission, durable non-replayable native receipts and deferred hard exit after native/manager/
+  owner cleanup. The native pilot has one connection and a four-process root budget; the offline
+  default remains one process. Candidate generation never installs, starts or replaces a profile.
+  Real FreeCAD geometry/recompute/save/reopen/export and GUI acceptance remain separate pilot work.
+
 - Prepared **26.1022.192757** after an actual offline owner-loss test exceeded its exit bound with an external writer retaining stdin. A parent-only watcher now owns a separate duplicate process handle and thread, independent of the potentially blocked synchronous pipe probe. Partial guard-start failures close untransferred handles. Source tests and harmless old/new blocked-reader fixtures retain the behavioral comparison; changed MCP bytes require fresh review before runtime validation.
 
 - Prepared **26.1022.184257** after the earlier offline canary observed an OS console-host child. The revised connection selects the paired real windowless interpreter, checks PE subsystem/architecture, refuses console/redirector serving and binds inherited UTF-8 pipes even when Python stream objects are missing. Harmless fixtures check Unicode stdin/stdout/stderr, real EOF and child absence. Prior runtime bytes and failed-canary evidence remain retained; the revised package requires fresh coordinator review before MCP execution.

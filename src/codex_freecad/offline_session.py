@@ -7,17 +7,20 @@ from pathlib import Path
 from . import __package_version__, __version__
 
 _root_state = None
+_root_limit = 1
 
 
 @contextmanager
-def root_lifetime(state):
+def root_lifetime(state, *, process_limit=1):
     """Early bootstrap guard, before dependency hashing/import or protocol startup."""
-    global _root_state
+    global _root_state, _root_limit
     from .process_lifetime import ProcessSlots, _jobs, process_lifetime
 
     state = Path(state).resolve()
+    if type(process_limit) is not int or process_limit not in {1, 4}:
+        raise ValueError("Choose the offline one-process or native four-process root budget")
     if _root_state is not None:
-        if state != _root_state:
+        if state != _root_state or process_limit != _root_limit:
             raise RuntimeError("Offline state differs from its admitted bootstrap root")
         yield
         return
@@ -25,12 +28,17 @@ def root_lifetime(state):
         raise RuntimeError(
             "Offline profile requires a fresh root process with its own one-process job"
         )
-    with ProcessSlots(state / "frontends", limit=4), process_lifetime(stdio=True, limit=1):
+    with (
+        ProcessSlots(state / "frontends", limit=4),
+        process_lifetime(stdio=True, limit=process_limit),
+    ):
         _root_state = state
+        _root_limit = process_limit
         try:
             yield
         finally:
             _root_state = None
+            _root_limit = 1
 
 
 class Admission:

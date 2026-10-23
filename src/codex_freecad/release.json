@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "application_id": "freecad-mcp-server",
-  "display_version": "26.1022.192757",
-  "package_version": "26.1022.192757",
-  "assembly_file_version": "26.1022.1927.57",
+  "display_version": "26.1023.072651",
+  "package_version": "26.1023.72651",
+  "assembly_file_version": "26.1023.726.51",
   "timezone": "America/New_York",
-  "stamped_at": "2026-10-22T19:27:57-04:00",
-  "stamped_utc": "2026-10-22T23:27:57Z"
+  "stamped_at": "2026-10-23T07:26:51-04:00",
+  "stamped_utc": "2026-10-23T11:26:51Z"
 }

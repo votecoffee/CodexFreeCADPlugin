@@ -41,11 +41,18 @@ def find_freecad_cmd(explicit=None):
 
 class HeadlessClient:
     def __init__(
-        self, workspace, freecad_cmd=None, timeout=120, extension_dirs=None, resource_registry=None
+        self,
+        workspace,
+        freecad_cmd=None,
+        timeout=120,
+        extension_dirs=None,
+        resource_registry=None,
+        executable_sha256=None,
     ):
         self.workspace = Path(workspace).expanduser().resolve()
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.freecad_cmd = freecad_cmd
+        self.executable_sha256 = executable_sha256
         self.timeout = timeout
         self.extension_dirs = extension_dirs
         self.process = None
@@ -94,6 +101,13 @@ class HeadlessClient:
                 raise CadError("FreeCAD worker exited; restart the MCP server")
             return
         executable = find_freecad_cmd(self.freecad_cmd)
+        if self.executable_sha256 is not None:
+            import hashlib
+
+            with Path(executable).open("rb") as stream:
+                observed = hashlib.file_digest(stream, "sha256").hexdigest()
+            if observed != self.executable_sha256:
+                raise CadError("FreeCADCmd executable changed; review the native binding again")
         # A failed initial startup may be retried after its extension is repaired.
         # Retired reader threads must never publish their EOF into the new worker's queue.
         self.responses = queue.Queue()
@@ -156,7 +170,10 @@ class HeadlessClient:
                 )
                 self.process.stdin.flush()
             except (BrokenPipeError, OSError):
-                raise CadError("FreeCAD worker is unavailable") from None
+                self.failed = True
+                raise CadError(
+                    "FreeCAD worker reply is unknown; inspect before another write"
+                ) from None
             response = self._receive()
             if response.get("id") != request_id:
                 self.failed = True

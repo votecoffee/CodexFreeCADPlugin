@@ -11,7 +11,7 @@ from pathlib import Path
 _jobs = []  # Non-inheritable handles deliberately live until process exit.
 
 
-def run_stdio(server, *, exit_process=os._exit):
+def run_stdio(server, *, exit_process=os._exit, close_resources=True):
     """CLI boundary: exit after SDK cleanup, even if an orphan reader thread remains.
 
     The OS closes slot/job handles. This function must not be used by in-process
@@ -27,7 +27,8 @@ def run_stdio(server, *, exit_process=os._exit):
         try:
             from .resource_ownership import close_session
 
-            close_session()
+            if close_resources:
+                close_session()
         except BaseException:
             result = 1
             traceback.print_exc(file=sys.stderr)
