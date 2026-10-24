@@ -50,8 +50,13 @@ class Wire:
             self.errors.append(raw.decode("utf-8", "strict"))
 
     def send(self, value):
-        self.process.stdin.write((json.dumps(value, ensure_ascii=False) + "\n").encode("utf-8"))
-        self.process.stdin.flush()
+        try:
+            self.process.stdin.write((json.dumps(value, ensure_ascii=False) + "\n").encode("utf-8"))
+            self.process.stdin.flush()
+        except OSError as exc:
+            if self.process.poll() is not None:
+                self.readers[1].join(timeout=2)
+            raise RuntimeError("Fixture wire write failed: " + "".join(self.errors)) from exc
 
     def call(self, method, params=None):
         self.next_id += 1

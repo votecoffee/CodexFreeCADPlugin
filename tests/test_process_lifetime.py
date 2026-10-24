@@ -49,6 +49,20 @@ def test_invalid_slot_limit_creates_nothing(tmp_path):
     assert not (tmp_path / "unused").exists()
 
 
+def test_metadata_admission_wait_is_bounded_and_does_not_change_capacity(tmp_path):
+    held = ProcessSlots(tmp_path, limit=1).__enter__()
+    with pytest.raises(RuntimeError, match="limit reached"):
+        ProcessSlots(tmp_path, limit=1, timeout=0.02).__enter__()
+    release = threading.Timer(0.02, held.__exit__)
+    release.start()
+    try:
+        with ProcessSlots(tmp_path, limit=1, timeout=1):
+            assert ProcessSlots.occupied(tmp_path, limit=1) == 1
+    finally:
+        release.join(timeout=1)
+        held.__exit__()
+
+
 def test_job_configuration_failure_closes_handle_before_any_assignment():
     closed = []
     api = SimpleNamespace(

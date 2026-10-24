@@ -71,15 +71,12 @@ Normal MCP connections launch the retained pythonw entry directly. No checkout/c
         $escaped = [regex]::Replace($Value, '(\\*)"', '$1$1\"')
         return '"' + [regex]::Replace($escaped, '(\\+)$', '$1$1') + '"'
     }
-    $start = New-Object Diagnostics.ProcessStartInfo
-    $start.FileName = $route.command
-    $start.Arguments = ($route.args | ForEach-Object { Quote-NativeArgument $_ }) -join ' '
-    $start.WorkingDirectory = $route.cwd
-    $start.UseShellExecute = $false
-    $start.CreateNoWindow = $true
-    # No redirected/text-mediated pipes: preserve the caller's original OS wire.
-    $process = [Diagnostics.Process]::Start($start)
-    try { $process.WaitForExit(); $result = $process.ExitCode } finally { $process.Dispose() }
+    if (-not ('FreeCADStdioProcess' -as [type])) {
+        Add-Type -TypeDefinition ([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'StdioProcess.cs')))
+    }
+    $arguments = ($route.args | ForEach-Object { Quote-NativeArgument $_ }) -join ' '
+    # Explicit STARTF_USESTDHANDLES preserves the original wire for GUI pythonw.
+    $result = [FreeCADStdioProcess]::Run($route.command, $arguments, $route.cwd)
     exit $result
 } catch {
     [Console]::Error.WriteLine('FreeCADMCPServer: ' + $_.Exception.Message)

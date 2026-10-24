@@ -4,6 +4,7 @@ import ctypes
 import os
 import sys
 import threading
+import time
 import traceback
 from contextlib import contextmanager
 from pathlib import Path
@@ -43,15 +44,30 @@ def run_stdio(server, *, exit_process=os._exit, close_resources=True):
 class ProcessSlots:
     """Bound live frontends with OS-owned locks; process death releases a slot."""
 
-    def __init__(self, directory, limit=8):
+    def __init__(self, directory, limit=8, *, timeout=0):
         if type(limit) is not int or not 1 <= limit <= 32:
             raise ValueError("Invalid process slot limit")
         self.directory, self.limit = Path(directory), limit
+        if type(timeout) not in {int, float} or not 0 <= timeout <= 5:
+            raise ValueError("Invalid admission wait bound")
+        self.timeout = timeout
         self.stream = None
 
     def __enter__(self):
         if self.stream is not None:
             raise RuntimeError("Frontend lease is already held")
+        deadline = time.monotonic() + self.timeout
+        while True:
+            if self._acquire():
+                return self
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError(
+                    "FreeCAD frontend limit reached; close unused connections before retrying"
+                )
+            time.sleep(min(0.02, remaining))
+
+    def _acquire(self):
         self.directory.mkdir(parents=True, exist_ok=True)
         for index in range(self.limit):
             stream = (self.directory / f"frontend-{index}.lock").open("a+b")
@@ -69,12 +85,10 @@ class ProcessSlots:
 
                     fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 self.stream = stream
-                return self
+                return True
             except OSError:
                 stream.close()
-        raise RuntimeError(
-            "FreeCAD frontend limit reached; close unused connections before retrying"
-        )
+        return False
 
     def __exit__(self, *_):
         if self.stream is not None:

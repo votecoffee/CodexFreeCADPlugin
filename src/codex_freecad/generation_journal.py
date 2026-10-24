@@ -71,7 +71,7 @@ class GenerationJournal:
 
     def start(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with ProcessSlots(self.state / "history-admission", limit=1):
+        with ProcessSlots(self.state / "history-admission", limit=1, timeout=5):
             if len(list(self.path.parent.glob("*.json"))) >= 256:
                 raise RuntimeError(
                     "Process generation history full; retain/archive original evidence"

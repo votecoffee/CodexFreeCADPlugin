@@ -46,7 +46,7 @@ def native_session(client, state, registry):
                 "state": "active",
             }
             # Metadata frontends can coexist; keep the history bound atomic.
-            with ProcessSlots(Path(state) / "history-admission", limit=1):
+            with ProcessSlots(Path(state) / "history-admission", limit=1, timeout=5):
                 if len(list(folder.glob("*.json"))) >= 256:
                     raise RuntimeError("Native root history full; preserve the original evidence")
                 path = folder / (owner.owner_id + ".json")
@@ -115,6 +115,11 @@ def run_native(server, client, state, registry, *, exit_process):
             run_stdio(server, exit_process=result.append, close_resources=False)
     except BaseException:
         result[:] = [1]
+        import sys
+        import traceback
+
+        traceback.print_exc(file=sys.stderr)
+        sys.stderr.flush()
         raise
     finally:
         exit_process(result[0] if result else 1)
