@@ -98,6 +98,7 @@ try:
             worker.terminate()
             worker.wait(timeout=5)
         worker.close_owned_tree()
+        owner.release_attachment(shared.resource_id)
     os._exit(0)
 except BaseException:
     traceback.print_exc(file=sys.stderr)

@@ -361,6 +361,88 @@ def test_actual_metadata_memory_limit_and_native_policy_readback(tmp_path, revie
     assert result["process_bound_after_admission"] == 4
 
 
+def test_active_owned_fixture_eof_preserves_external_and_uncertain_receipt(
+    tmp_path, reviewed_runtime
+):
+    from codex_freecad.windows_identity import AppProcessDriver
+
+    _, _, prepared = installed(tmp_path, reviewed_runtime)
+    state = Path(prepared["manifest"]["state"])
+    registry = Path(prepared["manifest"]["registry"])
+    script = Path(__file__).with_name("fixtures") / "owned_generation.py"
+    ready = tmp_path / "active-ready.json"
+    external = subprocess.Popen(
+        [sys._base_executable, "-I", "-S", "-B", "-c", "import time; time.sleep(120)"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    active = subprocess.Popen(
+        [
+            prepared["route"]["command"],
+            "-I",
+            "-S",
+            "-B",
+            str(script),
+            str(reviewed_runtime),
+            str(state),
+            str(registry),
+            str(ready),
+            str(external.pid),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    driver, checked = AppProcessDriver(), []
+    try:
+        wait_for(lambda: ready.exists() or active.poll() is not None)
+        assert ready.exists(), active.stderr.read().decode("utf-8", "replace")
+        observed = json.loads(ready.read_bytes())
+        actors = observed["generation"]["actors"]
+        checked = [driver.open(actor) for actor in actors]
+        assert len(checked) == 3
+        receipt = Path(observed["receipt"])
+        original = receipt.read_bytes()
+        record(
+            tmp_path / "active-eof-trigger.json",
+            {"at": time.time(), "writer": retained_writer(active.stdin), "actors": actors},
+        )
+        active.stdin.close()
+        code = active.wait(timeout=15)
+        exits = [original_exit(driver, h.handle) for h in checked]
+        record(
+            tmp_path / "active-eof-evidence.json",
+            {
+                "exit_code": code,
+                "original_handle_exits": exits,
+                "external_preserved": external.poll() is None,
+                "receipt_preserved": receipt.read_bytes() == original,
+                "native_started": False,
+                "stderr": active.stderr.read().decode("utf-8", "replace"),
+            },
+        )
+        assert code == 0
+        assert all(item["signaled"] for item in exits)
+        assert external.poll() is None and receipt.read_bytes() == original
+        assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 0
+        assert ProcessSlots.occupied(state / "native-pilot", limit=1) == 0
+    finally:
+        if active.poll() is None:
+            active.kill()
+            active.wait(timeout=5)  # Only the original private fixture process handle.
+        if external.poll() is None:
+            external.kill()
+            external.wait(timeout=5)
+        for h in checked:
+            h.close()
+        for stream in (active.stdin, active.stdout, active.stderr):
+            if not stream.closed:
+                stream.close()
+
+
 def test_queued_startup_eof_releases_new_admission_without_native_work(tmp_path, reviewed_runtime):
     _, _, prepared = installed(tmp_path, reviewed_runtime)
     state = Path(prepared["manifest"]["state"])
