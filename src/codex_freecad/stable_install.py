@@ -46,6 +46,18 @@ def canonical_destination(path):
     return base.joinpath(*reversed(suffix))
 
 
+def require_windows_dll_paths(runtime, files):
+    # LoadLibrary dependencies still encounter MAX_PATH even when Python file I/O
+    # supports long paths. Do not select a closure that cannot import its SDK.
+    for name in files:
+        if Path(name).suffix.lower() in {".dll", ".pyd"}:
+            units = len(str(runtime / name).encode("utf-16-le")) // 2
+            if units >= 260:
+                raise ValueError(
+                    "Native dependency path exceeds Windows DLL limits; use a shorter installation root"
+                )
+
+
 def prepare(
     root,
     runtime,
@@ -89,6 +101,7 @@ def prepare(
     runtime = ordinary(runtime).resolve(strict=True)
     files = inventory(runtime)
     retained = root / "runtimes" / (__package_version__ + "-" + uuid.uuid4().hex)
+    require_windows_dll_paths(retained / "runtime", files)
     retained.mkdir()
     payload = retained / "runtime"
     shutil.copytree(runtime, payload)
@@ -181,6 +194,7 @@ def select(root, snapshot, *, expected_selection):
     runtime = root / candidate["runtime"]
     closure_path = (root / candidate["entry"]).parent / "closure.json"
     closure = json.loads(closure_path.read_bytes())
+    require_windows_dll_paths(runtime, closure["files"])
     if Path(closure["runtime"]) != runtime or inventory(runtime) != closure["files"]:
         raise ValueError("Prospective immutable runtime changed; selection was preserved")
     lock = root / "launcher/publication-lock"

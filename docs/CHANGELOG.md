@@ -4,6 +4,10 @@
 
 ### 26.1023.165906
 
+- Canonicalize retained Windows namespace aliases, preserve UTF-8 installer output,
+  and refuse overlong native dependency paths before selection. Incomplete job
+  identity observations remain durably uncertain.
+
 - Added an app-owned stable windowless entry and working directory, retained runtime
   snapshots, full wheel/hash/RECORD verification, source-to-Git package checks and
   atomic selection with exact previous-state backups and concurrent-edit refusal.

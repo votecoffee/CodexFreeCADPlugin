@@ -11,6 +11,9 @@ not add framework features or broaden accepted native/GUI scope.
 The default per-user installation is `%USERPROFILE%\.local\share\FreeCADMCPServer`,
 outside packaged Local AppData redirection:
 
+Use a short root: native dependency DLL paths must fit within 259 UTF-16 units.
+Preparation and selection refuse longer paths before publishing a new selection.
+
 ```text
 Start-Mcp.py                         stable stdlib-only entry
 cwd/                                 stable working directory

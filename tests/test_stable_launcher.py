@@ -115,3 +115,10 @@ def test_extra_bytecode_or_payload_files_refuse_selection(tmp_path):
     with pytest.raises(ValueError, match="bytecode"):
         install.select(tmp_path, snapshot, expected_selection="absent")
     assert not (tmp_path / "launcher/current.json").exists()
+
+
+def test_windows_dll_path_limit_is_checked_before_publication(tmp_path):
+    install.require_windows_dll_paths(tmp_path, ["package/native.pyd"])
+    deep = tmp_path / ("x" * 200)
+    with pytest.raises(ValueError, match="shorter installation root"):
+        install.require_windows_dll_paths(deep, ["package/native.pyd"])
