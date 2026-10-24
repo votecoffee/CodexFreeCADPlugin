@@ -37,16 +37,29 @@ class GenerationJournal:
         from universal_tools.resources import durable_json
 
         with self.lock:
-            tree = process_tree_snapshot()
-            if tree["state"] != "sampled-job-membership":
-                raise RuntimeError("Root job ownership is unavailable")
+            if self.record["inventory"] == "uncertain":
+                raise RuntimeError(
+                    "Generation inventory is uncertain; retain the original observations"
+                )
+            try:
+                tree = process_tree_snapshot(
+                    capture_identity=self.owner.ledger.driver.capture_handle
+                )
+                self.record["current_job"] = tree
+                if tree["state"] != "sampled-job-membership":
+                    raise RuntimeError("Root job ownership is unavailable")
+                for member in tree["owned_processes"]:
+                    identity = member["identity"]
+                    if int(identity["created"]) != member["creation_filetime"]:
+                        raise RuntimeError("Job member generation changed during inventory")
+                if self.record["owner"] not in [p["identity"] for p in tree["owned_processes"]]:
+                    raise RuntimeError("The surviving supervisor is not in its own retained job")
+            except BaseException:
+                self.record["inventory"] = "uncertain"
+                durable_json(self.path, self.record)
+                raise
             for member in tree["owned_processes"]:
-                try:
-                    identity = self.owner.ledger.driver.capture(member["pid"])
-                except ProcessLookupError:
-                    continue  # Exited between the two pinned observations.
-                if int(identity["created"]) != member["creation_filetime"]:
-                    raise RuntimeError("Job member generation changed during inventory")
+                identity = member["identity"]
                 self.seen[(identity["pid"], identity["created"])] = identity
             self.record.update(
                 actors=list(self.seen.values()),

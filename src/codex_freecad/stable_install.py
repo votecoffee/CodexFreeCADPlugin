@@ -33,7 +33,17 @@ def atomic_bytes(path, raw):
 
 
 def default_root():
-    return Path(os.environ["LOCALAPPDATA"]) / "FreeCADMCPServer"
+    return Path(os.environ["USERPROFILE"]) / ".local/share/FreeCADMCPServer"
+
+
+def canonical_destination(path):
+    path = Path(path).absolute()
+    suffix = []
+    while not path.exists():
+        suffix.append(path.name)
+        path = path.parent
+    base = ordinary(path).resolve(strict=True)
+    return base.joinpath(*reversed(suffix))
 
 
 def prepare(
@@ -63,7 +73,7 @@ def prepare(
         ancestor = ancestor.parent
     ordinary(ancestor)
     root.mkdir(parents=True, exist_ok=True)
-    ordinary(root)
+    root = ordinary(root).resolve(strict=True)
     for name in ("cwd", "launcher/snapshots", "launcher/backups", "runtimes"):
         (root / name).mkdir(parents=True, exist_ok=True)
         ordinary(root / name)
@@ -76,7 +86,7 @@ def prepare(
             stream.write(launcher_bytes)
             stream.flush()
             os.fsync(stream.fileno())
-    runtime = ordinary(runtime)
+    runtime = ordinary(runtime).resolve(strict=True)
     files = inventory(runtime)
     retained = root / "runtimes" / (__package_version__ + "-" + uuid.uuid4().hex)
     retained.mkdir()
@@ -84,8 +94,8 @@ def prepare(
     shutil.copytree(runtime, payload)
     if inventory(payload) != files:
         raise ValueError("Retained runtime copy differs; failed preparation remains unselected")
-    state = Path(state or root / "state").absolute()
-    registry = Path(registry or root / "registry").absolute()
+    state = canonical_destination(state or root / "state")
+    registry = canonical_destination(registry or root / "registry")
     output = retained / "connection"
     if native_target is None:
         from .offline_setup import generate
@@ -123,6 +133,7 @@ def prepare(
     manifest = {
         "schema_version": 1,
         "application_id": "freecad-mcp-server",
+        "installation_root": str(root),
         "package_version": __package_version__,
         "source_commit": source_commit,
         "app_wheel_sha256": app_wheel_sha256,
@@ -162,7 +173,7 @@ def prepare(
 
 
 def select(root, snapshot, *, expected_selection):
-    root = ordinary(root)
+    root = ordinary(root).resolve(strict=True)
     target = root / "launcher/current.json"
     # Validate the prospective record through exactly the same reader without
     # publishing a real pointer. All its immutable files must already exist.

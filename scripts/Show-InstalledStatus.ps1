@@ -9,6 +9,7 @@ try { $digest = [BitConverter]::ToString($hasher.ComputeHash($manifestBytes)).Re
 finally { $hasher.Dispose() }
 if ($digest -ne $pointer.snapshot) { throw 'Installed selection changed.' }
 $manifest = [Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+$InstallRoot = $manifest.installation_root
 if ([IO.Path]::GetFileName($manifest.python) -ne 'pythonw.exe') { throw 'Unexpected selected interpreter.' }
 $consolePython = Join-Path (Split-Path -Parent $manifest.python) 'python.exe'
 $consoleStream = [IO.File]::OpenRead($consolePython)

@@ -80,6 +80,13 @@ def sample_generation():
         _generation.sample()
 
 
+def generation_status():
+    if _generation is None:
+        return {"inventory": "not-recorded", "actors": None}
+    with _generation.lock:
+        return {"inventory": _generation.record["inventory"], "actors": len(_generation.seen)}
+
+
 def close_session():
     global _owner
     with _lock:

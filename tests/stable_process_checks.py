@@ -121,7 +121,10 @@ class Wire:
             reader.join(timeout=2)
         for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
             if stream is not None and not stream.closed:
-                stream.close()
+                try:
+                    stream.close()
+                except OSError:
+                    pass  # A refused child may have closed its original pipe already.
 
     def __enter__(self):
         return self

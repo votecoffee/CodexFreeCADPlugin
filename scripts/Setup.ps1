@@ -14,6 +14,7 @@ param(
     [switch]$NoStartMenuShortcut
 )
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 $projectRoot = Split-Path -Parent $PSScriptRoot
 if ([bool]$FrameworkWheel -ne [bool]$FrameworkSha256) { throw 'Supply both -FrameworkWheel and -FrameworkSha256.' }
 if ($FrameworkWheel) {
@@ -38,7 +39,7 @@ if ($FrameworkWheel) {
     } finally { $wheelArchive.Dispose() }
 }
 if ($Extensions.Count -gt 0) { throw 'The stable profile uses reviewed bundled extensions. Prepare explicit immutable extension updates separately.' }
-if (-not $InstallRoot) { $InstallRoot = Join-Path $env:LOCALAPPDATA 'FreeCADMCPServer' }
+if (-not $InstallRoot) { $InstallRoot = Join-Path $env:USERPROFILE '.local\share\FreeCADMCPServer' }
 $InstallRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($InstallRoot)
 $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pythonPath)) {
@@ -58,6 +59,7 @@ elseif ($FreeCADCmd) { $buildArgs += @('--native-target', [IO.Path]::GetFullPath
 $installedJson = (& $pythonPath @buildArgs) -join [Environment]::NewLine
 if ($LASTEXITCODE -ne 0) { throw 'Stable runtime preparation/selection failed; retained profiles were preserved.' }
 $installed = ConvertFrom-Json -InputObject $installedJson
+$InstallRoot = $installed.installation_root
 $iconFolder = Join-Path $InstallRoot 'assets'
 [void][IO.Directory]::CreateDirectory($iconFolder)
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\FreeCADMCPServer.ico') -Destination (Join-Path $iconFolder 'FreeCADMCPServer.ico') -Force

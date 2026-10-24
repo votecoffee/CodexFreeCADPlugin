@@ -57,7 +57,7 @@ def installed(tmp_path, runtime):
         registry=tmp_path / "shared-registry",
     )
     select(root, prepared["snapshot"], expected_selection="absent")
-    return root, workspace, prepared
+    return Path(prepared["root"]), workspace, prepared
 
 
 def generation(state, identity):

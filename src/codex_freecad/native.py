@@ -53,10 +53,12 @@ def native_session(client, state, registry):
                 durable_json(path, record)
 
             def status():
+                from .resource_ownership import generation_status
                 from .stable_launcher import deployment_info
 
                 deployment = deployment_info()
                 receipts = client.receipt_summary()
+                generation = generation_status()
                 update_pending = bool(
                     deployment["selected_package_version"]
                     and (
@@ -66,7 +68,9 @@ def native_session(client, state, registry):
                 )
                 return ManagedStatus(
                     state="degraded"
-                    if client.uncertain or receipts["state"] != "clear"
+                    if client.uncertain
+                    or receipts["state"] != "clear"
+                    or generation["inventory"] != "observed-job-membership"
                     else "busy"
                     if client.lock.locked()
                     else "running",
@@ -168,6 +172,7 @@ def main():
     def get_native_workflow() -> dict:
         """Read the fixed native profile guide and its SHA-256 before modeling."""
         raw = Path(__file__).with_name("guidance").joinpath("native.md").read_bytes()
+        from .resource_ownership import generation_status
         from .stable_launcher import deployment_info
 
         return {
@@ -177,6 +182,7 @@ def main():
             "sha256": hashlib.sha256(raw).hexdigest(),
             "deployment": {**deployment_info(), "running_package_version": __package_version__},
             "native_receipts": client.receipt_summary(),
+            "ownership": generation_status(),
         }
 
     run_native(server, client, args.state, args.registry, exit_process=os._exit)

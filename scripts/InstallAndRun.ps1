@@ -12,13 +12,14 @@ param(
     [switch]$InstallOnly, [switch]$SkipInstall, [switch]$NoStartMenuShortcut, [switch]$Help
 )
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 try {
     if ($Help) {
         [Console]::Error.WriteLine(@'
 Usage: Install-and-Run.cmd [options]
   -InstallOnly          Install/select the stable runtime and standalone plugin
   -SkipInstall          Run the existing stable selection without building/installing
-  -InstallRoot PATH     App-owned root (default: LOCALAPPDATA\FreeCADMCPServer)
+  -InstallRoot PATH     App-owned root (default: USERPROFILE\.local\share\FreeCADMCPServer)
   -Workspace PATH       Explicit CAD workspace; otherwise preserve the installed one
   -Mode headless|live   Preserve installed mode unless explicitly selected
   -FreeCADCmd PATH      Explicit headless executable (hashed, never run by installation)
@@ -36,7 +37,7 @@ Normal MCP connections launch the retained pythonw entry directly. No checkout/c
     if ($InstallOnly -and $SkipInstall) { throw 'Use either -InstallOnly or -SkipInstall.' }
     if ($SkipInstall -and ($FrameworkWheel -or $FrameworkSha256 -or $Wheelhouse)) { throw 'Wheel options require installation; omit -SkipInstall.' }
     $projectRoot = Split-Path -Parent $PSScriptRoot
-    if (-not $InstallRoot) { $InstallRoot = Join-Path $env:LOCALAPPDATA 'FreeCADMCPServer' }
+    if (-not $InstallRoot) { $InstallRoot = Join-Path $env:USERPROFILE '.local\share\FreeCADMCPServer' }
     $InstallRoot = [IO.Path]::GetFullPath($InstallRoot)
     if ($Workspace -and -not [IO.Path]::IsPathRooted($Workspace)) { $Workspace = Join-Path $projectRoot $Workspace }
     if (-not $SkipInstall) {
@@ -56,6 +57,7 @@ Normal MCP connections launch the retained pythonw entry directly. No checkout/c
     finally { $hasher.Dispose() }
     if ($manifestDigest -ne $pointer.snapshot) { throw 'Selected manifest changed.' }
     $manifest = [Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+    $InstallRoot = $manifest.installation_root
     if ($Workspace -or $Mode -or $FreeCADCmd -or $BridgeDescriptor) { throw 'Run uses the exact installed selection. Change workspace/mode/target through Install.cmd.' }
     $route = $manifest.route
     $entry = Join-Path $InstallRoot 'Start-Mcp.py'

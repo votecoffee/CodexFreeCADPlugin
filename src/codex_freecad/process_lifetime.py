@@ -106,11 +106,12 @@ class ProcessSlots:
         return count
 
 
-def process_tree_snapshot():
+def process_tree_snapshot(*, capture_identity=None):
     """Read members of our retained job, verifying membership and creation identity."""
     result = {
         "state": "unassessed",
         "owned_processes": [],
+        "unverified_members": [],
         "maximum_processes": None,
         "inventory_capacity": 32,
         "attached_gui_policy": "external-detach-only",
@@ -150,22 +151,36 @@ def process_tree_snapshot():
     for pid in members.ids[: members.count]:
         process = api.OpenProcess(0x101000, False, pid)
         if not process:
+            result["unverified_members"].append({"pid": pid, "reason": "cannot-pin-job-member"})
             continue
         try:
             ours = w.BOOL()
             if not api.IsProcessInJob(process, _jobs[0], ctypes.byref(ours)):
                 raise OSError("Cannot verify process ownership")
             if ours.value:
-                result["owned_processes"].append(
-                    {
-                        "pid": pid,
-                        "creation_filetime": _creation_time(api, process),
-                        "ownership": "owned-process-tree",
-                    }
+                member = {
+                    "pid": pid,
+                    "creation_filetime": _creation_time(api, process),
+                    "ownership": "owned-process-tree",
+                }
+                if capture_identity is not None:
+                    try:
+                        member["identity"] = capture_identity(process, pid)
+                    except OSError:
+                        result["unverified_members"].append(
+                            {"pid": pid, "reason": "image-identity-unavailable"}
+                        )
+                        continue
+                result["owned_processes"].append(member)
+            else:
+                result["unverified_members"].append(
+                    {"pid": pid, "reason": "membership-changed-before-pin"}
                 )
         finally:
             api.CloseHandle(process)
-    result["state"] = "sampled-job-membership"
+    result["state"] = (
+        "sampled-job-membership" if not result["unverified_members"] else "unverified-job-members"
+    )
     return result
 
 

@@ -83,7 +83,7 @@ directory. Other missing dependencies download only during explicit installation
 versions and hashes. MCP remains **2.3.0**, framework **0.20.0**.
 
 Setup builds and verifies the source wheel, checks all wheel RECORD bytes, and selects a retained
-runtime beneath `%LOCALAPPDATA%\FreeCADMCPServer`. The stable entry, working directory, runtime,
+runtime beneath `%USERPROFILE%\.local\share\FreeCADMCPServer`. The stable entry, working directory, runtime,
 plugin and skills survive checkout moves and disposable Codex plugin-cache replacement.
 Installation reads/hashes the explicit FreeCAD executable; it does not start FreeCAD or open a model.
 See the [stable launcher contract and recovery guide](docs/STABLE_LAUNCHER.md).

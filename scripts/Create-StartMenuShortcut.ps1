@@ -28,7 +28,7 @@ if (-not $ShortcutDirectory) {
     if (-not $ShortcutDirectory) { throw 'The current user Start menu is unavailable.' }
 }
 $ShortcutDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ShortcutDirectory)
-if (-not $InstallRoot) { $InstallRoot = Join-Path $env:LOCALAPPDATA 'FreeCADMCPServer' }
+if (-not $InstallRoot) { $InstallRoot = Join-Path $env:USERPROFILE '.local\share\FreeCADMCPServer' }
 $launcher = Join-Path $InstallRoot 'Show-Status.ps1'
 $icon = Join-Path $InstallRoot 'assets\FreeCADMCPServer.ico'
 $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'

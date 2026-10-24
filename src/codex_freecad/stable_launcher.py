@@ -50,7 +50,7 @@ def read_json(path):
 
 
 def selection(root):
-    root = ordinary(root)
+    root = ordinary(root).resolve(strict=True)
     raw, pointer = read_json(root / "launcher/current.json")
     if (
         set(pointer) != {"schema_version", "snapshot"}
@@ -61,6 +61,7 @@ def selection(root):
     revision = pointer["snapshot"]
     manifest = snapshot_manifest(root, revision)
     return {
+        "installation_root": str(root),
         "selection_sha256": hashlib.sha256(raw).hexdigest(),
         "snapshot": revision,
         "manifest": manifest,
@@ -162,7 +163,7 @@ def error(message):
 
 
 def main(root=None):
-    root = ordinary(root or Path(__file__).parent)
+    root = ordinary(root or Path(__file__).parent).resolve(strict=True)
     if len(sys.argv) != 1:
         raise ValueError(
             "Stable entry takes no overrides; update the reviewed selection explicitly"

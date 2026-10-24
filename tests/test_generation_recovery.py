@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from codex_freecad.generation_journal import reconcile_dead_claims
+from codex_freecad.generation_journal import GenerationJournal, reconcile_dead_claims
 from codex_freecad.resource_ownership import APPLICATION_ID
 
 resources = pytest.importorskip("universal_tools.resources")
@@ -64,6 +64,49 @@ def generation(state, owner, actors):
             }
         )
     )
+
+
+@pytest.mark.parametrize(
+    "damage", [None, "missing-owner", "unverified-member", "changed-creation", "query-failed"]
+)
+def test_journal_records_pinned_members_and_keeps_uncertainty_sticky(tmp_path, monkeypatch, damage):
+    driver, _, owner = rig(tmp_path)
+    driver.capture_handle = lambda handle, pid: driver.capture(pid)
+    identity = owner.identity.model_dump(mode="json")
+    member = {
+        "pid": identity["pid"],
+        "creation_filetime": int(identity["created"]),
+        "identity": identity,
+    }
+    tree = {"state": "sampled-job-membership", "owned_processes": [member]}
+    if damage == "missing-owner":
+        tree["owned_processes"] = []
+    elif damage == "unverified-member":
+        tree["state"] = "unverified-job-members"
+    elif damage == "changed-creation":
+        member["creation_filetime"] += 1
+
+    def snapshot(*, capture_identity):
+        assert capture_identity is driver.capture_handle
+        if damage == "query-failed":
+            raise OSError("Cannot inspect fixture job")
+        return tree
+
+    monkeypatch.setattr("codex_freecad.generation_journal.process_tree_snapshot", snapshot)
+    journal = GenerationJournal(owner, tmp_path / "state")
+    journal.path.parent.mkdir(parents=True)
+    if damage is None:
+        journal.sample()
+        assert json.loads(journal.path.read_bytes())["actors"] == [identity]
+        assert journal.record["inventory"] == "observed-job-membership"
+    else:
+        with pytest.raises((RuntimeError, OSError)):
+            journal.sample()
+        original = journal.path.read_bytes()
+        assert json.loads(original)["inventory"] == "uncertain"
+        with pytest.raises(RuntimeError, match="uncertain"):
+            journal.sample()
+        assert journal.path.read_bytes() == original
 
 
 def test_recovery_requires_every_private_actor_gone_and_keeps_barrier_and_original_bytes(tmp_path):

@@ -17,7 +17,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) { throw 'Run scripts\Setup.ps1 first.' }
 if (-not $Output) {
-    $appRoot = Join-Path $env:LOCALAPPDATA 'FreeCADMCPServer'
+    $appRoot = Join-Path $env:USERPROFILE '.local\share\FreeCADMCPServer'
     $pointerPath = Join-Path $appRoot 'launcher\current.json'
     if (-not (Test-Path -LiteralPath $pointerPath)) { throw 'Run Install.cmd to prepare the stable installation first.' }
     $pointer = Get-Content -LiteralPath $pointerPath -Raw | ConvertFrom-Json
@@ -28,6 +28,7 @@ if (-not $Output) {
     finally { $selectedHasher.Dispose() }
     if ($selectedDigest -ne $pointer.snapshot) { throw 'Selected snapshot changed.' }
     $selected = [Text.Encoding]::UTF8.GetString($selectedBytes) | ConvertFrom-Json
+    $appRoot = $selected.installation_root
     $Output = Split-Path -Parent (Join-Path $appRoot $selected.entry)
 }
 $oldPythonPath = $env:PYTHONPATH

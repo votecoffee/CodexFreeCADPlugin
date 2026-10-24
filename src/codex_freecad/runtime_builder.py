@@ -172,7 +172,7 @@ def install(
         ancestor = ancestor.parent
     ordinary(ancestor)
     root.mkdir(parents=True, exist_ok=True)
-    ordinary(root)
+    root = ordinary(root).resolve(strict=True)
     before = selection(root) if (root / "launcher/current.json").exists() else None
     expected_selection = before["selection_sha256"] if before else "absent"
     legacy = legacy_binding(project) if before is None else None
@@ -295,6 +295,7 @@ def install(
     # Reviewable before selection; retained payloads stay available after refusal.
     receipt = {
         "source_commit": commit,
+        "installation_root": str(root),
         "package_version": __package_version__,
         "app_wheel_sha256": sha256(app_wheel),
         "git_text_policy": "CRLF-to-LF comparison only; exact wheel/runtime bytes retain their SHA-256/RECORD identities",

@@ -8,7 +8,8 @@ not add framework features or broaden accepted native/GUI scope.
 
 ## Installed layout
 
-The default per-user installation is `%LOCALAPPDATA%\FreeCADMCPServer`:
+The default per-user installation is `%USERPROFILE%\.local\share\FreeCADMCPServer`,
+outside packaged Local AppData redirection:
 
 ```text
 Start-Mcp.py                         stable stdlib-only entry
