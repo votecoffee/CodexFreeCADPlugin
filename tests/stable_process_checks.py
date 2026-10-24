@@ -88,8 +88,8 @@ class Wire:
         self.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
         return result
 
-    def tool(self, name, **arguments):
-        result = self.call("tools/call", {"name": name, "arguments": arguments})
+    def tool(self, tool_name, **arguments):
+        result = self.call("tools/call", {"name": tool_name, "arguments": arguments})
         if result.get("isError"):
             return result
         body = result.get("structuredContent")
