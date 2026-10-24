@@ -170,3 +170,16 @@ def test_live_unknown_unbound_and_legacy_claims_are_reported_and_preserved(tmp_p
     report = reconcile_dead_claims(new, tmp_path / "state")
     assert all(r["action"] == "preserved" for r in report["observations"])
     assert all(ledger.get(r).state not in resources.TERMINAL for r in reasons)
+
+
+def test_refused_generation_start_does_not_publish_during_cleanup(tmp_path):
+    _, _, owner = rig(tmp_path)
+    journal = GenerationJournal(owner, tmp_path / "state")
+    journal.path.parent.mkdir(parents=True)
+    for index in range(256):
+        (journal.path.parent / f"retained-{index}.json").write_bytes(b'{"preserve":true}')
+    with pytest.raises(RuntimeError, match="history full"):
+        journal.start()
+    journal.close("uncertain")
+    assert not journal.path.exists()
+    assert len(list(journal.path.parent.glob("*.json"))) == 256

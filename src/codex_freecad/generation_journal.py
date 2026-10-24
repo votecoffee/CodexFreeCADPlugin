@@ -22,6 +22,7 @@ class GenerationJournal:
         self.lock = threading.RLock()
         self.seen = {}
         self.thread = None
+        self.admitted = False
         self.path = self.state / "process-generations" / (owner.owner_id + ".json")
         self.record = {
             "schema_version": 1,
@@ -81,6 +82,7 @@ class GenerationJournal:
                 )
             if self.path.exists():
                 raise RuntimeError("Process generation already exists")
+            self.admitted = True
             self.sample()
         self.thread = threading.Thread(target=self._poll, daemon=True)
         self.thread.start()
@@ -100,6 +102,8 @@ class GenerationJournal:
     def close(self, lifecycle):
         from universal_tools.resources import durable_json
 
+        if not self.admitted:
+            return  # A refused startup never publishes a new unreserved generation.
         self.stop.set()
         if self.thread is not None:
             self.thread.join(timeout=2)
