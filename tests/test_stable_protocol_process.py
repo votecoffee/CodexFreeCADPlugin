@@ -448,7 +448,35 @@ def test_queued_startup_eof_releases_new_admission_without_native_work(tmp_path,
     state = Path(prepared["manifest"]["state"])
     with ProcessSlots(state / "history-admission", limit=1):
         with Wire(prepared["route"]) as queued:
-            wait_for(lambda: ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 1)
+
+            def reached_history_queue():
+                return any(
+                    json.loads(p.read_bytes())["actor"] == queued.identity
+                    for p in (state / "recovery-observations").glob("*.json")
+                )
+
+            wait_for(reached_history_queue, timeout=30)
+            queued.send(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2026-07-28",
+                        "capabilities": {},
+                        "clientInfo": {"name": "queued-fixture", "version": "1"},
+                    },
+                }
+            )
+            record(
+                tmp_path / "queued-eof-trigger.json",
+                {
+                    "phase": "history writer wait after recovery observation",
+                    "at": time.time(),
+                    "writer": retained_writer(queued.process.stdin),
+                    "initialize_queued": True,
+                },
+            )
             started = time.monotonic()
             result = queued.eof()
             record(
@@ -462,6 +490,8 @@ def test_queued_startup_eof_releases_new_admission_without_native_work(tmp_path,
             )
             assert result["exit_code"] == 1
             assert time.monotonic() - started < 10
+            assert "history writer contention" in result["stderr"]
+            assert not list((state / "process-generations").glob("*.json"))
     assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 0
     assert ProcessSlots.occupied(state / "native-pilot", limit=1) == 0
     with Wire(prepared["route"]) as replacement:
