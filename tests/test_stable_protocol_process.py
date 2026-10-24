@@ -423,7 +423,18 @@ def test_owner_loss_recovers_proven_claims_and_preserves_peer_external_and_uncer
     try:
         with Wire(prepared["route"]) as peer:
             peer.initialize()
-            wait_for(ready.exists)
+            try:
+                wait_for(lambda: ready.exists() or parent.poll() is not None)
+                assert ready.exists(), "Harmless fixture exited before readiness"
+            except BaseException:
+                if parent.poll() is not None:
+                    stderr = parent.stderr.read().decode("utf-8", "replace")
+                    record(
+                        tmp_path / "owned-startup-failure.json",
+                        {"stderr": stderr, "exit_code": parent.returncode},
+                    )
+                    pytest.fail("Harmless ownership fixture startup failed: " + stderr)
+                raise
             observed = json.loads(ready.read_bytes())
             held = driver.open(observed["owner"])
             actors = observed["generation"]["actors"]

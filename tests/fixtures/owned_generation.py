@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import time
+import traceback
 from pathlib import Path
 
 if sys.argv[1] == "helper":
@@ -32,6 +33,7 @@ sys.path[:0] = [
     str(runtime / "win32/lib"),
     str(runtime / "Pythonwin"),
 ]
+import pywin32_bootstrap  # noqa: F401 - the normal retained bootstrap does this too.
 from universal_tools.resources import durable_json
 
 from codex_freecad.offline_interpreter import inherited_stdio, require_windowless_root
@@ -54,9 +56,9 @@ try:
         owner.set_recovery_barrier(
             shared.resource_id, "External fixture remains outside app ownership"
         )
-        console = Path(sys.executable).with_name("python.exe")
+        windowless = Path(sys.executable)
         worker = spawn_owned(
-            [str(console), "-I", "-S", "-B", __file__, "worker"],
+            [str(windowless), "-I", "-S", "-B", __file__, "worker"],
             resource_owner=owner,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
@@ -98,4 +100,6 @@ try:
         worker.close_owned_tree()
     os._exit(0)
 except BaseException:
+    traceback.print_exc(file=sys.stderr)
+    sys.stderr.flush()
     os._exit(1)  # Root job handles contain every private fixture descendant.
