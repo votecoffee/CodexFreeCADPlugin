@@ -11,7 +11,7 @@ from contextlib import ExitStack
 from pathlib import Path
 
 import pytest
-from stable_process_checks import Wire
+from stable_process_checks import Wire, original_exit, retained_writer
 
 from codex_freecad import __package_version__
 from codex_freecad.process_lifetime import ProcessSlots
@@ -175,15 +175,28 @@ def test_cache_removal_and_immutable_update_preserve_active_peer(tmp_path, revie
     )
 
 
-def test_four_metadata_frontends_refuse_fifth_without_native_admission(tmp_path, reviewed_runtime):
+def test_budgeted_metadata_frontdoors_preserve_legacy_and_native_capacity(
+    tmp_path, reviewed_runtime
+):
     root, workspace, prepared = installed(tmp_path, reviewed_runtime)
     state = Path(prepared["manifest"]["state"])
     with ExitStack() as stack:
-        peers = [stack.enter_context(Wire(prepared["route"])) for _ in range(4)]
+        # Hold every original lease. New metadata must not consume, clear or
+        # reinterpret those live legacy owners' files.
+        for _ in range(4):
+            stack.enter_context(ProcessSlots(state / "frontends", limit=4))
+            stack.enter_context(ProcessSlots(state / "native-frontends", limit=4))
+        peers = [stack.enter_context(Wire(prepared["route"])) for _ in range(16)]
+        memory = []
         for peer in peers:
             peer.initialize()
-            assert peer.tool("get_native_workflow")["mode"] == "headless"
+            guide = peer.tool("get_native_workflow")
+            assert guide["mode"] == "headless"
+            assert guide["memory"]["limit_bytes"] == 128 * 1024 * 1024
+            assert 0 < guide["memory"]["peak_commit_bytes"] <= 128 * 1024 * 1024
+            memory.append(guide["memory"])
         assert ProcessSlots.occupied(state / "frontends", limit=4) == 4
+        assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 16
         assert ProcessSlots.occupied(state / "native-pilot", limit=1) == 0
         with Wire(prepared["route"]) as refused:
             with pytest.raises((RuntimeError, BrokenPipeError), match=".*"):
@@ -191,17 +204,19 @@ def test_four_metadata_frontends_refuse_fifth_without_native_admission(tmp_path,
             assert refused.process.wait(timeout=15) == 1
             for reader in refused.readers:
                 reader.join(timeout=2)
-            assert "frontend limit" in "".join(refused.errors)
+            assert "metadata connection" in "".join(refused.errors)
         peers[0].eof()
         with Wire(prepared["route"]) as replacement:
             replacement.initialize()
             assert replacement.eof()["exit_code"] == 0
-    assert ProcessSlots.occupied(state / "frontends", limit=4) == 0
+    assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 0
     record(
         tmp_path / "admission-evidence.json",
         {
-            "limit": 4,
-            "fifth_refused": True,
+            "limit": 16,
+            "legacy_leases_preserved": 4,
+            "seventeenth_refused": True,
+            "memory_measurements": memory,
             "native_leases": 0,
             "peer_identities": [p.identity for p in peers],
             "all_exact_peers_gone": all(
@@ -308,6 +323,60 @@ def wait_for(predicate, timeout=20):
         time.sleep(0.05)
 
 
+def test_actual_metadata_memory_limit_and_native_policy_readback(tmp_path, reviewed_runtime):
+    script = Path(__file__).with_name("fixtures") / "metadata_memory.py"
+    output = tmp_path / "memory-evidence.json"
+    process = subprocess.run(
+        [
+            str(Path(sys._base_executable).with_name("pythonw.exe")),
+            "-I",
+            "-S",
+            "-B",
+            str(script),
+            str(reviewed_runtime),
+            str(tmp_path / "state"),
+            str(output),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        timeout=20,
+    )
+    assert process.returncode == 0, process.stderr.decode("utf-8", "replace")
+    result = json.loads(output.read_bytes())
+    assert result["before"]["limit_bytes"] == 128 * 1024 * 1024
+    assert result["oversized_commit_refused"]
+    assert result["after_native_admission"]["limit_bytes"] is None
+    assert result["process_bound_after_admission"] == 4
+
+
+def test_queued_startup_eof_releases_new_admission_without_native_work(tmp_path, reviewed_runtime):
+    _, _, prepared = installed(tmp_path, reviewed_runtime)
+    state = Path(prepared["manifest"]["state"])
+    with ProcessSlots(state / "history-admission", limit=1):
+        with Wire(prepared["route"]) as queued:
+            wait_for(lambda: ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 1)
+            started = time.monotonic()
+            result = queued.eof()
+            record(
+                tmp_path / "queued-eof-evidence.json",
+                {
+                    **result,
+                    "elapsed": time.monotonic() - started,
+                    "native_started": False,
+                    "original_handle_signaled": queued.process.poll() is not None,
+                },
+            )
+            assert result["exit_code"] == 1
+            assert time.monotonic() - started < 10
+    assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 0
+    assert ProcessSlots.occupied(state / "native-pilot", limit=1) == 0
+    with Wire(prepared["route"]) as replacement:
+        replacement.initialize()
+        assert replacement.eof()["exit_code"] == 0
+
+
 def test_parent_loss_with_retained_writer_closes_exact_native_frontend(tmp_path, reviewed_runtime):
     root, workspace, prepared = installed(tmp_path, reviewed_runtime)
     state = Path(prepared["manifest"]["state"])
@@ -341,8 +410,14 @@ def test_parent_loss_with_retained_writer_closes_exact_native_frontend(tmp_path,
             started = time.monotonic()
             owned_parent.process.kill()  # Only our retained parent Popen handle.
             owned_parent.process.wait(timeout=5)
-            assert not owned_parent.process.stdin.closed  # Original writer deliberately retained.
-            wait_for(lambda: peer.driver.state(target) in {"absent", "different"}, timeout=16)
+            writer = retained_writer(owned_parent.process.stdin)
+            record(
+                tmp_path / "parent-loss-trigger.json",
+                {"trigger": "retained-parent-handle-killed", "at": time.time(), "writer": writer},
+            )
+            wait_for(lambda: original_exit(peer.driver, held.handle)["signaled"], timeout=16)
+            exit_proof = original_exit(peer.driver, held.handle)
+            record(tmp_path / "parent-original-exit.json", exit_proof)
             elapsed = time.monotonic() - started
             assert peer.tool("get_native_workflow")["mode"] == "headless"
             original = (state / "process-generations" / (lost["owner_id"] + ".json")).read_bytes()
@@ -359,6 +434,8 @@ def test_parent_loss_with_retained_writer_closes_exact_native_frontend(tmp_path,
                     "lost_root": target,
                     "elapsed_seconds": elapsed,
                     "retained_writer": True,
+                    "writer": writer,
+                    "original_handle_exit": exit_proof,
                     "original_lifecycle": json.loads(original)["lifecycle"],
                     "live_peer_preserved": True,
                     "native_started": False,
@@ -419,7 +496,7 @@ def test_owner_loss_recovers_proven_claims_and_preserves_peer_external_and_uncer
         stderr=subprocess.PIPE,
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
-    driver, held = AppProcessDriver(), None
+    driver, held, actor_handles = AppProcessDriver(), None, []
     try:
         with Wire(prepared["route"]) as peer:
             peer.initialize()
@@ -438,6 +515,7 @@ def test_owner_loss_recovers_proven_claims_and_preserves_peer_external_and_uncer
             observed = json.loads(ready.read_bytes())
             held = driver.open(observed["owner"])
             actors = observed["generation"]["actors"]
+            actor_handles = [driver.open(actor) for actor in actors]
             assert (
                 len(actors) >= 3 and observed["generation"]["current_job"]["maximum_processes"] == 4
             )
@@ -458,9 +536,26 @@ def test_owner_loss_recovers_proven_claims_and_preserves_peer_external_and_uncer
             started = time.monotonic()
             parent.kill()  # Exact original private test-parent handle only.
             parent.wait(timeout=5)
-            assert not parent.stdin.closed
+            writer = retained_writer(parent.stdin)
+            record(
+                tmp_path / "owner-loss-trigger.json",
+                {
+                    "trigger": "retained-parent-handle-killed",
+                    "at": time.time(),
+                    "writer": writer,
+                    "actors": actors,
+                },
+            )
             wait_for(
-                lambda: all(driver.state(p) in {"absent", "different"} for p in actors), timeout=16
+                lambda: all(
+                    original_exit(driver, handle.handle)["signaled"] for handle in actor_handles
+                ),
+                timeout=16,
+            )
+            exits = [original_exit(driver, handle.handle) for handle in actor_handles]
+            record(
+                tmp_path / "owner-original-exits.json",
+                {"actors": actors, "exits": exits, "writer": retained_writer(parent.stdin)},
             )
             elapsed = time.monotonic() - started
             assert external.poll() is None
@@ -491,6 +586,8 @@ def test_owner_loss_recovers_proven_claims_and_preserves_peer_external_and_uncer
                     "original_generation": observed,
                     "independent_descendant_inventory": descendants,
                     "actors_gone": [driver.state(p) for p in actors],
+                    "original_handle_exits": exits,
+                    "writer": writer,
                     "elapsed_seconds": elapsed,
                     "private_reconciled": private.model_dump(mode="json"),
                     "shared_reconciled": shared.model_dump(mode="json"),
@@ -513,5 +610,7 @@ def test_owner_loss_recovers_proven_claims_and_preserves_peer_external_and_uncer
         if external.poll() is None:
             external.kill()  # Own original sentinel handle; never app recovery authority.
             external.wait(timeout=5)
+        for handle in actor_handles:
+            handle.close()
         for stream in (parent.stdin, parent.stdout, parent.stderr):
             stream.close()

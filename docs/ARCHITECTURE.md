@@ -11,7 +11,7 @@ Windows management app. No universal plugin, broker hop or central CAD session i
 experimental app-owned host has its own [publication and acceptance boundary](FRAMEWORK.md).
 
 The standalone native entry uses a real windowless interpreter, an immutable runtime closure and
-one shared state/registry. Four metadata frontends may initialize without a native worker. A lazy
+one shared state/registry. Sixteen memory-budgeted metadata frontends may initialize without a native worker. A lazy
 single-worker lease precedes native dispatch and remains held until successful backend cleanup;
 failed cleanup preserves the lease/uncertainty. The host maps only its known pre-dispatch native
 capacity error to MCP 2.3 `ToolError`, retaining SDK redaction for other exceptions. Native worker

@@ -13,13 +13,17 @@ Selected/running versions and snapshots remain separate during an immutable upda
 The installed-status shortcut verifies selection and reports **Not reporting** for
 unobserved running health.
 
-Four metadata frontends and one lazy native lease share the retained state. The
+Sixteen metadata frontends, each initially limited to 128 MiB committed memory,
+and one lazy native lease share retained state. Four legacy frontend leases remain
+separate and untouched during an update. Native admission restores the previous
+CAD memory policy before dispatch; it never changes the native process bound. The
 native root job has an actual four-process bound; offline roots permit one process.
 Job status reads the OS limit rather than reporting the inventory array's capacity.
 Generation observations include root and retained job members, including observed
 indirect actors. Dead-claim reconciliation preserves exact before-images and only
 releases proven departed claims; native barriers/receipts, live or unknown peers,
 unbound intents and legacy claims lacking generation evidence remain protected.
+See [connection readiness](CONNECTION_READINESS.md) for aggregate and transition budgets.
 
 Tray restart stays disabled: a per-frontend supervisor is not a cross-chat restart
 coordinator with dirty-document and uncertain-operation approval. Native/GUI/shared

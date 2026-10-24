@@ -163,6 +163,36 @@ def test_idle_frontends_share_metadata_but_native_admission_stays_one(client):
         other.close()
 
 
+def test_native_memory_policy_changes_only_after_native_lease_before_dispatch(client, monkeypatch):
+    from codex_freecad.process_lifetime import ProcessSlots
+
+    def admitted():
+        assert ProcessSlots.occupied(client.state / "native-pilot", limit=1) == 1
+        assert not client.client.calls
+
+    monkeypatch.setattr("codex_freecad.process_lifetime.admit_native_memory", admitted)
+    client.call("status")
+    assert client.validated
+
+
+def test_uncertain_memory_transition_retains_lease_and_refuses_replay(client, monkeypatch):
+    from codex_freecad.process_lifetime import ProcessSlots
+
+    def failed():
+        raise OSError("Memory policy readback unavailable")
+
+    monkeypatch.setattr("codex_freecad.process_lifetime.admit_native_memory", failed)
+    with pytest.raises(OSError, match="readback"):
+        client.call("status")
+    assert not client.client.calls and client.memory_policy_uncertain
+    assert ProcessSlots.occupied(client.state / "native-pilot", limit=1) == 1
+    with pytest.raises(CadError, match="memory admission is uncertain"):
+        client.call("status")
+    assert not client.client.calls
+    client.close()
+    assert ProcessSlots.occupied(client.state / "native-pilot", limit=1) == 0
+
+
 def test_failed_backend_cleanup_keeps_capacity_until_cleanup_succeeds(client):
     client.call("status")
     client.client.close = lambda: (_ for _ in ()).throw(OSError("retained worker"))
@@ -362,7 +392,7 @@ def test_native_owner_cleanup_failure_keeps_uncertain_root_history(tmp_path, mon
     assert events == ["SDK-closed", "client-closed", "manager-closed", "owner-close-failed"]
 
 
-def test_native_session_lifetime_frontend_cap_and_release(tmp_path, monkeypatch):
+def test_metadata_sessions_do_not_hold_native_lifetime_slots(tmp_path, monkeypatch):
     import threading
     from contextlib import ExitStack
     from types import SimpleNamespace
@@ -405,17 +435,14 @@ def test_native_session_lifetime_frontend_cap_and_release(tmp_path, monkeypatch)
         )
 
     with ExitStack() as stack:
-        for _ in range(4):
+        for _ in range(6):
             stack.enter_context(session())
-        assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 4
+        assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 0
         assert ProcessSlots.occupied(tmp_path / "native-pilot", limit=1) == 0
-        with pytest.raises(RuntimeError, match="frontend limit"):
-            with session():
-                pytest.fail("Fifth frontend admitted")
-        assert len(list((tmp_path / "native-sessions").glob("*.json"))) == 4
+        assert len(list((tmp_path / "native-sessions").glob("*.json"))) == 6
     assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 0
     with session():
-        assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 1
+        assert ProcessSlots.occupied(tmp_path / "native-frontends", limit=4) == 0
 
 
 @pytest.mark.parametrize("case", ["malformed", "oversized"])

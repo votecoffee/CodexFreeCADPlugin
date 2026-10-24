@@ -24,10 +24,13 @@ Python stays independent of host MCP/Pydantic packages. The Python distribution/
 | Checkout direct | Development API only; not published by the installer | [Connections](docs/CONNECTIONS.md) |
 | Experimental app-owned host | Immutable backend publications, retained contexts and runtime guidance | [Framework guide](docs/FRAMEWORK.md) |
 
-The native profile supports four metadata frontends sharing one state directory. Native capacity
+The native profile supports 16 metadata connections sharing one state directory, each with a
+128 MiB Windows commit budget until native admission. Native capacity
 is reserved only at the first backend call and remains with that connection until cleanup. A
 competing native call returns a busy explanation before dispatch. Hash/revision guards and durable
 uncertainty receipts protect file operations; a new chat does not reconcile an unknown write.
+Existing legacy connections keep their original leases during updates. See the
+[connection development and capacity guide](docs/CONNECTION_READINESS.md) for limits and proof requirements.
 
 Headless geometry, save/reopen/export and process cleanup have been exercised separately from
 source/fixture checks. GUI interaction, physical dragging and experimental shared-host acceptance

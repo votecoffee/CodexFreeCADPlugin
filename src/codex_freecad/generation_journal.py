@@ -32,6 +32,9 @@ class GenerationJournal:
             "inventory": "pending",
             "observation_policy": "retained job members; bounded samples, not a kernel event history",
         }
+        from .offline_session import connection_admission
+
+        self.record["connection_admission"] = connection_admission()
 
     def sample(self):
         from universal_tools.resources import durable_json

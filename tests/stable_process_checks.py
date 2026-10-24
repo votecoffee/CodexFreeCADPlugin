@@ -8,6 +8,41 @@ import threading
 import time
 
 
+def original_exit(driver, handle):
+    import ctypes
+    from ctypes import wintypes as w
+
+    status = driver.kernel.WaitForSingleObject(handle, 0)
+    if status == 0x102:
+        return {"signaled": False}
+    if status != 0:
+        raise ctypes.WinError(ctypes.get_last_error())
+    api = driver.kernel.GetExitCodeProcess
+    api.argtypes, api.restype = [w.HANDLE, ctypes.POINTER(w.DWORD)], w.BOOL
+    code = w.DWORD()
+    if not api(handle, ctypes.byref(code)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return {"signaled": True, "exit_code": code.value, "observed_at": time.time()}
+
+
+def retained_writer(stream):
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes as w
+
+    handle = msvcrt.get_osfhandle(stream.fileno())
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    api.GetFileType.argtypes, api.GetFileType.restype = [w.HANDLE], w.DWORD
+    api.GetHandleInformation.argtypes, api.GetHandleInformation.restype = (
+        [w.HANDLE, ctypes.POINTER(w.DWORD)],
+        w.BOOL,
+    )
+    flags = w.DWORD()
+    if api.GetFileType(handle) != 3 or not api.GetHandleInformation(handle, ctypes.byref(flags)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return {"original_writer_valid": True, "file_type": "pipe", "observed_at": time.time()}
+
+
 class Wire:
     def __init__(self, route, *, command=None):
         from codex_freecad.windows_identity import AppProcessDriver
@@ -111,6 +146,7 @@ class Wire:
             "elapsed_seconds": time.monotonic() - started,
             "identity": self.identity,
             "identity_state": self.driver.state(self.identity),
+            "original_handle_exit": original_exit(self.driver, int(self.process._handle)),
             "stdout_messages": len(self.messages),
             "stderr": "".join(self.errors),
         }

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### 26.1024.101538
+
+- Separate idle metadata connections from native ownership. The native profile
+  admits up to 16 metadata connections in a distinct OS-locked pool, with a hard
+  128 MiB committed-memory budget per metadata job. Original live legacy leases
+  remain untouched. The single native lease and four-process containment remain.
+- Restore the prior native memory policy only after acquiring the native lease,
+  before backend dispatch. Uncertain memory readback freezes native admission
+  without replay. Report actual connection occupancy and OS memory limits/peaks.
+- Add overlapping cold clients, legacy-pressure, commit-limit, startup-queued EOF
+  and owner-loss regression requirements. Framework 0.20.0 and MCP 2.3.0 stay pinned.
+
 ### 26.1023.165906
 
 - Canonicalize retained Windows namespace aliases, preserve UTF-8 installer output,

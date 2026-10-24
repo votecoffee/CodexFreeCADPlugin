@@ -74,6 +74,7 @@ class NativeClient:
         # before native dispatch. A metadata-only chat owns no native capacity.
         self.native_slot = ProcessSlots(self.state / "native-pilot", limit=1)
         self.native_admitted = False
+        self.memory_policy_uncertain = False
         self.targets, self.revisions = {}, {}
         # Every connection has its own receipt generation; old uncertainty remains.
         self.generation = uuid.uuid4().hex
@@ -179,6 +180,10 @@ class NativeClient:
             raise NativePolicyError("Native request capacity reached; wait for the active request")
         receipt = None
         try:
+            if self.memory_policy_uncertain:
+                raise NativePolicyError(
+                    "Native memory admission is uncertain; close this connection without replay"
+                )
             if self.closed or (self.uncertain and method in WRITES):
                 raise NativePolicyError(
                     "Native session closed or uncertain; preserve receipts and inspect"
@@ -204,7 +209,14 @@ class NativeClient:
                             "FreeCAD native capacity is busy in another connection; "
                             "save its work and close that owning connection before retrying"
                         ) from exc
+                    from .process_lifetime import admit_native_memory
+
                     self.native_admitted = True
+                    try:
+                        admit_native_memory()
+                    except BaseException:
+                        self.memory_policy_uncertain = self.uncertain = True
+                        raise
                 status = self.client.call("status")
                 if (
                     status.get("plugin_package_version") != __package_version__
@@ -285,4 +297,5 @@ class NativeClient:
             "uncertain": self.uncertain,
             "admission": "one active request; no waiting queue",
             "native_admitted": self.native_admitted,
+            "memory_policy_uncertain": self.memory_policy_uncertain,
         }

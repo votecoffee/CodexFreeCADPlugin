@@ -8,13 +8,20 @@ from . import __package_version__, __version__
 
 _root_state = None
 _root_limit = 1
+_root_lease = None
 
 
 @contextmanager
 def root_lifetime(state, *, process_limit=1):
     """Early bootstrap guard, before dependency hashing/import or protocol startup."""
-    global _root_state, _root_limit
-    from .process_lifetime import ProcessSlots, _jobs, process_lifetime
+    global _root_state, _root_limit, _root_lease
+    from .process_lifetime import (
+        METADATA_CONNECTIONS,
+        ProcessSlots,
+        _jobs,
+        process_lifetime,
+        start_metadata_memory_budget,
+    )
 
     state = Path(state).resolve()
     if type(process_limit) is not int or process_limit not in {1, 4}:
@@ -28,17 +35,53 @@ def root_lifetime(state, *, process_limit=1):
         raise RuntimeError(
             "Offline profile requires a fresh root process with its own one-process job"
         )
+    native = process_limit == 4
+    # Legacy native clients retain their four OS leases and documents. The new
+    # pool has a distinct, memory-budgeted role; never bypass or clear old locks.
+    directory = state / ("metadata-frontdoors-v2" if native else "frontends")
+    lease = ProcessSlots(
+        directory,
+        limit=METADATA_CONNECTIONS if native else 4,
+        label="FreeCAD metadata connection (16; native capacity is separate)"
+        if native
+        else "FreeCAD frontend",
+    )
     with (
-        ProcessSlots(state / "frontends", limit=4),
+        lease,
         process_lifetime(stdio=True, limit=process_limit),
     ):
+        if native:
+            start_metadata_memory_budget()
         _root_state = state
         _root_limit = process_limit
+        _root_lease = lease
         try:
             yield
         finally:
             _root_state = None
             _root_limit = 1
+            _root_lease = None
+
+
+def connection_admission():
+    from .process_lifetime import METADATA_CONNECTIONS, METADATA_MEMORY_BYTES, ProcessSlots
+
+    if _root_state is None or _root_lease is None:
+        return {"state": "not-admitted"}
+    native = _root_limit == 4
+    return {
+        "state": "admitted",
+        "pool": str(_root_lease.directory),
+        "slot": _root_lease.index,
+        "metadata_limit": METADATA_CONNECTIONS if native else 4,
+        "metadata_memory_limit_bytes": METADATA_MEMORY_BYTES if native else None,
+        "metadata_occupied": ProcessSlots.occupied(_root_lease.directory, limit=_root_lease.limit),
+        "legacy_limit": 4,
+        "legacy_occupied": ProcessSlots.occupied(_root_state / "frontends", limit=4),
+        "native_limit": 1,
+        "native_occupied": ProcessSlots.occupied(_root_state / "native-pilot", limit=1),
+        "native_queue_limit": 0,
+    }
 
 
 class Admission:

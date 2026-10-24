@@ -29,9 +29,6 @@ def native_session(client, state, registry):
     try:
         with (
             root_lifetime(state, process_limit=4),
-            # Keep the profile's lifetime bound explicit as well as the early
-            # bootstrap's shared `frontends` lease. History is a separate bound.
-            ProcessSlots(Path(state) / "native-frontends", limit=4),
             resource_session(registry, state=state) as owner,
         ):
             folder = Path(state) / "native-sessions"
@@ -177,6 +174,8 @@ def main():
     def get_native_workflow() -> dict:
         """Read the fixed native profile guide and its SHA-256 before modeling."""
         raw = Path(__file__).with_name("guidance").joinpath("native.md").read_bytes()
+        from .offline_session import connection_admission
+        from .process_lifetime import job_memory_status
         from .resource_ownership import generation_status
         from .stable_launcher import deployment_info
 
@@ -188,6 +187,8 @@ def main():
             "deployment": {**deployment_info(), "running_package_version": __package_version__},
             "native_receipts": client.receipt_summary(),
             "ownership": generation_status(),
+            "connection_admission": connection_admission(),
+            "memory": job_memory_status(),
         }
 
     run_native(server, client, args.state, args.registry, exit_process=os._exit)

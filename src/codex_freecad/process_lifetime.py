@@ -10,6 +10,9 @@ from contextlib import contextmanager
 from pathlib import Path
 
 _jobs = []  # Non-inheritable handles deliberately live until process exit.
+METADATA_CONNECTIONS = 16
+METADATA_MEMORY_BYTES = 128 * 1024 * 1024
+_metadata_memory = False
 
 
 def run_stdio(server, *, exit_process=os._exit, close_resources=True):
@@ -44,14 +47,16 @@ def run_stdio(server, *, exit_process=os._exit, close_resources=True):
 class ProcessSlots:
     """Bound live frontends with OS-owned locks; process death releases a slot."""
 
-    def __init__(self, directory, limit=8, *, timeout=0):
+    def __init__(self, directory, limit=8, *, timeout=0, label="FreeCAD frontend"):
         if type(limit) is not int or not 1 <= limit <= 32:
             raise ValueError("Invalid process slot limit")
         self.directory, self.limit = Path(directory), limit
         if type(timeout) not in {int, float} or not 0 <= timeout <= 5:
             raise ValueError("Invalid admission wait bound")
         self.timeout = timeout
+        self.label = label
         self.stream = None
+        self.index = None
 
     def __enter__(self):
         if self.stream is not None:
@@ -63,7 +68,7 @@ class ProcessSlots:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise RuntimeError(
-                    "FreeCAD frontend limit reached; close unused connections before retrying"
+                    f"{self.label} limit reached; close unused connections before retrying"
                 )
             time.sleep(min(0.02, remaining))
 
@@ -85,6 +90,7 @@ class ProcessSlots:
 
                     fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 self.stream = stream
+                self.index = index
                 return True
             except OSError:
                 stream.close()
@@ -94,6 +100,7 @@ class ProcessSlots:
         if self.stream is not None:
             self.stream.close()
             self.stream = None
+            self.index = None
 
     @staticmethod
     def occupied(directory, limit=8):
@@ -162,6 +169,7 @@ def process_tree_snapshot(*, capture_identity=None):
     if members.count > 32:
         raise OSError("Owned process inventory exceeded its bound")
     result["maximum_processes"] = _job_capacity(api, _jobs[0])
+    result["memory"] = job_memory_status()
     for pid in members.ids[: members.count]:
         process = api.OpenProcess(0x101000, False, pid)
         if not process:
@@ -252,7 +260,7 @@ def _kernel():
     return api
 
 
-def _make_job(api, limit):
+def _extended_layout():
     from ctypes import wintypes as w
 
     class Basic(ctypes.Structure):
@@ -278,10 +286,80 @@ def _make_job(api, limit):
             ("peak_job_memory", ctypes.c_size_t),
         ]
 
+    return Extended
+
+
+def _job_extended(api):
+    from ctypes import wintypes as w
+
+    info = _extended_layout()()
+    api.QueryInformationJobObject.argtypes = [
+        w.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        w.DWORD,
+        ctypes.c_void_p,
+    ]
+    api.QueryInformationJobObject.restype = w.BOOL
+    if not api.QueryInformationJobObject(
+        _jobs[0], 9, ctypes.byref(info), ctypes.sizeof(info), None
+    ):
+        raise OSError("Cannot inspect the retained job memory policy")
+    return info
+
+
+def job_memory_status():
+    if os.name != "nt" or not _jobs:
+        return {"limit_bytes": None, "peak_commit_bytes": None, "state": "unassessed"}
+    info = _job_extended(_kernel())
+    return {
+        "limit_bytes": info.job_memory if info.basic.flags & 0x200 else None,
+        "peak_commit_bytes": info.peak_job_memory,
+        "state": "metadata-budget" if info.basic.flags & 0x200 else "original-native-policy",
+    }
+
+
+def _set_metadata_memory(limit):
+    api = _kernel()
+    info = _job_extended(api)
+    # Modify only our retained job's memory flag; keep KILL_ON_CLOSE and the
+    # original native four-process containment and all other limits intact.
+    info.basic.flags = (info.basic.flags | 0x200) if limit else (info.basic.flags & ~0x200)
+    info.job_memory = limit or 0
+    if not api.SetInformationJobObject(_jobs[0], 9, ctypes.byref(info), ctypes.sizeof(info)):
+        raise OSError("Cannot configure the metadata memory budget")
+    observed = _job_extended(api)
+    if bool(observed.basic.flags & 0x200) != bool(limit) or (
+        limit and observed.job_memory != limit
+    ):
+        raise OSError("Metadata memory budget readback differs")
+
+
+def start_metadata_memory_budget():
+    global _metadata_memory
+    if os.name == "nt" and _jobs:
+        _set_metadata_memory(METADATA_MEMORY_BYTES)
+        _metadata_memory = True
+
+
+def admit_native_memory():
+    """Only after acquiring the existing single native lease, before dispatch.
+
+    Native CAD retains its previous memory policy. No new memory limit is imposed
+    on FreeCAD, user GUIs or attached/shared processes. The root still owns its job.
+    """
+    global _metadata_memory
+    if _metadata_memory:
+        _set_metadata_memory(None)
+        _metadata_memory = False
+
+
+def _make_job(api, limit):
+
     job = api.CreateJobObjectW(None, None)
     if not job:
         raise OSError("Cannot create FreeCAD process ownership job")
-    info = Extended()
+    info = _extended_layout()()
     info.basic.flags = 0x2000 | 0x8  # KILL_ON_JOB_CLOSE | ACTIVE_PROCESS
     info.basic.active_processes = limit
     if not api.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):
