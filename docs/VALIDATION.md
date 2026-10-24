@@ -20,6 +20,10 @@ synthetic file hashes, cache removal, immutable selection with an active peer, r
 EOF and owner loss. OS process fixtures use only isolated Python/shell actors and an
 explicit reviewed runtime; they do not start FreeCAD. See [stable launch](STABLE_LAUNCHER.md).
 Native/domain acceptance is retained independently rather than inferred from those checks.
+The [connection readiness matrix](CONNECTION_READINESS.md) additionally requires 16 overlapping
+cold metadata clients, actual job commit limits/peaks, legacy-pressure preservation,
+queued-startup EOF, and original-handle exit proof. Run these through the saved route and
+production settings parser; a smaller fixture does not establish the documented workload.
 
 From the repository root after setup:
 

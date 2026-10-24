@@ -56,7 +56,7 @@ not infer a verified rollback from an error string. An explicit native recovery 
 the original result before resuming writes. Receipt inspection and state preservation are available;
 automatic reconciliation or acknowledgement is deliberately absent.
 
-Up to four metadata frontends can initialize, list tools, read guides and review file targets in
+Up to 16 memory-budgeted metadata connections can initialize, list tools, read guides and review file targets in
 one state directory without reserving native capacity. The first native call acquires the same
 single `native-pilot` lease used by earlier releases. A competing native call returns a busy error
 before backend dispatch or receipt creation; it does not close that frontend or queue a retry.
@@ -67,6 +67,9 @@ The owning connection retains its lease and native documents between calls. Save
 that connection to release capacity. Failed backend cleanup retains the lease; process death
 releases its OS lock while existing process containment and uncertain receipts remain in force.
 Do not create separate state roots to bypass the shared worker limit.
+Each new metadata-only job has a 128 MiB commit limit. The native lease restores the prior
+CAD memory policy before dispatch. Legacy live connections stay in their original pool.
+See [connection readiness and budgets](CONNECTION_READINESS.md).
 
 Each admitted native frontend permits one active request. Its root job limits the entire tree to
 four processes and retains the independent parent-death and pipe guards. Each owned native worker

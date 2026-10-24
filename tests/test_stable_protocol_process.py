@@ -193,6 +193,7 @@ def test_budgeted_metadata_frontdoors_preserve_legacy_and_native_capacity(
             assert peer.initialize_elapsed < 30
             guide = peer.tool("get_native_workflow")
             assert guide["mode"] == "headless"
+            assert "16 metadata connections" in guide["text"] and "128 MiB" in guide["text"]
             assert guide["ownership"]["actors"] == 1
             assert guide["memory"]["limit_bytes"] == 128 * 1024 * 1024
             assert 0 < guide["memory"]["peak_commit_bytes"] <= 128 * 1024 * 1024
@@ -306,6 +307,12 @@ def test_selected_damage_refuses_actual_startup_without_fallback(
         assert not peer.messages and peer.errors
         assert peer.driver.state(peer.identity) in {"absent", "different"}
     assert ProcessSlots.occupied(Path(prepared["manifest"]["state"]) / "frontends", limit=4) == 0
+    assert (
+        ProcessSlots.occupied(
+            Path(prepared["manifest"]["state"]) / "metadata-frontdoors-v2", limit=16
+        )
+        == 0
+    )
     record(
         tmp_path / "refusal-evidence.json",
         {

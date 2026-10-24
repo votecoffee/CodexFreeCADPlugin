@@ -33,7 +33,9 @@ only after reviewing the saved source. Use the returned revision and source/outp
 evidence. Save headless work explicitly before disconnecting; unsaved owned documents are not
 automatically persisted. Live/headless documents and Undo histories are independent.
 
-Up to four metadata frontends can initialize and discover tools without activating FreeCAD. The
+Up to 16 metadata connections can initialize and discover tools without activating FreeCAD.
+Each metadata-only job has a 128 MiB committed-memory budget. Existing legacy connections
+keep their original four-slot pool. Metadata and native capacity are separate. The
 first native call reserves one shared native slot until that connection closes. Other native
 calls return busy before dispatch; metadata remains usable and there is no waiting work queue.
 Save work before closing the owning connection. Failed backend cleanup retains the lease;
@@ -50,6 +52,10 @@ rolled the batch back; no rollback or no-effects claim is inferred from an excep
 The adapter owns its Windows job, exact child creation handles and ledger generation. Its four
 process budget includes the root, native worker and possible runtime helpers; it is not a memory
 cap. Worker launch is suspended until containment and durable identity binding precede execution.
+After obtaining the single native lease, the adapter restores the previous CAD memory policy
+before dispatch, retaining the same four-process containment. Memory-policy readback uncertainty
+keeps that lease and blocks native replay. Read connection occupancy and memory limits/peaks
+through this guide's metadata response; availability is not native model acceptance.
 EOF first closes the client/owned worker, manager and resource session; the hard exit is deferred.
 Independent parent-death and pipe guards remain active. Attachment cleanup is detach-only.
 

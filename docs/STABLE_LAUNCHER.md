@@ -99,7 +99,8 @@ quiescent, reviewed migration.
 
 ## Ownership and recovery
 
-Four metadata frontends share the existing OS-owned admission locks. Native work
+Sixteen metadata connections use the memory-budgeted `metadata-frontdoors-v2` pool;
+live legacy connections retain their original four-slot leases. Native work
 still acquires one shared lease lazily. Every actual root is its durable owner;
 the early root job, independent pinned-parent watcher, original-pipe guard and
 bounded EOF exit remain in effect. Parent observation does not share the thread
