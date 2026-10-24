@@ -48,6 +48,7 @@ class Wire:
         from codex_freecad.windows_identity import AppProcessDriver
 
         self.driver = AppProcessDriver()
+        self.started_at = time.monotonic()
         self.process = subprocess.Popen(
             command or [route["command"], *route["args"]],
             cwd=route["cwd"],
@@ -121,6 +122,7 @@ class Wire:
             },
         )
         self.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        self.initialize_elapsed = time.monotonic() - self.started_at
         return result
 
     def tool(self, tool_name, **arguments):

@@ -190,8 +190,10 @@ def test_budgeted_metadata_frontdoors_preserve_legacy_and_native_capacity(
         memory = []
         for peer in peers:
             peer.initialize()
+            assert peer.initialize_elapsed < 30
             guide = peer.tool("get_native_workflow")
             assert guide["mode"] == "headless"
+            assert guide["ownership"]["actors"] == 1
             assert guide["memory"]["limit_bytes"] == 128 * 1024 * 1024
             assert 0 < guide["memory"]["peak_commit_bytes"] <= 128 * 1024 * 1024
             memory.append(guide["memory"])
@@ -217,6 +219,7 @@ def test_budgeted_metadata_frontdoors_preserve_legacy_and_native_capacity(
             "legacy_leases_preserved": 4,
             "seventeenth_refused": True,
             "memory_measurements": memory,
+            "cold_initialize_seconds": [p.initialize_elapsed for p in peers],
             "native_leases": 0,
             "peer_identities": [p.identity for p in peers],
             "all_exact_peers_gone": all(
