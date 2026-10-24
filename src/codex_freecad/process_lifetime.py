@@ -68,7 +68,7 @@ class ProcessSlots:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise RuntimeError(
-                    f"{self.label} limit reached; close unused connections before retrying"
+                    f"{self.label} limit reached (limit={self.limit}, unavailable={self.limit}); no lease acquired"
                 )
             time.sleep(min(0.02, remaining))
 

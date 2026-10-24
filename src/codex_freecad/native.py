@@ -43,7 +43,12 @@ def native_session(client, state, registry):
                 "state": "active",
             }
             # Metadata frontends can coexist; keep the history bound atomic.
-            with ProcessSlots(Path(state) / "history-admission", limit=1, timeout=5):
+            with ProcessSlots(
+                Path(state) / "history-admission",
+                limit=1,
+                timeout=5,
+                label="FreeCAD session history writer contention (5 second deadline)",
+            ):
                 if len(list(folder.glob("*.json"))) >= 256:
                     raise RuntimeError("Native root history full; preserve the original evidence")
                 path = folder / (owner.owner_id + ".json")

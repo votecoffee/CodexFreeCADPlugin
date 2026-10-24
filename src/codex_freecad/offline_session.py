@@ -131,7 +131,12 @@ def offline_session(state, registry, admission):
             "native_execution": False,
             "note": "Root identity record; not a child-resource termination authorization",
         }
-        with ProcessSlots(state / "history-admission", limit=1, timeout=5):
+        with ProcessSlots(
+            state / "history-admission",
+            limit=1,
+            timeout=5,
+            label="FreeCAD offline history writer contention (5 second deadline)",
+        ):
             if len(list(folder.glob("*.json"))) >= 256:
                 raise RuntimeError(
                     "Offline session history full; preserve/archive evidence explicitly"
