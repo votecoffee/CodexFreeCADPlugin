@@ -7,6 +7,9 @@
 - Canonicalize retained Windows namespace aliases, preserve UTF-8 installer output,
   and refuse overlong native dependency paths before selection. Incomplete job
   identity observations remain durably uncertain.
+- Serialize short metadata-history writes with bounded admission waits while keeping
+  native capacity refusals immediate. Root CMD launches explicitly inherit the
+  original standard handles required by windowless Python.
 
 - Added an app-owned stable windowless entry and working directory, retained runtime
   snapshots, full wheel/hash/RECORD verification, source-to-Git package checks and
