@@ -71,7 +71,7 @@ def native_session(client, state, registry):
                     else "busy"
                     if client.lock.locked()
                     else "running",
-                    message=f"FreeCAD {__version__}; {client.mode} MCP frontend; this frontend's native lease held={client.native_admitted}; backend validated={client.validated}; receipt history={receipts['state']}, unresolved={receipts['unresolved']}. Metadata is not native health.",
+                    message=f"FreeCAD {__version__}; {client.mode} MCP frontend; this frontend's native lease held={client.native_admitted}; backend validated={client.validated}; memory policy uncertain={getattr(client, 'memory_policy_uncertain', False)}; receipt history={receipts['state']}, unresolved={receipts['unresolved']}. Metadata is not native health.",
                     active_operations=int(client.lock.locked()),
                     restart_allowed=False,
                     restart_reason="Native documents/receipts require inspection; close the owning client",
@@ -189,6 +189,11 @@ def main():
             "ownership": generation_status(),
             "connection_admission": connection_admission(),
             "memory": job_memory_status(),
+            "native_policy": {
+                "native_admitted": client.native_admitted,
+                "memory_policy_uncertain": client.memory_policy_uncertain,
+                "backend_validated": client.validated,
+            },
         }
 
     run_native(server, client, args.state, args.registry, exit_process=os._exit)
