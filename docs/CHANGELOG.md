@@ -2,7 +2,16 @@
 
 ## Unreleased
 
-### 26.1026.110014 — source-review candidate
+### 26.1026.114609 — source-review candidate
+
+- Supply the current-user owner and protected user/SYSTEM DACL directly to
+  Windows directory creation. Remove the mkdir-then-path-ACL staging sequence.
+- Refuse a different object with a foreign DACL substituted before the first
+  identity pin without altering its ACL or payload. Existing targets are only
+  inspected; directory creation never replaces or repairs them. Independent
+  source review still precedes any changed MCP canary or normal promotion.
+
+### 26.1026.110014 — superseded source-review candidate
 
 - Refuse foreign ownership or unexpected ACLs on first inspection as well as
   later identity/permission drift. Existing directories are never taken over or
@@ -11,6 +20,8 @@
 - Use a named metadata publication lock file in the validated registry root.
   Keep the connection pool and original framework ledger lock unchanged. This
   stricter package requires independent source review before an MCP canary.
+- Creation-to-first-pin review found the staging ACL race; no changed MCP cycle
+  was run for this package.
 
 ### 26.1026.104343 — prior connection candidate
 

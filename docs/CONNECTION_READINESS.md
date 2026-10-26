@@ -61,8 +61,10 @@ generations retain their original implementation and locks.
 Private registry directories require the current user's ownership and the
 user/SYSTEM ACL policy, pinned by filesystem identity. Existing correct ACLs are
 read without recursive rewrites; foreign owners or ACLs refuse on first use.
-New Windows directories are secured while empty before atomic publication, with
-no replacement of an existing target. Later replacement or permission drift refuses;
+New Windows directories receive the private owner/DACL in the kernel creation
+call itself; there is no mkdir-then-path-ACL repair interval or replacement of
+an existing target. A foreign object substituted before the first pin is refused
+without permission or payload changes. Later replacement or permission drift refuses;
 native data, receipts and transaction bodies are not repaired or replayed.
 
 ## Diagnose before changing capacity
