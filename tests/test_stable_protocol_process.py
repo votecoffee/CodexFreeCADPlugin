@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from stable_process_checks import Wire, original_exit, private_memory, retained_writer
 
-from codex_freecad import __package_version__
+from codex_freecad import __package_version__, __version__
 from codex_freecad.process_lifetime import METADATA_CONNECTIONS, ProcessSlots, metadata_slot_memory
 from codex_freecad.stable_install import prepare, select
 from codex_freecad.stable_launcher import selection
@@ -99,7 +99,7 @@ def test_cache_removal_and_immutable_update_preserve_active_peer(tmp_path, revie
     fixture.write_bytes(b"Synthetic hash fixture only; never opened by native software")
     with Wire(route) as peer:
         initialized = peer.initialize()
-        assert initialized["serverInfo"]["version"] == __package_version__
+        assert initialized["serverInfo"]["version"] == __version__
         tools = peer.call("tools/list")["tools"]
         assert len(tools) == 27
         integer_defaults(tools)
@@ -311,7 +311,7 @@ print(json.dumps(result))
             added = [stack.enter_context(Wire(prepared["route"])) for _ in range(added_count)]
             new_peers.extend(added)
             for peer in added:
-                assert peer.initialize()["serverInfo"]["version"] == __package_version__
+                assert peer.initialize()["serverInfo"]["version"] == __version__
                 assert peer.initialize_elapsed < 30
                 assert len(peer.call("tools/list")["tools"]) == 27
                 guide = peer.tool("get_native_workflow")
