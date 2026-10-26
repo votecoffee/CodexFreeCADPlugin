@@ -11,10 +11,10 @@ from contextlib import ExitStack
 from pathlib import Path
 
 import pytest
-from stable_process_checks import Wire, original_exit, retained_writer
+from stable_process_checks import Wire, original_exit, private_memory, retained_writer
 
 from codex_freecad import __package_version__
-from codex_freecad.process_lifetime import ProcessSlots
+from codex_freecad.process_lifetime import METADATA_CONNECTIONS, ProcessSlots, metadata_slot_memory
 from codex_freecad.stable_install import prepare, select
 from codex_freecad.stable_launcher import selection
 
@@ -186,20 +186,34 @@ def test_budgeted_metadata_frontdoors_preserve_legacy_and_native_capacity(
         for _ in range(4):
             stack.enter_context(ProcessSlots(state / "frontends", limit=4))
             stack.enter_context(ProcessSlots(state / "native-frontends", limit=4))
-        peers = [stack.enter_context(Wire(prepared["route"])) for _ in range(16)]
+        peers = []
         memory = []
-        for peer in peers:
-            peer.initialize()
-            assert peer.initialize_elapsed < 30
-            guide = peer.tool("get_native_workflow")
-            assert guide["mode"] == "headless"
-            assert "16 metadata connections" in guide["text"] and "128 MiB" in guide["text"]
-            assert guide["ownership"]["actors"] == 1
-            assert guide["memory"]["limit_bytes"] == 128 * 1024 * 1024
-            assert 0 < guide["memory"]["peak_commit_bytes"] <= 128 * 1024 * 1024
-            memory.append(guide["memory"])
+        phases = []
+        marker = workspace / "hash-only.FCStd"
+        marker.write_bytes(b"Synthetic metadata fixture; never open with native software")
+        for phase in ("steady-24", "reconnect-overlap-48"):
+            added = [stack.enter_context(Wire(prepared["route"])) for _ in range(24)]
+            peers.extend(added)
+            for peer in added:
+                peer.initialize()
+                assert peer.initialize_elapsed < 30
+                assert len(peer.call("tools/list")["tools"]) == 27
+                guide = peer.tool("get_native_workflow")
+                assert guide["mode"] == "headless"
+                assert "48 metadata connections" in guide["text"]
+                assert guide["ownership"]["actors"] == 1
+                admission = guide["connection_admission"]
+                limit = metadata_slot_memory(admission["slot"])
+                assert guide["memory"]["limit_bytes"] == limit
+                assert 0 < guide["memory"]["peak_commit_bytes"] <= limit
+                reviewed = peer.tool("review_native_target", path=marker.name)
+                assert reviewed["native_opened"] is False
+                assert reviewed["sha256"] == hashlib.sha256(marker.read_bytes()).hexdigest()
+                assert not any(guide["native_policy"].values())
+                memory.append(guide["memory"])
+            phases.append({"phase": phase, "roots": [private_memory(p) for p in peers]})
         assert ProcessSlots.occupied(state / "frontends", limit=4) == 4
-        assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 16
+        assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=48) == 48
         assert ProcessSlots.occupied(state / "native-pilot", limit=1) == 0
         with Wire(prepared["route"]) as refused:
             with pytest.raises((RuntimeError, BrokenPipeError), match=".*"):
@@ -208,24 +222,144 @@ def test_budgeted_metadata_frontdoors_preserve_legacy_and_native_capacity(
             for reader in refused.readers:
                 reader.join(timeout=2)
             assert "metadata connection" in "".join(refused.errors)
-        peers[0].eof()
+            assert original_exit(refused.driver, int(refused.process._handle))["signaled"]
+        exits = [peers[0].eof()]
         with Wire(prepared["route"]) as replacement:
             replacement.initialize()
-            assert replacement.eof()["exit_code"] == 0
-    assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 0
+            exits.append(replacement.eof())
+        for peer in peers[1:]:
+            exits.append(peer.eof())
+        assert all(e["exit_code"] == 0 and e["original_handle_exit"]["signaled"] for e in exits)
+    assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=48) == 0
     record(
         tmp_path / "admission-evidence.json",
         {
-            "limit": 16,
-            "legacy_leases_preserved": 4,
-            "seventeenth_refused": True,
+            "limit": METADATA_CONNECTIONS,
+            "simulated_legacy_leases_preserved": 4,
+            "excess_refused": True,
+            "actual_memory_phases": phases,
             "memory_measurements": memory,
             "cold_initialize_seconds": [p.initialize_elapsed for p in peers],
             "native_leases": 0,
             "peer_identities": [p.identity for p in peers],
-            "all_exact_peers_gone": all(
-                p.driver.state(p.identity) in {"absent", "different"} for p in peers
-            ),
+            "original_handle_exits": exits,
+        },
+    )
+
+
+def test_compatible_runtime_and_new_reconnects_share_the_same_pool(tmp_path, reviewed_runtime):
+    compatibility = os.environ.get("FREECAD_COMPAT_RUNTIME")
+    if not compatibility:
+        pytest.skip("Explicit reviewed 26.1024.101538 runtime required for mixed-version proof")
+    old_runtime = Path(compatibility)
+    assert (
+        json.loads((old_runtime / "codex_freecad/release.json").read_bytes())["package_version"]
+        == "26.1024.101538"
+    )
+    from codex_freecad.offline_setup import inventory
+
+    old_closure = json.loads((old_runtime.parent / "connection/closure.json").read_bytes())
+    assert inventory(old_runtime) == old_closure["files"]
+    _, workspace, prepared = installed(tmp_path, reviewed_runtime)
+    state = Path(prepared["manifest"]["state"])
+    # Run the compatible package's own preparer, including its release checks.
+    # This creates a PRIVATE app with an invalid native target and the SAME fixture pool.
+    code = """
+import json, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from codex_freecad.stable_install import prepare, select
+args = json.loads(sys.argv[2])
+result = prepare(**args)
+select(Path(result['root']), result['snapshot'], expected_selection='absent')
+print(json.dumps(result))
+"""
+    args = {
+        "root": str(tmp_path / "Compatible app"),
+        "runtime": str(old_runtime),
+        "workspace": str(workspace),
+        "native_target": str(tmp_path / "FreeCADCmd.exe"),
+        "state": str(state),
+        "registry": prepared["manifest"]["registry"],
+    }
+    old = json.loads(
+        subprocess.check_output(
+            [
+                sys._base_executable,
+                "-I",
+                "-S",
+                "-B",
+                "-c",
+                code,
+                str(old_runtime),
+                json.dumps(args),
+            ],
+            stderr=subprocess.PIPE,
+            timeout=120,
+        )
+    )
+    exits, phases = [], []
+    with ExitStack() as stack:
+        old_peers = [stack.enter_context(Wire(old["route"])) for _ in range(16)]
+        for peer in old_peers:
+            assert peer.initialize()["serverInfo"]["version"] == "26.1024.101538"
+            guide = peer.tool("get_native_workflow")
+            assert guide["memory"]["limit_bytes"] == 128 * 1024**2
+            assert guide["ownership"]["actors"] == 1
+        new_peers = []
+        for added_count, phase in ((8, "steady-24"), (24, "full-reconnect-48")):
+            added = [stack.enter_context(Wire(prepared["route"])) for _ in range(added_count)]
+            new_peers.extend(added)
+            for peer in added:
+                assert peer.initialize()["serverInfo"]["version"] == __package_version__
+                assert peer.initialize_elapsed < 30
+                assert len(peer.call("tools/list")["tools"]) == 27
+                guide = peer.tool("get_native_workflow")
+                assert guide["ownership"]["actors"] == 1
+                assert guide["connection_admission"]["slot"] >= 16
+                assert guide["memory"]["limit_bytes"] == 96 * 1024**2
+                assert not any(guide["native_policy"].values())
+            phases.append(
+                {
+                    "phase": phase,
+                    "compatible": [private_memory(p) for p in old_peers],
+                    "new": [private_memory(p) for p in new_peers],
+                }
+            )
+        report = new_peers[0].tool("get_native_workflow")["connection_admission"]
+        assert report["metadata_occupied"] == 48
+        assert report["metadata_occupied_commit_reservation_bytes"] == 5 * 1024**3
+        assert (
+            old_peers[0].tool("get_native_workflow")["connection_admission"]["metadata_occupied"]
+            == 16
+        )  # Its old limited observation does not erase the other 32 owners.
+        with Wire(prepared["route"]) as refused:
+            with pytest.raises((RuntimeError, BrokenPipeError)):
+                refused.initialize()
+            assert refused.process.wait(timeout=15) == 1
+        exits.append(old_peers[0].eof())
+        with Wire(prepared["route"]) as replacement:
+            replacement.initialize()
+            guide = replacement.tool("get_native_workflow")
+            assert guide["connection_admission"]["slot"] < 16
+            assert guide["memory"]["limit_bytes"] == 128 * 1024**2
+            exits.append(replacement.eof())
+        for peer in [*old_peers[1:], *new_peers]:
+            exits.append(peer.eof())
+        assert all(e["exit_code"] == 0 and e["original_handle_exit"]["signaled"] for e in exits)
+    assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=48) == 0
+    assert ProcessSlots.occupied(state / "native-pilot", limit=1) == 0
+    record(
+        tmp_path / "mixed-version-evidence.json",
+        {
+            "old_snapshot": old["snapshot"],
+            "new_snapshot": prepared["snapshot"],
+            "old_runtime_closure_verified": True,
+            "phases": phases,
+            "excess_refused": True,
+            "original_handle_exits": exits,
+            "native_executed": False,
+            "same_pool": str(state / "metadata-frontdoors-v2"),
         },
     )
 
@@ -333,29 +467,35 @@ def wait_for(predicate, timeout=20):
         time.sleep(0.05)
 
 
-def test_actual_metadata_memory_limit_and_native_policy_readback(tmp_path, reviewed_runtime):
+@pytest.mark.parametrize("compatible_slots", [0, 16])
+def test_actual_metadata_memory_limit_and_native_policy_readback(
+    tmp_path, reviewed_runtime, compatible_slots
+):
     script = Path(__file__).with_name("fixtures") / "metadata_memory.py"
     output = tmp_path / "memory-evidence.json"
-    process = subprocess.run(
-        [
-            str(Path(sys._base_executable).with_name("pythonw.exe")),
-            "-I",
-            "-S",
-            "-B",
-            str(script),
-            str(reviewed_runtime),
-            str(tmp_path / "state"),
-            str(output),
-        ],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        creationflags=subprocess.CREATE_NO_WINDOW,
-        timeout=20,
-    )
+    with ExitStack() as stack:
+        for _ in range(compatible_slots):
+            stack.enter_context(ProcessSlots(tmp_path / "state/metadata-frontdoors-v2", limit=16))
+        process = subprocess.run(
+            [
+                str(Path(sys._base_executable).with_name("pythonw.exe")),
+                "-I",
+                "-S",
+                "-B",
+                str(script),
+                str(reviewed_runtime),
+                str(tmp_path / "state"),
+                str(output),
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            timeout=20,
+        )
     assert process.returncode == 0, process.stderr.decode("utf-8", "replace")
     result = json.loads(output.read_bytes())
-    assert result["before"]["limit_bytes"] == 128 * 1024 * 1024
+    assert result["before"]["limit_bytes"] == metadata_slot_memory(compatible_slots)
     assert result["oversized_commit_refused"]
     assert result["after_native_admission"]["limit_bytes"] is None
     assert result["process_bound_after_admission"] == 4

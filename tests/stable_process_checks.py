@@ -8,6 +8,47 @@ import threading
 import time
 
 
+def private_memory(peer):
+    """Actual commit on the original fixture process handle, never a reopened PID."""
+    import ctypes
+    from ctypes import wintypes as w
+
+    class Memory(ctypes.Structure):
+        _fields_ = [
+            ("size", w.DWORD),
+            ("faults", w.DWORD),
+            *[
+                (name, ctypes.c_size_t)
+                for name in (
+                    "peak_working",
+                    "working",
+                    "peak_paged",
+                    "paged",
+                    "peak_nonpaged",
+                    "nonpaged",
+                    "pagefile",
+                    "peak_pagefile",
+                    "private",
+                )
+            ],
+        ]
+
+    assert not original_exit(peer.driver, int(peer.process._handle))["signaled"]
+    api = ctypes.WinDLL("psapi", use_last_error=True)
+    api.GetProcessMemoryInfo.argtypes = [w.HANDLE, ctypes.POINTER(Memory), w.DWORD]
+    api.GetProcessMemoryInfo.restype = w.BOOL
+    memory = Memory()
+    memory.size = ctypes.sizeof(memory)
+    if not api.GetProcessMemoryInfo(int(peer.process._handle), ctypes.byref(memory), memory.size):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return {
+        "identity": peer.identity,
+        "private_bytes": memory.private,
+        "working_bytes": memory.working,
+        "peak_private_bytes": memory.peak_pagefile,
+    }
+
+
 def original_exit(driver, handle):
     import ctypes
     from ctypes import wintypes as w

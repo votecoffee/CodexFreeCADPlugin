@@ -68,9 +68,9 @@ def generate(
     atomic_json(plugin / ".mcp.json", config)
     manifest = json.loads((plugin / ".codex-plugin/plugin.json").read_bytes())
     manifest["description"] = (
-        "Standalone FreeCAD native candidate with inspected targets and durable receipts"
+        "Standalone FreeCAD native profile with inspected targets and durable receipts"
     )
-    manifest["interface"]["displayName"] = "FreeCADMCPServer (native candidate)"
+    manifest["interface"]["displayName"] = "FreeCADMCPServer (native)"
     manifest["interface"]["shortDescription"] = "Native modeling with reviewed targets"
     atomic_json(plugin / ".codex-plugin/plugin.json", manifest)
     offline_skill = plugin / "skills/freecad-offline/SKILL.md"

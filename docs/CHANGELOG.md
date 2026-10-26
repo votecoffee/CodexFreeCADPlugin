@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### 26.1026.092928 — connection candidate
+
+- Size one shared metadata pool for 24 steady connections and 24 reconnects.
+  Existing 26.1024.101538 owners remain in slots 0–15 at 128 MiB; added slots
+  reserve 96 MiB each. Report occupied tier reservations and the full 5 GiB
+  metadata reservation without calling either measured memory use or a native bound.
+- Keep the shared native lease, four-process job bound, original native memory
+  policy, receipt fences, framework 0.20.0 and MCP 2.3.0 unchanged. Candidate
+  source, package and harmless fixture checks precede independent deployment review.
+- Replace blanket native-pilot-pending guidance with separate evidence scopes;
+  metadata work neither repeats nor broadens prior native acceptance.
+
 ### 26.1024.101538
 
 - Separate idle metadata connections from native ownership. The native profile

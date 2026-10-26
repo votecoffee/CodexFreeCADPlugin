@@ -10,9 +10,27 @@ from contextlib import contextmanager
 from pathlib import Path
 
 _jobs = []  # Non-inheritable handles deliberately live until process exit.
-METADATA_CONNECTIONS = 16
+METADATA_STEADY_CONNECTIONS = 24
+METADATA_RECONNECT_CONNECTIONS = 24
+METADATA_CONNECTIONS = METADATA_STEADY_CONNECTIONS + METADATA_RECONNECT_CONNECTIONS
+COMPAT_METADATA_CONNECTIONS = 16
 METADATA_MEMORY_BYTES = 128 * 1024 * 1024
+EXPANDED_METADATA_MEMORY_BYTES = 96 * 1024 * 1024
 _metadata_memory = False
+
+
+def metadata_slot_memory(index):
+    if type(index) is not int or not 0 <= index < METADATA_CONNECTIONS:
+        raise ValueError("Invalid shared metadata slot")
+    return (
+        METADATA_MEMORY_BYTES
+        if index < COMPAT_METADATA_CONNECTIONS
+        else EXPANDED_METADATA_MEMORY_BYTES
+    )
+
+
+def metadata_commit_budget():
+    return sum(metadata_slot_memory(index) for index in range(METADATA_CONNECTIONS))
 
 
 def run_stdio(server, *, exit_process=os._exit, close_resources=True):
@@ -48,7 +66,7 @@ class ProcessSlots:
     """Bound live frontends with OS-owned locks; process death releases a slot."""
 
     def __init__(self, directory, limit=8, *, timeout=0, label="FreeCAD frontend"):
-        if type(limit) is not int or not 1 <= limit <= 32:
+        if type(limit) is not int or not 1 <= limit <= 64:
             raise ValueError("Invalid process slot limit")
         self.directory, self.limit = Path(directory), limit
         if type(timeout) not in {int, float} or not 0 <= timeout <= 5:
@@ -105,9 +123,14 @@ class ProcessSlots:
     @staticmethod
     def occupied(directory, limit=8):
         """Sample only our bounded lock files; never launch or terminate anything."""
-        if type(limit) is not int or not 1 <= limit <= 32:
+        return len(ProcessSlots.occupied_indices(directory, limit=limit))
+
+    @staticmethod
+    def occupied_indices(directory, limit=8):
+        """Unavailable indices, including inspection errors; sampled, not owner identity proof."""
+        if type(limit) is not int or not 1 <= limit <= 64:
             raise ValueError("Invalid process slot limit")
-        count = 0
+        unavailable = []
         for index in range(limit):
             path = Path(directory) / f"frontend-{index}.lock"
             if not path.exists():
@@ -123,8 +146,8 @@ class ProcessSlots:
 
                         fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError:
-                count += 1  # An unavailable slot is never counted as free.
-        return count
+                unavailable.append(index)  # An unavailable slot is never counted as free.
+        return unavailable
 
 
 def process_tree_snapshot(*, capture_identity=None):
@@ -335,10 +358,15 @@ def _set_metadata_memory(limit):
         raise OSError("Metadata memory budget readback differs")
 
 
-def start_metadata_memory_budget():
+def start_metadata_memory_budget(limit=METADATA_MEMORY_BYTES):
     global _metadata_memory
+    if type(limit) is not int or limit not in {
+        METADATA_MEMORY_BYTES,
+        EXPANDED_METADATA_MEMORY_BYTES,
+    }:
+        raise ValueError("Unreviewed metadata memory reservation")
     if os.name == "nt" and _jobs:
-        _set_metadata_memory(METADATA_MEMORY_BYTES)
+        _set_metadata_memory(limit)
         _metadata_memory = True
 
 

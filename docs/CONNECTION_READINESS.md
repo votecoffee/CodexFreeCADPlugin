@@ -7,33 +7,43 @@ identities, settings backups, measurements and personal reports outside Git.
 
 ## Connection and native budgets
 
-Multiple open chats are ordinary demand. The native standalone profile supports
-16 simultaneous cold metadata connections, including a reconnect burst. Each new
-root initially has a **128 MiB committed-memory job limit**, giving at most 2 GiB
-for 16 metadata-only jobs. Measure private commit and job peak, not only working
-set. These are enforceable Windows job limits, not an estimate of total system RSS.
+Multiple open chats are ordinary demand. The native standalone design budgets
+**24 steady metadata connections and a full 24-connection reconnect overlap**.
+All 48 connections use the same `metadata-frontdoors-v2` OS-lock pool, including
+owners running release 26.1024.101538. Slots 0–15 retain their **128 MiB** job
+commit limit; slots 16–47 use **96 MiB**. The complete metadata-only reservation
+is **5 GiB** (16 × 128 + 32 × 96 MiB). The first 24 slots reserve 2.75 GiB.
+This reduces the reservation per added slot, not the SDK's measured private commit.
+Measure actual normal and transition totals, peaks and host available commit,
+not only working set. These are Windows job limits, not estimates of system RSS.
 See [Microsoft's job-memory contract](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_extended_limit_information).
 
 Native work still requires the original shared **one-owner native lease**. Idle
 metadata/guidance never takes it. Native admission removes the metadata memory
 limit before calling the backend, retaining the original CAD memory policy and
 four-process job bound. This release adds no native memory ceiling and does not
-claim a global 2 GiB bound while native work or legacy generations exist. There
+claim a global 5 GiB bound while native work or older legacy generations exist. There
 is no native waiting queue: competing native calls return a meaningful busy error.
 Uncertain memory-policy readback retains admission and blocks dispatch/replay.
 
-The connection pool is `metadata-frontdoors-v2`; earlier four-slot `frontends`
+The same pool and indices account for existing 26.1024.101538 and new owners;
+never create another pool to hide their overlap. Earlier four-slot `frontends`
 and `native-frontends` leases belong to their live legacy owners. Never clear,
 reinterpret or bypass those owners' locks. During transition there can be at
-most 16 new supervisors plus four legacy supervisors. Each native-profile job
-has a four-process kernel bound: 80 processes is the conservative aggregate job
-ceiling across 20 such jobs. The application policy permits one native owner,
-normally at most 20 supervisors plus its three private descendants. External or
+most 48 pool supervisors plus four older legacy supervisors. Each native-profile
+job has a four-process kernel bound: **208 processes** is the conservative
+aggregate job ceiling across 52 such jobs (192 across the 48 pool jobs alone).
+Application policy permits one native owner: normally at most 48 supervisors plus
+its three private descendants, or 52 plus three during older legacy transition.
+These policy totals are not global kernel ceilings. External or
 attached FreeCAD GUIs are excluded from owned-job counts and termination rights.
-After old chats close naturally, normal demand uses only the 16 new connections.
+After older legacy chats close naturally, all demand uses the shared 48 slots.
 
 `get_native_workflow` reports its own slot, occupancy, native capacity, configured
-memory limit and observed job peak. Occupancy is a sampled OS-lock observation,
+memory limit and observed job peak. It also reports sampled unavailable slot indices,
+their tiered reservation and the full configured reservation. The sampled occupied
+reservation is a metadata budget, not a measured aggregate memory limit when a
+native owner has restored its original policy. Occupancy is an OS-lock observation,
 not a claim that native CAD is healthy. Excess connections refuse explicitly;
 capacity is finite. Supporting more than the documented workload requires a new
 measured design review, rather than a hidden cap increase.
@@ -47,16 +57,22 @@ is not a stale leak. Unknown ownership and uncertain native receipts stay unknow
 Do not terminate another chat, delete reservations, replay writes or launch CAD
 to make a health probe pass.
 
-Record the exact exhausted pool, selected/running versions, configured limit,
+Record loaded/resumable chat demand, explicit headroom and reconnect demand before
+choosing a finite steady/overlap target. Record the exact exhausted pool,
+selected/running versions, configured limit,
 observed owners and safe next action. A successful two-client fixture does not
-establish availability for the documented 16-chat workload. Strictly parse the
+establish availability for the documented 24-steady/24-reconnect workload. Strictly parse the
 actual saved settings and test their unchanged command/args/cwd/environment with
 the real SDK and the host's configured timeout.
 
 ## Required regression proof
 
 - Cold initialize, full discovery, current guide and a trivial synthetic hash
-  read; 16 overlapping clients, then bounded excess refusal and reconnect.
+  read; 48 overlapping clients, then bounded excess refusal and reconnect.
+- Include 16 compatible old owners plus 32 new connections in the SAME pool,
+  and prove an old observer's 16-slot view does not cause new accounting to omit them.
+  Measure actual per-root private commit and process counts across steady and full
+  overlap phases, including the test harness and preserved live peers separately.
 - Legacy leases and live old generations survive immutable selection updates.
   Metadata alone owns zero native leases and has no private child processes.
 - Measure per-job committed-memory limits and peaks for every admitted client.

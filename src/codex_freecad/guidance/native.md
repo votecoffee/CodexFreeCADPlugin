@@ -22,8 +22,8 @@ native capacity; use them when native work is needed, not to probe metadata-only
 Discover the native capability descriptions before modeling.
 Use `review_native_target` before opening an FCStd or choosing a save/export target. It reports
 the exact workspace path and SHA-256, or `absent`, without opening a native document. Native FCStd
-loading is trusted code execution, not a ZIP sandbox; the first pilot uses generated disposable
-files only. Inspect documents and pass `expected_revision` to edits, import and Undo. Save/export
+loading is trusted code execution, not a ZIP sandbox. Separate native validation uses generated
+disposable files. Inspect documents and pass `expected_revision` to edits, import and Undo. Save/export
 also compare the latest inspected document revision and the reviewed target bytes. A stale target
 is refused again by the native engine. Explicit overwrite still preserves a byte-identical backup.
 
@@ -33,9 +33,12 @@ only after reviewing the saved source. Use the returned revision and source/outp
 evidence. Save headless work explicitly before disconnecting; unsaved owned documents are not
 automatically persisted. Live/headless documents and Undo histories are independent.
 
-Up to 16 metadata connections can initialize and discover tools without activating FreeCAD.
-Each metadata-only job has a 128 MiB committed-memory budget. Existing legacy connections
-keep their original four-slot pool. Metadata and native capacity are separate. The
+The shared pool is sized for 48 metadata connections: 24 steady chats and 24 overlapping reconnects.
+Existing 101538 owners and new clients share the SAME slot locks. Slots 0..15 reserve 128 MiB;
+slots 16..47 reserve 96 MiB. The complete metadata reservation is 5 GiB, including old owners.
+This reduces the reservation in added slots; actual private commit must be measured separately.
+Pre-101538 four-slot owners, if present, are reported separately and remain untouched; their
+old memory policy is not represented as newly capped. Metadata and native capacity are separate. The
 first native call reserves one shared native slot until that connection closes. Other native
 calls return busy before dispatch; metadata remains usable and there is no waiting work queue.
 Save work before closing the owning connection. Failed backend cleanup retains the lease;
@@ -60,6 +63,8 @@ EOF first closes the client/owned worker, manager and resource session; the hard
 Independent parent-death and pipe guards remain active. Attachment cleanup is detach-only.
 
 Source/package checks and harmless process fixtures do not establish FreeCAD recompute, geometry,
-native file validity, GUI behavior or installed Codex activation. Coordinate an isolated native
-pilot before promoting this candidate. Shared-host, arbitrary Python, controller and SCM routes
-are not part of this profile.
+native file validity, GUI behavior or installed Codex activation. Prior isolated native acceptance
+has its own retained evidence and scope; it is neither reset to a blanket pending label nor
+re-established by metadata availability. Reuse requires matching domain bytes, target and policies;
+a changed native boundary requires its own isolated validation. Shared-host, arbitrary Python,
+controller and SCM routes are not part of this profile.
