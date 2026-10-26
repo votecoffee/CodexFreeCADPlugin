@@ -303,6 +303,7 @@ print(json.dumps(result))
         old_peers = [stack.enter_context(Wire(old["route"])) for _ in range(16)]
         for peer in old_peers:
             assert peer.initialize()["serverInfo"]["version"] == "26.1024.101538"
+            assert peer.initialize_elapsed < 30
             guide = peer.tool("get_native_workflow")
             assert guide["memory"]["limit_bytes"] == 128 * 1024**2
             assert guide["ownership"]["actors"] == 1
@@ -356,6 +357,8 @@ print(json.dumps(result))
             "new_snapshot": prepared["snapshot"],
             "old_runtime_closure_verified": True,
             "phases": phases,
+            "compatible_initialize_seconds": [p.initialize_elapsed for p in old_peers],
+            "new_initialize_seconds": [p.initialize_elapsed for p in new_peers],
             "excess_refused": True,
             "original_handle_exits": exits,
             "native_executed": False,
@@ -443,7 +446,8 @@ def test_selected_damage_refuses_actual_startup_without_fallback(
     assert ProcessSlots.occupied(Path(prepared["manifest"]["state"]) / "frontends", limit=4) == 0
     assert (
         ProcessSlots.occupied(
-            Path(prepared["manifest"]["state"]) / "metadata-frontdoors-v2", limit=16
+            Path(prepared["manifest"]["state"]) / "metadata-frontdoors-v2",
+            limit=METADATA_CONNECTIONS,
         )
         == 0
     )
@@ -567,7 +571,9 @@ def test_active_owned_fixture_eof_preserves_external_and_uncertain_receipt(
         assert code == 0
         assert all(item["signaled"] for item in exits)
         assert external.poll() is None and receipt.read_bytes() == original
-        assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 0
+        assert (
+            ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=METADATA_CONNECTIONS) == 0
+        )
         assert ProcessSlots.occupied(state / "native-pilot", limit=1) == 0
     finally:
         if active.poll() is None:
@@ -632,7 +638,7 @@ def test_queued_startup_eof_releases_new_admission_without_native_work(tmp_path,
             assert time.monotonic() - started < 10
             assert "history writer contention" in result["stderr"]
             assert not list((state / "process-generations").glob("*.json"))
-    assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=16) == 0
+    assert ProcessSlots.occupied(state / "metadata-frontdoors-v2", limit=METADATA_CONNECTIONS) == 0
     assert ProcessSlots.occupied(state / "native-pilot", limit=1) == 0
     with Wire(prepared["route"]) as replacement:
         replacement.initialize()
