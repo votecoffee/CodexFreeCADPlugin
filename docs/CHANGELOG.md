@@ -2,7 +2,16 @@
 
 ## Unreleased
 
-### 26.1026.102108 — connection candidate
+### 26.1026.104343 — connection candidate
+
+- Validate the framework's private-directory policy without repeatedly rewriting
+  inherited ACLs throughout the registry. Pin directory identity and permissions;
+  later replacement or permission drift refuses instead of silently resetting them.
+- Preserve the original framework ledger lock, resource formats and transaction
+  bodies. Keep SDK startup/shutdown timeouts unchanged. Require complete original-
+  handle exit and zero SDK escalation under a simultaneous disconnect burst.
+
+### 26.1026.102108 — superseded connection candidate
 
 - Add app-owned, bounded admission for short framework registry transactions.
   Serialize metadata publication and original ledger-lock entry while retaining
@@ -10,6 +19,8 @@
   publication failures, unknown outcomes and native operations are never replayed.
 - Keep HTTP shutdown and native cleanup outside the publication lock. Require
   simultaneous SDK disconnect proof as well as cold discovery and sequential EOF.
+- Serialized repeated ACL propagation exceeded the SDK's shutdown grace under
+  load; this candidate was not selected for the normal installed route.
 
 ### 26.1026.092928 — superseded connection candidate
 

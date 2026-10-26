@@ -4,10 +4,12 @@ import threading
 import time
 from contextlib import ExitStack, contextmanager
 
+from universal_tools.instance_lock import InstanceLock
 from universal_tools.management import ManagementRegistry
 from universal_tools.models import BrokerError
 from universal_tools.resources import ResourceLedger
 
+from .private_directories import ensure_private
 from .process_lifetime import ProcessSlots
 
 _gates = {}
@@ -56,7 +58,8 @@ def _gate(directory):
 class AppManagementRegistry(ManagementRegistry):
     def prepare(self):
         with _gate(self.directory).operation(time.monotonic() + ADMISSION_SECONDS):
-            return super().prepare()
+            ensure_private(self.directory)
+            ensure_private(self.directory / "instances")
 
     def publish(self, record):
         with _gate(self.directory).operation(time.monotonic() + ADMISSION_SECONDS):
@@ -64,6 +67,7 @@ class AppManagementRegistry(ManagementRegistry):
 
     def records(self):
         with _gate(self.directory).operation(time.monotonic() + ADMISSION_SECONDS):
+            self.prepare()
             return super().records()
 
 
@@ -72,10 +76,18 @@ class AppResourceLedger(ResourceLedger):
     def _locked(self):
         deadline = time.monotonic() + ADMISSION_SECONDS
         with _gate(self.directory.parent).operation(deadline), ExitStack() as acquired:
+            ensure_private(self.directory.parent)
+            ensure_private(self.directory)
+            lock = self.directory / "ledger.lock"
+            if lock.exists() and (
+                lock.is_symlink() or getattr(lock.stat(), "st_file_attributes", 0) & 0x400
+            ):
+                raise ValueError("resource lock must be an ordinary file")
+            acquired.enter_context(self._mutex)
             while True:
                 try:
-                    # Keep the framework's original path checks, mutex and OS lock.
-                    acquired.enter_context(super()._locked())
+                    # Same framework lock/path and transaction bodies; ACL checks are read-only.
+                    acquired.enter_context(InstanceLock(lock))
                     break
                 except BrokerError as error:
                     if str(error) != "another process already owns this state directory":

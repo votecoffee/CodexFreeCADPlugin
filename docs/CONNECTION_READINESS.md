@@ -58,6 +58,10 @@ close calls are outside the publication lock; their ledger transactions retain
 metadata admission. A simultaneous disconnect burst must
 pass; sequential EOF alone does not establish this requirement. Live older
 generations retain their original implementation and locks.
+Private metadata directories are checked against the original user/SYSTEM ACL
+policy and pinned by filesystem identity. Existing correct ACLs are read without
+recursive rewrites. Later directory replacement or permission drift refuses;
+native data, receipts and transaction bodies are not repaired or replayed.
 
 ## Diagnose before changing capacity
 

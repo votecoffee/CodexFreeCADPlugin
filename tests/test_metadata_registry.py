@@ -1,14 +1,19 @@
 """Source-only short-transaction admission; no native software or process control."""
 
 import threading
-from contextlib import contextmanager
 
 import pytest
-from universal_tools.management import ManagementRegistry
-from universal_tools.models import BrokerError
-from universal_tools.resources import ResourceLedger
 
-from codex_freecad.metadata_registry import AppManagementRegistry, AppResourceLedger, _gate
+InstanceLock = pytest.importorskip("universal_tools.instance_lock").InstanceLock
+ManagementRegistry = pytest.importorskip("universal_tools.management").ManagementRegistry
+BrokerError = pytest.importorskip("universal_tools.models").BrokerError
+ResourceLedger = pytest.importorskip("universal_tools.resources").ResourceLedger
+adapter = pytest.importorskip("codex_freecad.metadata_registry")
+AppManagementRegistry, AppResourceLedger, _gate = (
+    adapter.AppManagementRegistry,
+    adapter.AppResourceLedger,
+    adapter._gate,
+)
 
 
 def test_framework_ledger_holder_releases_before_single_transaction_body(tmp_path):
@@ -47,13 +52,11 @@ def test_known_lock_error_in_body_is_never_replayed(tmp_path):
 def test_unexpected_admission_error_is_not_retried(tmp_path, monkeypatch):
     calls = []
 
-    @contextmanager
     def denied(self):
         calls.append("enter")
         raise PermissionError("Uncertain external permissions")
-        yield
 
-    monkeypatch.setattr(ResourceLedger, "_locked", denied)
+    monkeypatch.setattr(InstanceLock, "__enter__", denied)
     with pytest.raises(PermissionError):
         with AppResourceLedger(tmp_path)._locked():
             pytest.fail("Body admitted")
@@ -83,11 +86,13 @@ def test_nested_registry_prepare_uses_one_reentrant_publication_gate(tmp_path, m
     def publish(self, record):
         self.prepare()
 
-    monkeypatch.setattr(ManagementRegistry, "prepare", prepare)
+    monkeypatch.setattr(
+        "codex_freecad.metadata_registry.ensure_private", lambda path: prepare(registry)
+    )
     monkeypatch.setattr(ManagementRegistry, "publish", publish)
     registry = AppManagementRegistry(tmp_path)
     registry.publish(None)
-    assert calls == [2] and _gate(registry.directory).depth == 0
+    assert calls == [2, 2] and _gate(registry.directory).depth == 0
 
 
 def test_contended_original_ledger_deadline_never_enters_body(tmp_path, monkeypatch):
