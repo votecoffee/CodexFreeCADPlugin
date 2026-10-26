@@ -13,7 +13,8 @@ _lock = threading.RLock()
 def create_owner(registry=None):
     try:
         from universal_tools import __version__ as framework_version
-        from universal_tools.resources import ResourceLedger
+
+        from .metadata_registry import AppResourceLedger
     except ImportError as exc:
         raise RuntimeError(
             "Managed FreeCAD requires the verified shared framework 0.20 runtime"
@@ -22,7 +23,7 @@ def create_owner(registry=None):
         raise RuntimeError("Managed FreeCAD requires the exact verified framework 0.20.0")
     from .windows_identity import AppProcessDriver
 
-    return ResourceLedger(registry, driver=AppProcessDriver(), max_active_per_app=32).owner(
+    return AppResourceLedger(registry, driver=AppProcessDriver(), max_active_per_app=32).owner(
         APPLICATION_ID
     )
 

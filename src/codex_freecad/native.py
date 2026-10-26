@@ -18,9 +18,10 @@ def verify_file(path, expected):
 
 @contextmanager
 def native_session(client, state, registry):
-    from universal_tools.management import ComponentVersion, ManagedService, ManagedStatus
+    from universal_tools.management import ComponentVersion, ManagedStatus
     from universal_tools.resources import durable_json
 
+    from .metadata_registry import managed_service
     from .offline_session import root_lifetime
     from .process_lifetime import ProcessSlots
     from .resource_ownership import resource_session
@@ -89,7 +90,7 @@ def native_session(client, state, registry):
                     },
                 )
 
-            with ManagedService(
+            with managed_service(
                 "freecad-mcp-server",
                 "FreeCADMCPServer (native)",
                 status,

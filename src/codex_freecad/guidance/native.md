@@ -37,6 +37,8 @@ The shared pool is sized for 48 metadata connections: 24 steady chats and 24 ove
 Existing 101538 owners and new clients share the SAME slot locks. Slots 0..15 reserve 128 MiB;
 slots 16..47 reserve 96 MiB. The complete metadata reservation is 5 GiB, including old owners.
 This reduces the reservation in added slots; actual private commit must be measured separately.
+Short registry transactions have a separate 5-second admission deadline. Only lock acquisition
+may wait; publication, native operations and uncertain outcomes are never replayed.
 Pre-101538 four-slot owners, if present, are reported separately and remain untouched; their
 old memory policy is not represented as newly capped. Metadata and native capacity are separate. The
 first native call reserves one shared native slot until that connection closes. Other native

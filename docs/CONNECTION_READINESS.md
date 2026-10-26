@@ -48,6 +48,17 @@ not a claim that native CAD is healthy. Excess connections refuse explicitly;
 capacity is finite. Supporting more than the documented workload requires a new
 measured design review, rather than a hidden cap increase.
 
+Short framework registry transactions have a separate **5-second admission
+deadline**. App-owned adapters serialize registry publication/reads and entry
+to the original framework ledger lock. They keep the original ledger format,
+path checks and native operation bodies. Only known lock-acquisition contention
+can wait; publication, transaction and native bodies execute once. Unexpected
+errors and uncertain outcomes propagate without replay. HTTP shutdown and backend
+close calls are outside the publication lock; their ledger transactions retain
+metadata admission. A simultaneous disconnect burst must
+pass; sequential EOF alone does not establish this requirement. Live older
+generations retain their original implementation and locks.
+
 ## Diagnose before changing capacity
 
 Match slot files to actual OS holders and retained process creation identities.

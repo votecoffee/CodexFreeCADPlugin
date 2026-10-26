@@ -2,7 +2,16 @@
 
 ## Unreleased
 
-### 26.1026.092928 — connection candidate
+### 26.1026.102108 — connection candidate
+
+- Add app-owned, bounded admission for short framework registry transactions.
+  Serialize metadata publication and original ledger-lock entry while retaining
+  framework 0.20.0, its formats and operation bodies. Wait only before admission;
+  publication failures, unknown outcomes and native operations are never replayed.
+- Keep HTTP shutdown and native cleanup outside the publication lock. Require
+  simultaneous SDK disconnect proof as well as cold discovery and sequential EOF.
+
+### 26.1026.092928 — superseded connection candidate
 
 - Size one shared metadata pool for 24 steady connections and 24 reconnects.
   Existing 26.1024.101538 owners remain in slots 0–15 at 128 MiB; added slots
@@ -13,6 +22,8 @@
   source, package and harmless fixture checks precede independent deployment review.
 - Replace blanket native-pilot-pending guidance with separate evidence scopes;
   metadata work neither repeats nor broadens prior native acceptance.
+- Concurrent disconnect validation exposed registry contention; this candidate
+  was not selected for the normal installed route.
 
 ### 26.1024.101538
 

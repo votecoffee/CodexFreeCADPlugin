@@ -127,12 +127,12 @@ class Admission:
 def offline_session(state, registry, admission):
     from universal_tools.management import (
         ComponentVersion,
-        ManagedService,
         ManagedStatus,
         private_directory,
     )
     from universal_tools.resources import durable_json
 
+    from .metadata_registry import managed_service
     from .process_lifetime import ProcessSlots
     from .resource_ownership import resource_session
 
@@ -198,7 +198,7 @@ def offline_session(state, registry, admission):
 
         outcome = "closed"
         try:
-            with ManagedService(
+            with managed_service(
                 "freecad-mcp-server",
                 "FreeCADMCPServer (offline)",
                 status,
