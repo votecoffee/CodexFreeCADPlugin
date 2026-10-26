@@ -77,3 +77,66 @@ def test_permission_drift_is_refused_without_automatic_repair(tmp_path):
             private_directories.ensure_private(path)
         assert path.stat().st_mode & 0o777 == 0o755
     private_directory(path)  # Restore only this test-created folder's original policy.
+
+
+def test_existing_foreign_dacl_is_not_repaired_on_first_use(tmp_path, monkeypatch):
+    path = tmp_path / "untrusted"
+    path.mkdir()
+    if os.name != "nt":
+        path.chmod(0o755)
+    before = path.lstat()
+
+    def forbidden(path):
+        pytest.fail("Existing foreign ACL was reset")
+
+    monkeypatch.setattr(private_directories, "private_directory", forbidden)
+    with pytest.raises(PermissionError, match="Foreign metadata directory"):
+        private_directories.ensure_private(path)
+    assert path.lstat().st_ino == before.st_ino
+
+
+def test_foreign_owner_is_refused_without_takeover(tmp_path, monkeypatch):
+    path = tmp_path / "foreign-owner-view"
+    private_directory(path)
+    if os.name == "nt":
+        import win32security
+
+        getter = win32security.GetNamedSecurityInfo
+
+        class ForeignOwner:
+            def __init__(self, descriptor):
+                self.descriptor = descriptor
+
+            def GetSecurityDescriptorOwner(self):
+                return win32security.CreateWellKnownSid(win32security.WinWorldSid)
+
+            def GetSecurityDescriptorDacl(self):
+                return self.descriptor.GetSecurityDescriptorDacl()
+
+            def GetSecurityDescriptorControl(self):
+                return self.descriptor.GetSecurityDescriptorControl()
+
+        monkeypatch.setattr(
+            win32security, "GetNamedSecurityInfo", lambda *args: ForeignOwner(getter(*args))
+        )
+    else:
+        monkeypatch.setattr(os, "geteuid", lambda: path.stat().st_uid + 1)
+
+    def forbidden(path):
+        pytest.fail("Foreign owner was repaired or taken over")
+
+    monkeypatch.setattr(private_directories, "private_directory", forbidden)
+    with pytest.raises(PermissionError, match="Foreign metadata directory"):
+        private_directories.ensure_private(path)
+
+
+def test_initial_reparse_observation_refuses_before_any_policy_write(tmp_path, monkeypatch):
+    path = tmp_path / "reparse-view"
+    private_directory(path)
+    original = type(path).is_symlink
+    monkeypatch.setattr(type(path), "is_symlink", lambda p: p == path or original(p))
+    monkeypatch.setattr(
+        private_directories, "private_directory", lambda p: pytest.fail("Reparse path repaired")
+    )
+    with pytest.raises(ValueError, match="ordinary directory"):
+        private_directories.ensure_private(path)

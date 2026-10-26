@@ -6,6 +6,7 @@ import pytest
 
 InstanceLock = pytest.importorskip("universal_tools.instance_lock").InstanceLock
 ManagementRegistry = pytest.importorskip("universal_tools.management").ManagementRegistry
+private_directory = pytest.importorskip("universal_tools.management").private_directory
 BrokerError = pytest.importorskip("universal_tools.models").BrokerError
 ResourceLedger = pytest.importorskip("universal_tools.resources").ResourceLedger
 adapter = pytest.importorskip("codex_freecad.metadata_registry")
@@ -14,6 +15,11 @@ AppManagementRegistry, AppResourceLedger, _gate = (
     adapter.AppResourceLedger,
     adapter._gate,
 )
+
+
+@pytest.fixture(autouse=True)
+def prepared_test_registry(tmp_path):
+    private_directory(tmp_path)  # This test's own disposable registry, explicitly provisioned.
 
 
 def test_framework_ledger_holder_releases_before_single_transaction_body(tmp_path):
@@ -80,19 +86,15 @@ def test_registry_publication_failure_is_not_retried_and_releases_gate(tmp_path,
 def test_nested_registry_prepare_uses_one_reentrant_publication_gate(tmp_path, monkeypatch):
     calls = []
 
-    def prepare(self):
+    def publish(self, record):
+        calls.append(_gate(self.directory).depth)
+        self.prepare()
         calls.append(_gate(self.directory).depth)
 
-    def publish(self, record):
-        self.prepare()
-
-    monkeypatch.setattr(
-        "codex_freecad.metadata_registry.ensure_private", lambda path: prepare(registry)
-    )
     monkeypatch.setattr(ManagementRegistry, "publish", publish)
     registry = AppManagementRegistry(tmp_path)
     registry.publish(None)
-    assert calls == [2, 2] and _gate(registry.directory).depth == 0
+    assert calls == [1, 1] and _gate(registry.directory).depth == 0
 
 
 def test_contended_original_ledger_deadline_never_enters_body(tmp_path, monkeypatch):

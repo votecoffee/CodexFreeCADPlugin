@@ -2,7 +2,17 @@
 
 ## Unreleased
 
-### 26.1026.104343 — connection candidate
+### 26.1026.110014 — source-review candidate
+
+- Refuse foreign ownership or unexpected ACLs on first inspection as well as
+  later identity/permission drift. Existing directories are never taken over or
+  repaired. New Windows metadata directories are secured while empty, then
+  published without replacing an existing target.
+- Use a named metadata publication lock file in the validated registry root.
+  Keep the connection pool and original framework ledger lock unchanged. This
+  stricter package requires independent source review before an MCP canary.
+
+### 26.1026.104343 — prior connection candidate
 
 - Validate the framework's private-directory policy without repeatedly rewriting
   inherited ACLs throughout the registry. Pin directory identity and permissions;

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "freecad-mcp-host"
-version = "26.1026.104343"
+version = "26.1026.110014"
 description = "Experimental app-owned stable MCP host for FreeCADMCPServer"
 requires-python = ">=3.11"
 license = "MIT"
